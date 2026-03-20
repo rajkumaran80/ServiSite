@@ -1,0 +1,119 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "retry": "Reintentar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "search": "Buscar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "submit": "Enviar",
+    "upload": "Subir",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "nav": {
+    "home": "Inicio",
+    "menu": "Menú",
+    "gallery": "Galería",
+    "contact": "Contacto",
+    "dashboard": "Panel",
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "loginButton": "Entrar",
+    "loginTitle": "Bienvenido de vuelta",
+    "loginSubtitle": "Accede a tu panel de control",
+    "invalidCredentials": "Correo o contraseña incorrectos",
+    "sessionExpired": "Tu sesión expiró. Por favor inicia sesión nuevamente."
+  },
+  "hero": {
+    "viewMenu": "Ver Menú",
+    "contactUs": "Contáctanos",
+    "learnMore": "Más Información",
+    "orderNow": "Pedir Ahora"
+  },
+  "menu": {
+    "title": "Nuestro Menú",
+    "services": "Nuestros Servicios",
+    "allItems": "Todos los Items",
+    "noItems": "No hay items disponibles",
+    "price": "Precio",
+    "unavailable": "No disponible actualmente",
+    "addToMenu": "Agregar Item",
+    "editItem": "Editar Item",
+    "deleteItem": "Eliminar Item",
+    "confirmDelete": "¿Estás seguro de que deseas eliminar este item?",
+    "category": "Categoría",
+    "noCategory": "Sin categoría",
+    "available": "Disponible",
+    "notAvailable": "No Disponible"
+  },
+  "gallery": {
+    "title": "Galería",
+    "noImages": "Sin imágenes aún",
+    "addImage": "Agregar Imagen",
+    "caption": "Descripción",
+    "uploadImage": "Subir Imagen"
+  },
+  "contact": {
+    "title": "Contáctanos",
+    "phone": "Teléfono",
+    "email": "Correo Electrónico",
+    "address": "Dirección",
+    "openingHours": "Horario de Atención",
+    "findUs": "Encuéntranos",
+    "sendMessage": "Enviar Mensaje",
+    "name": "Tu Nombre",
+    "message": "Mensaje",
+    "messageSent": "¡Mensaje enviado exitosamente!",
+    "getDirections": "Cómo Llegar"
+  },
+  "dashboard": {
+    "overview": "Resumen",
+    "menu": "Gestión de Menú",
+    "gallery": "Galería",
+    "settings": "Configuración",
+    "totalItems": "Total de Items",
+    "totalCategories": "Categorías",
+    "totalImages": "Imágenes en Galería",
+    "recentActivity": "Actividad Reciente",
+    "quickActions": "Acciones Rápidas"
+  },
+  "settings": {
+    "title": "Configuración",
+    "general": "General",
+    "appearance": "Apariencia",
+    "contact": "Información de Contacto",
+    "businessName": "Nombre del Negocio",
+    "businessType": "Tipo de Negocio",
+    "whatsapp": "Número de WhatsApp",
+    "primaryColor": "Color Principal",
+    "secondaryColor": "Color Secundario",
+    "fontFamily": "Fuente",
+    "currency": "Moneda",
+    "timezone": "Zona Horaria",
+    "logo": "Logo",
+    "banner": "Imagen de Portada",
+    "saved": "Configuración guardada exitosamente"
+  },
+  "whatsapp": {
+    "chatUs": "Chatear en WhatsApp",
+    "defaultMessage": "¡Hola! Los encontré en ServiSite."
+  },
+  "footer": {
+    "poweredBy": "Desarrollado por ServiSite",
+    "rights": "Todos los derechos reservados"
+  }
+}
