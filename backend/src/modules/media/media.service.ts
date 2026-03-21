@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   BlobServiceClient,
@@ -32,7 +32,7 @@ const ALLOWED_MIME_TYPES = [
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 @Injectable()
-export class MediaService {
+export class MediaService implements OnModuleInit {
   private readonly logger = new Logger(MediaService.name);
   private blobServiceClient: BlobServiceClient;
   private containerName: string;
@@ -54,6 +54,36 @@ export class MediaService {
         'Azure Storage connection string not configured. Media uploads will fail.',
       );
     }
+  }
+
+  async onModuleInit() {
+    if (!this.blobServiceClient) return;
+    try {
+      await this.ensureContainerExists();
+      await this.configureCors();
+    } catch (err) {
+      this.logger.warn(`Azure Storage init failed: ${err.message}`);
+    }
+  }
+
+  private async configureCors(): Promise<void> {
+    const allowedOrigins = this.configService.get<string>(
+      'ALLOWED_ORIGINS',
+      'http://localhost:3000',
+    );
+
+    await this.blobServiceClient.setProperties({
+      cors: [
+        {
+          allowedOrigins,
+          allowedMethods: 'PUT,GET,OPTIONS',
+          allowedHeaders: 'content-type,x-ms-blob-type,x-ms-version,x-ms-date',
+          exposedHeaders: 'etag',
+          maxAgeInSeconds: 3600,
+        },
+      ],
+    });
+    this.logger.log(`Azure CORS configured for origins: ${allowedOrigins}`);
   }
 
   private getContainerClient(): ContainerClient {
@@ -182,6 +212,60 @@ export class MediaService {
     );
 
     return `${blockBlobClient.url}?${sasParams.toString()}`;
+  }
+
+  async generateUploadPresignedUrl(
+    tenantId: string,
+    mediaType: MediaType,
+    contentType: string,
+    filename: string,
+  ): Promise<{ uploadUrl: string; publicUrl: string }> {
+    if (!this.blobServiceClient) {
+      throw new BadRequestException('Azure Storage is not configured');
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(contentType)) {
+      throw new BadRequestException(
+        `Invalid file type. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`,
+      );
+    }
+
+    await this.ensureContainerExists();
+
+    const ext = path.extname(filename).toLowerCase() || this.getExtFromMime(contentType);
+    const blobName = `${tenantId}/${mediaType}/${uuidv4()}${ext}`;
+
+    const connectionString = this.configService.get<string>('AZURE_STORAGE_CONNECTION_STRING', '');
+    const accountMatch = connectionString.match(/AccountName=([^;]+)/);
+    const keyMatch = connectionString.match(/AccountKey=([^;]+)/);
+
+    if (!accountMatch || !keyMatch) {
+      throw new BadRequestException('Azure Storage credentials not properly configured');
+    }
+
+    const accountName = accountMatch[1];
+    const accountKey = keyMatch[1];
+    const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
+
+    const expiresOn = new Date();
+    expiresOn.setMinutes(expiresOn.getMinutes() + 15); // 15 min to complete upload
+
+    const sasParams = generateBlobSASQueryParameters(
+      {
+        containerName: this.containerName,
+        blobName,
+        permissions: BlobSASPermissions.parse('cw'), // create + write
+        expiresOn,
+      },
+      sharedKeyCredential,
+    );
+
+    const containerClient = this.getContainerClient();
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    const uploadUrl = `${blockBlobClient.url}?${sasParams.toString()}`;
+    const publicUrl = blockBlobClient.url; // direct URL, no SAS — container has public blob access
+
+    return { uploadUrl, publicUrl };
   }
 
   async listFiles(tenantId: string, mediaType?: MediaType): Promise<string[]> {

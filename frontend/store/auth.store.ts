@@ -79,6 +79,10 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       initialize: async () => {
+        // Already authenticated (e.g. just logged in) — skip re-initialization
+        const { isAuthenticated, user } = get();
+        if (isAuthenticated && user) return;
+
         set({ isLoading: true });
         try {
           const token = authService.getAccessToken();

@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import menuService from '../../../services/menu.service';
+import uploadService from '../../../services/upload.service';
+import { ImageUpload } from '../../../components/ui/ImageUpload';
 import type { MenuGroup, Category, MenuItem, CreateMenuGroupPayload, CreateCategoryPayload, CreateMenuItemPayload } from '../../../types/menu.types';
 
 // ─── Small helper components ────────────────────────────────────────────────
@@ -32,25 +34,25 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white';
 
-// ─── Section Form ────────────────────────────────────────────────────────────
+// ─── Group Form ────────────────────────────────────────────────────────────
 
-function SectionForm({
-  section,
+function GroupForm({
+  group,
   onClose,
   onSave,
 }: {
-  section: MenuGroup | null;
+  group: MenuGroup | null;
   onClose: () => void;
   onSave: (s: MenuGroup) => void;
 }) {
   const [form, setForm] = useState<CreateMenuGroupPayload>({
-    name: section?.name ?? '',
-    icon: section?.icon ?? '',
-    description: section?.description ?? '',
-    servedFrom: section?.servedFrom ?? '',
-    servedUntil: section?.servedUntil ?? '',
-    isActive: section?.isActive ?? true,
-    sortOrder: section?.sortOrder ?? 0,
+    name: group?.name ?? '',
+    icon: group?.icon ?? '',
+    description: group?.description ?? '',
+    servedFrom: group?.servedFrom ?? '',
+    servedUntil: group?.servedUntil ?? '',
+    isActive: group?.isActive ?? true,
+    sortOrder: group?.sortOrder ?? 0,
   });
   const [saving, setSaving] = useState(false);
 
@@ -72,16 +74,16 @@ function SectionForm({
         sortOrder: form.sortOrder,
       };
       let result: MenuGroup;
-      if (section) {
-        result = await menuService.updateGroup(section.id, payload);
-        toast.success('Section updated');
+      if (group) {
+        result = await menuService.updateGroup(group.id, payload);
+        toast.success('Group updated');
       } else {
         result = await menuService.createGroup(payload);
-        toast.success('Section created');
+        toast.success('Group created');
       }
       onSave(result);
     } catch {
-      toast.error(section ? 'Failed to update section' : 'Failed to create section');
+      toast.error(group ? 'Failed to update group' : 'Failed to create group');
     } finally {
       setSaving(false);
     }
@@ -116,7 +118,7 @@ function SectionForm({
       <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
         <div>
           <p className="text-sm font-medium text-gray-900">Active</p>
-          <p className="text-xs text-gray-500">Show this section on the public menu</p>
+          <p className="text-xs text-gray-500">Show this group on the public menu</p>
         </div>
         <label className="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" className="sr-only peer" checked={form.isActive ?? true} onChange={(e) => set('isActive', e.target.checked)} />
@@ -128,7 +130,7 @@ function SectionForm({
           Cancel
         </button>
         <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50">
-          {saving ? 'Saving...' : section ? 'Save Changes' : 'Create Section'}
+          {saving ? 'Saving...' : group ? 'Save Changes' : 'Create Group'}
         </button>
       </div>
     </form>
@@ -139,12 +141,12 @@ function SectionForm({
 
 function CategoryForm({
   category,
-  sections,
+  groups,
   onClose,
   onSave,
 }: {
   category: Category | null;
-  sections: MenuGroup[];
+  groups: MenuGroup[];
   onClose: () => void;
   onSave: (c: Category) => void;
 }) {
@@ -195,11 +197,11 @@ function CategoryForm({
         <textarea rows={2} className={inputClass} value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Optional description..." />
       </FieldRow>
       <div className="grid grid-cols-2 gap-4">
-        <FieldRow label="Section">
+        <FieldRow label="Group">
           <select className={inputClass} value={form.menuGroupId ?? ''} onChange={(e) => set('menuGroupId', e.target.value)}>
-            <option value="">No section</option>
-            {sections.map((s) => (
-              <option key={s.id} value={s.id}>{s.icon ? `${s.icon} ` : ''}{s.name}</option>
+            <option value="">No group</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.icon ? `${g.icon} ` : ''}{g.name}</option>
             ))}
           </select>
         </FieldRow>
@@ -224,13 +226,13 @@ function CategoryForm({
 function ItemForm({
   item,
   categories,
-  sections,
+  groups,
   onClose,
   onSave,
 }: {
   item: MenuItem | null;
   categories: Category[];
-  sections: MenuGroup[];
+  groups: MenuGroup[];
   onClose: () => void;
   onSave: (i: MenuItem) => void;
 }) {
@@ -239,27 +241,28 @@ function ItemForm({
     description: item?.description ?? '',
     price: item?.price != null ? String(item.price) : '',
     currency: item?.currency ?? 'GBP',
-    categoryId: item?.categoryId ?? '',
     imageUrl: item?.imageUrl ?? '',
     isAvailable: item?.isAvailable ?? true,
     isPopular: item?.isPopular ?? false,
     allergens: item?.allergens?.join(', ') ?? '',
     sortOrder: item?.sortOrder ?? 0,
   });
-  const [selectedSectionId, setSelectedSectionId] = useState<string>(() => {
-    if (item?.categoryId) {
-      const cat = categories.find((c) => c.id === item.categoryId);
-      return cat?.menuGroupId ?? '';
-    }
-    return '';
-  });
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(item?.categoryIds ?? []);
+  const [filterGroupId, setFilterGroupId] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const pendingImageFile = useRef<File | null>(null);
 
   const set = (key: string, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const filteredCategories = selectedSectionId
-    ? categories.filter((c) => c.menuGroupId === selectedSectionId)
+  const toggleCategory = (id: string) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
+
+  const visibleCategories = filterGroupId
+    ? categories.filter((c) => c.menuGroupId === filterGroupId)
     : categories;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -269,13 +272,21 @@ function ItemForm({
     if (isNaN(priceNum) || priceNum < 0) { toast.error('Enter a valid price'); return; }
     setSaving(true);
     try {
+      // Upload image to Azure now (on submit), if a new file was selected
+      let imageUrl = form.imageUrl || undefined;
+      if (pendingImageFile.current) {
+        const uploaded = await uploadService.uploadFile(pendingImageFile.current, 'menu');
+        imageUrl = uploaded.url;
+        pendingImageFile.current = null;
+      }
+
       const payload: CreateMenuItemPayload = {
         name: form.name.trim(),
         description: form.description || undefined,
         price: priceNum,
         currency: form.currency || undefined,
-        categoryId: form.categoryId || undefined,
-        imageUrl: form.imageUrl || undefined,
+        categoryIds: selectedCategoryIds,
+        imageUrl,
         isAvailable: form.isAvailable,
         isPopular: form.isPopular,
         allergens: form.allergens
@@ -315,34 +326,79 @@ function ItemForm({
           <input className={inputClass} value={form.currency} onChange={(e) => set('currency', e.target.value)} placeholder="GBP" />
         </FieldRow>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <FieldRow label="Section (filter)">
-          <select
-            className={inputClass}
-            value={selectedSectionId}
-            onChange={(e) => {
-              setSelectedSectionId(e.target.value);
-              set('categoryId', '');
-            }}
-          >
-            <option value="">All sections</option>
-            {sections.map((s) => (
-              <option key={s.id} value={s.id}>{s.icon ? `${s.icon} ` : ''}{s.name}</option>
-            ))}
-          </select>
-        </FieldRow>
-        <FieldRow label="Category">
-          <select className={inputClass} value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
-            <option value="">No category</option>
-            {filteredCategories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </FieldRow>
+
+      {/* Categories — multi-select with optional group filter */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Categories
+            {selectedCategoryIds.length > 0 && (
+              <span className="ml-2 text-xs font-normal text-blue-600">{selectedCategoryIds.length} selected</span>
+            )}
+          </label>
+          {groups.length > 0 && (
+            <select
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={filterGroupId}
+              onChange={(e) => setFilterGroupId(e.target.value)}
+            >
+              <option value="">All groups</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.icon ? `${g.icon} ` : ''}{g.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        {categories.length === 0 ? (
+          <p className="text-sm text-gray-400 italic">No categories yet — create one first.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+            {visibleCategories.map((cat) => {
+              const checked = selectedCategoryIds.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => toggleCategory(cat.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm text-left transition-colors ${
+                    checked
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${
+                      checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+                    }`}
+                  >
+                    {checked && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="truncate">{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <p className="mt-1 text-xs text-gray-400">Item can appear in multiple categories</p>
       </div>
-      <FieldRow label="Image URL">
-        <input className={inputClass} value={form.imageUrl} onChange={(e) => set('imageUrl', e.target.value)} placeholder="https://..." />
-      </FieldRow>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+        <ImageUpload
+          currentUrl={form.imageUrl || undefined}
+          mediaType="menu"
+          onFileSelected={(file) => {
+            pendingImageFile.current = file;
+            if (!file) set('imageUrl', '');
+          }}
+          aspectRatio="free"
+          maxSizeMB={5}
+        />
+      </div>
       <FieldRow label="Allergens (comma-separated)">
         <input className={inputClass} value={form.allergens} onChange={(e) => set('allergens', e.target.value)} placeholder="gluten, dairy, eggs" />
       </FieldRow>
@@ -386,19 +442,19 @@ function ItemForm({
 // ─── Main Dashboard Menu Page ────────────────────────────────────────────────
 
 export default function DashboardMenuPage() {
-  const [sections, setSections] = useState<MenuGroup[]>([]);
+  const [groups, setGroups] = useState<MenuGroup[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'sections' | 'categories' | 'items'>('sections');
+  const [activeTab, setActiveTab] = useState<'groups' | 'categories' | 'items'>('groups');
 
   // Filter state
-  const [filterSectionId, setFilterSectionId] = useState<string>('');
+  const [filterGroupId, setFilterGroupId] = useState<string>('');
   const [filterCategoryId, setFilterCategoryId] = useState<string>('');
 
   // Modal state
-  const [showSectionForm, setShowSectionForm] = useState(false);
-  const [editingSection, setEditingSection] = useState<MenuGroup | null>(null);
+  const [showGroupForm, setShowGroupForm] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<MenuGroup | null>(null);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [showItemForm, setShowItemForm] = useState(false);
@@ -407,12 +463,12 @@ export default function DashboardMenuPage() {
 
   const loadData = async () => {
     try {
-      const [secs, cats, menuItems] = await Promise.all([
+      const [grps, cats, menuItems] = await Promise.all([
         menuService.getGroups(),
         menuService.getCategories(),
         menuService.getItems(),
       ]);
-      setSections(secs);
+      setGroups(grps);
       setCategories(cats);
       setItems(menuItems);
     } catch {
@@ -425,31 +481,31 @@ export default function DashboardMenuPage() {
   useEffect(() => { loadData(); }, []);
 
   // Derived filtered lists
-  const filteredCategories = filterSectionId
-    ? categories.filter((c) => c.menuGroupId === filterSectionId)
+  const filteredCategories = filterGroupId
+    ? categories.filter((c) => c.menuGroupId === filterGroupId)
     : categories;
 
   const filteredItems = items.filter((item) => {
-    if (filterSectionId) {
-      const cat = categories.find((c) => c.id === item.categoryId);
-      if (!cat || cat.menuGroupId !== filterSectionId) return false;
+    if (filterGroupId) {
+      const itemCats = categories.filter((c) => item.categoryIds.includes(c.id));
+      if (!itemCats.some((c) => c.menuGroupId === filterGroupId)) return false;
     }
-    if (filterCategoryId && item.categoryId !== filterCategoryId) return false;
+    if (filterCategoryId && !item.categoryIds.includes(filterCategoryId)) return false;
     return true;
   });
 
   // ── Handlers ──
 
-  const handleDeleteSection = async (id: string) => {
-    if (!confirm('Delete this section? Categories will become unassigned.')) return;
+  const handleDeleteGroup = async (id: string) => {
+    if (!confirm('Delete this group? Categories will become unassigned.')) return;
     setDeletingId(id);
     try {
       await menuService.deleteGroup(id);
-      setSections((prev) => prev.filter((s) => s.id !== id));
+      setGroups((prev) => prev.filter((g) => g.id !== id));
       setCategories((prev) => prev.map((c) => c.menuGroupId === id ? { ...c, menuGroupId: null } : c));
-      toast.success('Section deleted');
+      toast.success('Group deleted');
     } catch {
-      toast.error('Failed to delete section');
+      toast.error('Failed to delete group');
     } finally {
       setDeletingId(null);
     }
@@ -492,15 +548,15 @@ export default function DashboardMenuPage() {
     }
   };
 
-  const getCategoryName = (categoryId: string | null) => {
-    if (!categoryId) return null;
-    return categories.find((c) => c.id === categoryId)?.name ?? null;
-  };
+  const getCategoryNames = (categoryIds: string[]) =>
+    categoryIds
+      .map((id) => categories.find((c) => c.id === id)?.name)
+      .filter(Boolean) as string[];
 
-  const getSectionName = (sectionId: string | null | undefined) => {
-    if (!sectionId) return null;
-    const s = sections.find((sec) => sec.id === sectionId);
-    return s ? `${s.icon ?? ''} ${s.name}`.trim() : null;
+  const getGroupName = (groupId: string | null | undefined) => {
+    if (!groupId) return null;
+    const g = groups.find((grp) => grp.id === groupId);
+    return g ? `${g.icon ?? ''} ${g.name}`.trim() : null;
   };
 
   if (isLoading) {
@@ -519,16 +575,16 @@ export default function DashboardMenuPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Menu Management</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {sections.length} sections · {categories.length} categories · {items.length} items
+            {groups.length} groups · {categories.length} categories · {items.length} items
           </p>
         </div>
         <div className="flex gap-2">
-          {activeTab === 'sections' && (
+          {activeTab === 'groups' && (
             <button
-              onClick={() => { setEditingSection(null); setShowSectionForm(true); }}
+              onClick={() => { setEditingGroup(null); setShowGroupForm(true); }}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
-              + Add Section
+              + Add Group
             </button>
           )}
           {activeTab === 'categories' && (
@@ -552,7 +608,7 @@ export default function DashboardMenuPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-        {(['sections', 'categories', 'items'] as const).map((tab) => (
+        {(['groups', 'categories', 'items'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -562,58 +618,58 @@ export default function DashboardMenuPage() {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            {tab === 'sections' ? `Sections (${sections.length})` : tab === 'categories' ? `Categories (${categories.length})` : `Items (${items.length})`}
+            {tab === 'groups' ? `Groups (${groups.length})` : tab === 'categories' ? `Categories (${categories.length})` : `Items (${items.length})`}
           </button>
         ))}
       </div>
 
-      {/* ── Sections Tab ── */}
-      {activeTab === 'sections' && (
+      {/* ── Groups Tab ── */}
+      {activeTab === 'groups' && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {sections.length === 0 ? (
+          {groups.length === 0 ? (
             <div className="text-center py-16">
               <div className="text-5xl mb-3">📋</div>
-              <h3 className="font-semibold text-gray-700">No sections yet</h3>
-              <p className="text-gray-500 text-sm mt-1">Create sections like Breakfast, Lunch, Dinner</p>
+              <h3 className="font-semibold text-gray-700">No groups yet</h3>
+              <p className="text-gray-500 text-sm mt-1">Create groups like Breakfast, Lunch, Dinner</p>
               <button
-                onClick={() => { setEditingSection(null); setShowSectionForm(true); }}
+                onClick={() => { setEditingGroup(null); setShowGroupForm(true); }}
                 className="mt-4 bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Add Section
+                Add Group
               </button>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {sections.map((section) => (
-                <div key={section.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
+              {groups.map((group) => (
+                <div key={group.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
                   <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                    {section.icon || '📋'}
+                    {group.icon || '📋'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-gray-900">{section.name}</span>
-                      {!section.isActive && (
+                      <span className="font-medium text-gray-900">{group.name}</span>
+                      {!group.isActive && (
                         <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactive</span>
                       )}
                     </div>
-                    {section.servedFrom && section.servedUntil && (
-                      <p className="text-xs text-gray-500 mt-0.5">{section.servedFrom} – {section.servedUntil}</p>
+                    {group.servedFrom && group.servedUntil && (
+                      <p className="text-xs text-gray-500 mt-0.5">{group.servedFrom} – {group.servedUntil}</p>
                     )}
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {section._count?.categories ?? 0} categories
+                      {group._count?.categories ?? 0} categories
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
-                      onClick={() => { setEditingSection(section); setShowSectionForm(true); }}
+                      onClick={() => { setEditingGroup(group); setShowGroupForm(true); }}
                       className="text-gray-400 hover:text-gray-700 p-1.5 rounded transition-colors"
                       title="Edit"
                     >
                       ✏️
                     </button>
                     <button
-                      onClick={() => handleDeleteSection(section.id)}
-                      disabled={deletingId === section.id}
+                      onClick={() => handleDeleteGroup(group.id)}
+                      disabled={deletingId === group.id}
                       className="text-gray-400 hover:text-red-500 p-1.5 rounded transition-colors disabled:opacity-50"
                       title="Delete"
                     >
@@ -630,17 +686,17 @@ export default function DashboardMenuPage() {
       {/* ── Categories Tab ── */}
       {activeTab === 'categories' && (
         <div className="space-y-4">
-          {/* Section filter */}
+          {/* Group filter */}
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-700 flex-shrink-0">Filter by section:</label>
+            <label className="text-sm font-medium text-gray-700 flex-shrink-0">Filter by group:</label>
             <select
               className="px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              value={filterSectionId}
-              onChange={(e) => setFilterSectionId(e.target.value)}
+              value={filterGroupId}
+              onChange={(e) => setFilterGroupId(e.target.value)}
             >
-              <option value="">All sections</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>{s.icon ? `${s.icon} ` : ''}{s.name}</option>
+              <option value="">All groups</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.icon ? `${g.icon} ` : ''}{g.name}</option>
               ))}
             </select>
           </div>
@@ -670,8 +726,8 @@ export default function DashboardMenuPage() {
                       )}
                       <p className="text-xs text-gray-400 mt-0.5">
                         {cat._count?.menuItems ?? 0} items
-                        {cat.menuGroupId && getSectionName(cat.menuGroupId) && (
-                          <span className="ml-2 text-blue-500">· {getSectionName(cat.menuGroupId)}</span>
+                        {cat.menuGroupId && getGroupName(cat.menuGroupId) && (
+                          <span className="ml-2 text-blue-500">· {getGroupName(cat.menuGroupId)}</span>
                         )}
                       </p>
                     </div>
@@ -706,12 +762,12 @@ export default function DashboardMenuPage() {
             <label className="text-sm font-medium text-gray-700 flex-shrink-0">Filter:</label>
             <select
               className="px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              value={filterSectionId}
-              onChange={(e) => { setFilterSectionId(e.target.value); setFilterCategoryId(''); }}
+              value={filterGroupId}
+              onChange={(e) => { setFilterGroupId(e.target.value); setFilterCategoryId(''); }}
             >
-              <option value="">All sections</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>{s.icon ? `${s.icon} ` : ''}{s.name}</option>
+              <option value="">All groups</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.icon ? `${g.icon} ` : ''}{g.name}</option>
               ))}
             </select>
             <select
@@ -720,13 +776,13 @@ export default function DashboardMenuPage() {
               onChange={(e) => setFilterCategoryId(e.target.value)}
             >
               <option value="">All categories</option>
-              {(filterSectionId ? categories.filter((c) => c.menuGroupId === filterSectionId) : categories).map((c) => (
+              {(filterGroupId ? categories.filter((c) => c.menuGroupId === filterGroupId) : categories).map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            {(filterSectionId || filterCategoryId) && (
+            {(filterGroupId || filterCategoryId) && (
               <button
-                onClick={() => { setFilterSectionId(''); setFilterCategoryId(''); }}
+                onClick={() => { setFilterGroupId(''); setFilterCategoryId(''); }}
                 className="text-sm text-blue-600 hover:underline"
               >
                 Clear filters
@@ -740,9 +796,9 @@ export default function DashboardMenuPage() {
                 <div className="text-5xl mb-3">🍽️</div>
                 <h3 className="font-semibold text-gray-700">No items found</h3>
                 <p className="text-gray-500 text-sm mt-1">
-                  {filterSectionId || filterCategoryId ? 'Try adjusting the filters' : 'Add your first menu item'}
+                  {filterGroupId || filterCategoryId ? 'Try adjusting the filters' : 'Add your first menu item'}
                 </p>
-                {!filterSectionId && !filterCategoryId && (
+                {!filterGroupId && !filterCategoryId && (
                   <button
                     onClick={() => { setEditingItem(null); setShowItemForm(true); }}
                     className="mt-4 bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -768,11 +824,11 @@ export default function DashboardMenuPage() {
                         {item.isPopular && (
                           <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Popular</span>
                         )}
-                        {item.categoryId && getCategoryName(item.categoryId) && (
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                            {getCategoryName(item.categoryId)}
+                        {getCategoryNames(item.categoryIds).map((name) => (
+                          <span key={name} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                            {name}
                           </span>
-                        )}
+                        ))}
                       </div>
                       {item.description && (
                         <p className="text-sm text-gray-500 truncate mt-0.5">{item.description}</p>
@@ -817,19 +873,19 @@ export default function DashboardMenuPage() {
       )}
 
       {/* ── Modals ── */}
-      {showSectionForm && (
-        <Modal title={editingSection ? 'Edit Section' : 'Add Section'} onClose={() => { setShowSectionForm(false); setEditingSection(null); }}>
-          <SectionForm
-            section={editingSection}
-            onClose={() => { setShowSectionForm(false); setEditingSection(null); }}
+      {showGroupForm && (
+        <Modal title={editingGroup ? 'Edit Group' : 'Add Group'} onClose={() => { setShowGroupForm(false); setEditingGroup(null); }}>
+          <GroupForm
+            group={editingGroup}
+            onClose={() => { setShowGroupForm(false); setEditingGroup(null); }}
             onSave={(saved) => {
-              if (editingSection) {
-                setSections((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+              if (editingGroup) {
+                setGroups((prev) => prev.map((g) => (g.id === saved.id ? saved : g)));
               } else {
-                setSections((prev) => [...prev, saved]);
+                setGroups((prev) => [...prev, saved]);
               }
-              setShowSectionForm(false);
-              setEditingSection(null);
+              setShowGroupForm(false);
+              setEditingGroup(null);
             }}
           />
         </Modal>
@@ -839,7 +895,7 @@ export default function DashboardMenuPage() {
         <Modal title={editingCategory ? 'Edit Category' : 'Add Category'} onClose={() => { setShowCategoryForm(false); setEditingCategory(null); }}>
           <CategoryForm
             category={editingCategory}
-            sections={sections}
+            groups={groups}
             onClose={() => { setShowCategoryForm(false); setEditingCategory(null); }}
             onSave={(saved) => {
               if (editingCategory) {
@@ -859,7 +915,7 @@ export default function DashboardMenuPage() {
           <ItemForm
             item={editingItem}
             categories={categories}
-            sections={sections}
+            groups={groups}
             onClose={() => { setShowItemForm(false); setEditingItem(null); }}
             onSave={(saved) => {
               if (editingItem) {

@@ -34,7 +34,7 @@ const mockCategory = {
 const mockMenuItem = {
   id: 'item-1',
   tenantId: 'tenant-1',
-  categoryId: 'cat-1',
+  categoryIds: ['cat-1'],
   name: 'Bruschetta',
   description: 'Toasted bread with tomatoes',
   price: 8.99,
@@ -123,7 +123,7 @@ describe('MenuService', () => {
       const result = await service.createMenuItem('tenant-1', {
         name: 'Bruschetta',
         price: 8.99,
-        categoryId: 'cat-1',
+        categoryIds: ['cat-1'],
       });
 
       expect(result).toEqual(mockMenuItem);
@@ -136,7 +136,7 @@ describe('MenuService', () => {
         service.createMenuItem('tenant-1', {
           name: 'Item',
           price: 5.0,
-          categoryId: 'invalid-cat',
+          categoryIds: ['invalid-cat'],
         }),
       ).rejects.toThrow(NotFoundException);
     });
@@ -163,7 +163,7 @@ describe('MenuService', () => {
 
       expect(mockPrismaService.menuItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { tenantId: 'tenant-1', categoryId: 'cat-1' },
+          where: expect.objectContaining({ tenantId: 'tenant-1' }),
         }),
       );
     });

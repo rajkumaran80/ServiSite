@@ -34,7 +34,7 @@ export interface Category {
 export interface MenuItem {
   id: string;
   tenantId: string;
-  categoryId: string | null;
+  categoryIds: string[];
   name: string;
   description: string | null;
   price: string | number;
@@ -81,7 +81,7 @@ export interface CreateMenuItemPayload {
   isPopular?: boolean;
   allergens?: string[];
   sortOrder?: number;
-  categoryId?: string;
+  categoryIds?: string[];
 }
 
 export interface UpdateMenuItemPayload extends Partial<CreateMenuItemPayload> {}

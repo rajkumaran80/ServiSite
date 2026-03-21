@@ -1,183 +1,323 @@
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import HeroSection from '../../components/tenant/HeroSection';
-import MenuCard from '../../components/tenant/MenuCard';
 import QRCodeDisplay from '../../components/tenant/QRCodeDisplay';
+import { getPageTemplate } from '../../config/page-templates';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
 
 async function getTenant(slug: string) {
   try {
-    const res = await fetch(`${API_URL}/tenant/${slug}`, {
-      next: { revalidate: 300 },
-    });
+    const res = await fetch(`${API_URL}/tenant/${slug}`, { cache: 'no-store' });
     if (!res.ok) return null;
     const data = await res.json();
     return data.data;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 async function getFeaturedItems(slug: string) {
   try {
     const res = await fetch(`${API_URL}/menu/items?available=true`, {
-      next: { revalidate: 120 },
+      next: { revalidate: 30 },
       headers: { 'X-Tenant-ID': slug },
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.data || []).slice(0, 6); // Show first 6 featured items
-  } catch {
-    return [];
-  }
+    return (data.data || []).slice(0, 6);
+  } catch { return []; }
 }
 
-export default async function TenantHomePage({
-  params,
-}: {
-  params: { tenant: string };
-}) {
-  const [tenant, featuredItems] = await Promise.all([
+async function getMenuGroups(slug: string) {
+  try {
+    const res = await fetch(`${API_URL}/menu/groups`, {
+      next: { revalidate: 30 },
+      headers: { 'X-Tenant-ID': slug },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.data || []).filter((g: any) => g.isActive);
+  } catch { return []; }
+}
+
+function formatPrice(price: number | string, currency: string): string {
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency', currency, minimumFractionDigits: 2,
+  }).format(typeof price === 'string' ? parseFloat(price) : price);
+}
+
+export default async function TenantHomePage({ params }: { params: { tenant: string } }) {
+  const [tenant, featuredItems, menuGroups] = await Promise.all([
     getTenant(params.tenant),
     getFeaturedItems(params.tenant),
+    getMenuGroups(params.tenant),
   ]);
 
-  if (!tenant) {
-    notFound();
-  }
+  if (!tenant) notFound();
 
   const publicUrl = `https://${tenant.slug}.${APP_DOMAIN}`;
-  const tenantTypeLabel = {
-    RESTAURANT: 'Restaurant',
-    SALON: 'Salon',
-    REPAIR_SHOP: 'Repair Shop',
-    OTHER: 'Business',
-  }[tenant.type] || 'Business';
+  const theme = tenant.themeSettings as any || {};
+  const promoImageUrl = theme.promoImageUrl || null;
+  const isRestaurant = tenant.type === 'RESTAURANT' || tenant.type === 'CAFE';
+
+  // Resolve template — stored as pageTemplate in themeSettings
+  const template = getPageTemplate(theme.pageTemplate);
+  // Allow manual colour overrides to coexist with template defaults
+  const primaryColor = theme.primaryColor || template.primaryColor;
+  const fontFamily = theme.fontFamily || template.fontFamily;
+
+  const featurePoints = isRestaurant
+    ? [
+        { icon: '🌿', title: 'Fresh Ingredients', desc: 'Locally sourced, quality produce every day' },
+        { icon: '👨‍🍳', title: 'Expert Chefs', desc: 'Passionate cooks with years of experience' },
+        { icon: '⚡', title: 'Quick Service', desc: 'Fast, attentive service without compromise' },
+      ]
+    : [
+        { icon: '✅', title: 'Quality Work', desc: 'Professional results every time' },
+        { icon: '🕐', title: 'On Time', desc: 'We respect your schedule' },
+        { icon: '💬', title: 'Great Support', desc: 'Always here to help you' },
+      ];
 
   return (
-    <div>
-      {/* Hero Section */}
-      <HeroSection tenant={tenant} />
+    <div className="bg-white">
+      {/* Hero */}
+      <HeroSection
+        tenant={tenant}
+        heroStyle={template.heroStyle}
+        primaryColor={primaryColor}
+        fontFamily={fontFamily}
+      />
 
-      {/* Featured Items / Services */}
-      {featuredItems.length > 0 && (
-        <section className="py-16 bg-white">
+      {/* Menu Groups quick nav */}
+      {menuGroups.length > 0 && (
+        <section className="py-10 bg-gray-50 border-b border-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-10">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-                  {tenant.type === 'RESTAURANT' ? 'Featured Dishes' : 'Popular Services'}
-                </h2>
-                <p className="text-gray-500 mt-1">
-                  {tenant.type === 'RESTAURANT'
-                    ? "Chef's selection of our best dishes"
-                    : 'Our most requested services'}
-                </p>
-              </div>
-              <Link
-                href={`/${params.tenant}/menu`}
-                className="text-blue-600 hover:text-blue-700 font-medium text-sm hidden sm:block"
-              >
-                View all →
-              </Link>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredItems.map((item: any) => (
-                <MenuCard key={item.id} item={item} currency={tenant.currency} />
+            <div className="flex flex-wrap justify-center gap-3">
+              {menuGroups.map((group: any) => (
+                <Link
+                  key={group.id}
+                  href={`/${params.tenant}/menu?group=${group.id}`}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all text-sm font-semibold text-gray-700"
+                >
+                  {group.icon && <span className="text-lg">{group.icon}</span>}
+                  <span>{group.name}</span>
+                </Link>
               ))}
-            </div>
-
-            <div className="text-center mt-10 sm:hidden">
               <Link
                 href={`/${params.tenant}/menu`}
-                className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white shadow hover:shadow-lg hover:-translate-y-0.5 transition-all"
+                style={{ backgroundColor: primaryColor }}
               >
-                View Full Menu
+                View All →
               </Link>
             </div>
           </div>
         </section>
       )}
 
-      {/* Contact Info Preview */}
-      {tenant.contactInfo && (
-        <section className="py-16 bg-gray-50">
+      {/* Featured Items */}
+      {featuredItems.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-end justify-between mb-10">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>
+                  {isRestaurant ? 'From the Kitchen' : 'Top Picks'}
+                </p>
+                <h2 className="text-3xl md:text-4xl font-black text-gray-900 leading-tight"
+                  style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+                  {isRestaurant ? 'Featured Dishes' : 'Popular Services'}
+                </h2>
+              </div>
+              <Link
+                href={`/${params.tenant}/menu`}
+                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold"
+                style={{ color: primaryColor }}
+              >
+                View full {isRestaurant ? 'menu' : 'list'} →
+              </Link>
+            </div>
+
+            {/* Grid or Large card layout */}
+            {template.cardStyle === 'large' ? (
+              /* Elegant: 2-col large cards */
+              <div className="grid sm:grid-cols-2 gap-8">
+                {featuredItems.slice(0, 4).map((item: any) => (
+                  <Link key={item.id} href={`/${params.tenant}/menu`}
+                    className="group relative overflow-hidden rounded-2xl bg-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                    style={{ minHeight: '320px' }}
+                  >
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-7xl bg-gray-100">🍽️</div>
+                    )}
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 60%)' }} />
+                    <div className="absolute bottom-0 left-0 right-0 p-6">
+                      {item.isPopular && (
+                        <span className="inline-block bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full mb-2">⭐ Popular</span>
+                      )}
+                      <h3 className="text-white font-bold text-xl leading-snug"
+                        style={{ fontFamily: `'${fontFamily}', Georgia, serif` }}>{item.name}</h3>
+                      {item.description && <p className="text-white/70 text-sm mt-1 line-clamp-1">{item.description}</p>}
+                      <p className="text-white font-bold mt-2" style={{ color: `${primaryColor}` }}>
+                        {formatPrice(item.price, tenant.currency || 'GBP')}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              /* Classic / Modern / Fresh: 3-col card grid */
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {featuredItems.map((item: any) => (
+                  <Link key={item.id} href={`/${params.tenant}/menu`}
+                    className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <div className="relative h-52 bg-gray-100 overflow-hidden">
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
+                      )}
+                      {item.isPopular && (
+                        <span className="absolute top-3 left-3 bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">⭐ Popular</span>
+                      )}
+                      <div className="absolute bottom-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-xl shadow-lg backdrop-blur-sm"
+                        style={{ backgroundColor: `${primaryColor}e6` }}>
+                        {formatPrice(item.price, tenant.currency || 'GBP')}
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-gray-900 text-base leading-snug">{item.name}</h3>
+                      {item.description && <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            <div className="text-center mt-10 sm:hidden">
+              <Link href={`/${params.tenant}/menu`}
+                className="inline-block text-white font-bold px-8 py-3.5 rounded-xl shadow-lg"
+                style={{ backgroundColor: primaryColor }}>
+                View Full {isRestaurant ? 'Menu' : 'Services'}
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* About / Promo section */}
+      {promoImageUrl ? (
+        <section className="overflow-hidden">
+          <div className="grid lg:grid-cols-2 min-h-[440px]">
+            <div className="relative order-2 lg:order-1 min-h-[300px]">
+              <img src={promoImageUrl} alt={`${tenant.name}`} className="absolute inset-0 w-full h-full object-cover" />
+            </div>
+            <div className="order-1 lg:order-2 flex flex-col justify-center px-8 py-14 lg:px-14"
+              style={{ backgroundColor: `${primaryColor}0d` }}>
+              <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: primaryColor }}>Why Choose Us</p>
+              <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-8 leading-tight"
+                style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+                {isRestaurant ? 'Food Made with Passion' : 'Service You Can Trust'}
+              </h2>
+              <div className="space-y-5">
+                {featurePoints.map(({ icon, title, desc }) => (
+                  <div key={title} className="flex items-start gap-4">
+                    <span className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                      style={{ backgroundColor: `${primaryColor}20` }}>{icon}</span>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{title}</p>
+                      <p className="text-gray-500 text-sm">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="py-14" style={{ backgroundColor: `${primaryColor}0d` }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>Why Choose Us</p>
+              <h2 className="text-2xl font-black text-gray-900"
+                style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+                {isRestaurant ? 'Food Made with Passion' : 'Service You Can Trust'}
+              </h2>
+            </div>
+            <div className="grid sm:grid-cols-3 gap-6">
+              {featurePoints.map(({ icon, title, desc }) => (
+                <div key={title} className="bg-white rounded-2xl p-7 shadow-sm text-center">
+                  <div className="text-4xl mb-3">{icon}</div>
+                  <h3 className="font-bold text-gray-900 text-base mb-1">{title}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Contact & QR */}
+      {tenant.contactInfo && (tenant.contactInfo.phone || tenant.contactInfo.address || tenant.contactInfo.email) && (
+        <section className="py-16 bg-gray-900 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">
-                  Find Us
+                <p className="text-sm font-semibold uppercase tracking-widest mb-3" style={{ color: primaryColor }}>Get In Touch</p>
+                <h2 className="text-3xl md:text-4xl font-black mb-8 leading-tight"
+                  style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+                  We'd Love<br />to Hear From You
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {tenant.contactInfo.phone && (
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 flex-shrink-0">
-                        📞
-                      </span>
+                    <a href={`tel:${tenant.contactInfo.phone}`} className="flex items-center gap-4 group">
+                      <span className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ backgroundColor: `${primaryColor}33` }}>📞</span>
                       <div>
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <a
-                          href={`tel:${tenant.contactInfo.phone}`}
-                          className="text-gray-900 font-medium hover:text-blue-600"
-                        >
-                          {tenant.contactInfo.phone}
-                        </a>
+                        <p className="text-white/50 text-xs uppercase tracking-wider">Phone</p>
+                        <p className="text-white font-semibold group-hover:underline">{tenant.contactInfo.phone}</p>
                       </div>
-                    </div>
+                    </a>
                   )}
                   {tenant.contactInfo.address && (
-                    <div className="flex items-start gap-3">
-                      <span className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 flex-shrink-0 mt-0.5">
-                        📍
-                      </span>
+                    <div className="flex items-center gap-4">
+                      <span className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ backgroundColor: `${primaryColor}33` }}>📍</span>
                       <div>
-                        <p className="text-sm text-gray-500">Address</p>
-                        <p className="text-gray-900 font-medium">
-                          {tenant.contactInfo.address}
-                          {tenant.contactInfo.city && `, ${tenant.contactInfo.city}`}
-                          {tenant.contactInfo.state && `, ${tenant.contactInfo.state}`}
+                        <p className="text-white/50 text-xs uppercase tracking-wider">Address</p>
+                        <p className="text-white font-semibold">
+                          {tenant.contactInfo.address}{tenant.contactInfo.city && `, ${tenant.contactInfo.city}`}
                         </p>
                       </div>
                     </div>
                   )}
                   {tenant.contactInfo.email && (
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 flex-shrink-0">
-                        ✉️
-                      </span>
+                    <a href={`mailto:${tenant.contactInfo.email}`} className="flex items-center gap-4 group">
+                      <span className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ backgroundColor: `${primaryColor}33` }}>✉️</span>
                       <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <a
-                          href={`mailto:${tenant.contactInfo.email}`}
-                          className="text-gray-900 font-medium hover:text-blue-600"
-                        >
-                          {tenant.contactInfo.email}
-                        </a>
+                        <p className="text-white/50 text-xs uppercase tracking-wider">Email</p>
+                        <p className="text-white font-semibold group-hover:underline">{tenant.contactInfo.email}</p>
                       </div>
-                    </div>
+                    </a>
                   )}
                 </div>
-                <div className="mt-8">
-                  <Link
-                    href={`/${params.tenant}/contact`}
-                    className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    Get in Touch
-                  </Link>
-                </div>
+                {tenant.whatsappNumber && (
+                  <a href={`https://wa.me/${tenant.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello! I'm interested in ${tenant.name}.`)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2.5 mt-8 bg-[#25D366] hover:bg-[#1ebe5a] text-white font-bold px-6 py-3.5 rounded-xl transition-all hover:scale-[1.03] shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                    Chat on WhatsApp
+                  </a>
+                )}
               </div>
-
-              {/* QR Code */}
-              <div className="flex justify-center">
-                <QRCodeDisplay
-                  url={publicUrl}
-                  businessName={tenant.name}
-                  size={200}
-                />
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-white rounded-3xl p-6 shadow-2xl inline-block">
+                  <QRCodeDisplay url={publicUrl} businessName={tenant.name} size={180} />
+                </div>
+                <p className="text-white/60 text-sm mt-4">Scan to share this page</p>
               </div>
             </div>
           </div>

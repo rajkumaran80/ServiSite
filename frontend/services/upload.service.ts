@@ -4,33 +4,32 @@ export type MediaType = 'logo' | 'banner' | 'menu' | 'gallery' | 'misc';
 
 export interface UploadResult {
   url: string;
-  blobName: string;
   contentType: string;
   size: number;
 }
 
 class UploadService {
   async uploadFile(file: File, mediaType: MediaType = 'misc'): Promise<UploadResult> {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await api.post<{ data: UploadResult }>(
-      `/upload?type=${mediaType}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / (progressEvent.total || 1),
-          );
-          // Can emit progress events here
-        },
-      },
+    // Step 1: get a presigned SAS upload URL from the backend
+    const presignResponse = await api.post<{ data: { uploadUrl: string; publicUrl: string } }>(
+      '/upload/presign',
+      { mediaType, contentType: file.type, filename: file.name },
     );
+    const { uploadUrl, publicUrl } = presignResponse.data.data;
 
-    return response.data.data;
+    // Step 2: PUT file directly to Azure Blob Storage (bypasses backend)
+    const azureRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'x-ms-blob-type': 'BlockBlob',
+        'Content-Type': file.type,
+      },
+      body: file,
+    });
+    if (!azureRes.ok) throw new Error(`Azure upload failed: ${azureRes.status}`);
+
+    // Step 3: return the plain public URL — no SAS needed (container has public blob access)
+    return { url: publicUrl, contentType: file.type, size: file.size };
   }
 
   validateFile(file: File, maxSizeMB = 10): { valid: boolean; error?: string } {
@@ -45,10 +44,7 @@ class UploadService {
 
     const maxBytes = maxSizeMB * 1024 * 1024;
     if (file.size > maxBytes) {
-      return {
-        valid: false,
-        error: `File too large. Maximum size is ${maxSizeMB}MB`,
-      };
+      return { valid: false, error: `File too large. Maximum size is ${maxSizeMB}MB` };
     }
 
     return { valid: true };

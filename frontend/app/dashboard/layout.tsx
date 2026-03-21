@@ -15,8 +15,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [initialize]);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       router.replace('/auth/login?redirect=/dashboard');
+    } else {
+      const { user } = useAuthStore.getState();
+      if (user?.role === 'SUPER_ADMIN') {
+        router.replace('/superadmin');
+      }
     }
   }, [isAuthenticated, isLoading, router]);
 

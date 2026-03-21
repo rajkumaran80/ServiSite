@@ -1,4 +1,4 @@
-export type TenantType = 'RESTAURANT' | 'SALON' | 'REPAIR_SHOP' | 'OTHER';
+export type TenantType = 'RESTAURANT' | 'CAFE' | 'BARBER_SHOP' | 'SALON' | 'GYM' | 'REPAIR_SHOP' | 'OTHER';
 
 export interface ThemeSettings {
   primaryColor: string;

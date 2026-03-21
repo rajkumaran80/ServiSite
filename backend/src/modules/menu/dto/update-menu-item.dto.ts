@@ -63,8 +63,9 @@ export class UpdateMenuItemDto {
   @IsOptional()
   sortOrder?: number;
 
-  @ApiPropertyOptional()
-  @IsString()
+  @ApiPropertyOptional({ example: ['cat_id_1', 'cat_id_2'] })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  categoryId?: string;
+  categoryIds?: string[];
 }

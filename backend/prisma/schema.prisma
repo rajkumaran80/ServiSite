@@ -12,12 +12,16 @@ datasource db {
 
 enum TenantType {
   RESTAURANT
+  CAFE
+  BARBER_SHOP
   SALON
+  GYM
   REPAIR_SHOP
   OTHER
 }
 
 enum UserRole {
+  SUPER_ADMIN
   ADMIN
   STAFF
 }
@@ -107,7 +111,7 @@ model Category {
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   menuGroup MenuGroup? @relation(fields: [menuGroupId], references: [id], onDelete: SetNull)
-  menuItems   MenuItem[]
+  menuItems MenuItem[]
 
   @@map("categories")
 }
@@ -115,7 +119,6 @@ model Category {
 model MenuItem {
   id          String   @id @default(cuid())
   tenantId    String
-  categoryId  String?
   name        String
   description String?
   price       Decimal  @db.Decimal(10, 2)
@@ -128,8 +131,8 @@ model MenuItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categories Category[]
 
   @@map("menu_items")
 }

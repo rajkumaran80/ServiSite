@@ -59,6 +59,15 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Protect superadmin routes
+  if (pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/login')) {
+    const authCookie = request.cookies.get('auth-token');
+    if (!authCookie) {
+      url.pathname = '/superadmin/login';
+      return NextResponse.redirect(url);
+    }
+  }
+
   return NextResponse.next();
 }
 

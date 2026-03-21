@@ -10,6 +10,16 @@ import type {
   UpdateMenuItemPayload,
 } from '../types/menu.types';
 
+// Backend returns categories as [{id, name}] — normalize to categoryIds: string[]
+function normalizeItem(raw: any): MenuItem {
+  return {
+    ...raw,
+    categoryIds: (raw.categoryIds ?? raw.categories ?? []).map((c: any) =>
+      typeof c === 'string' ? c : c.id,
+    ),
+  };
+}
+
 class MenuService {
   // Menu Groups
   async getGroups(tenantSlug?: string): Promise<MenuGroup[]> {
@@ -66,8 +76,8 @@ class MenuService {
     if (options?.available !== undefined) params.available = options.available;
 
     const headers = options?.tenantSlug ? { 'X-Tenant-ID': options.tenantSlug } : {};
-    const response = await api.get<{ data: MenuItem[] }>('/menu/items', { params, headers });
-    return response.data.data;
+    const response = await api.get<{ data: any[] }>('/menu/items', { params, headers });
+    return response.data.data.map(normalizeItem);
   }
 
   async getFullMenu(tenantSlug?: string): Promise<FullMenu> {
@@ -77,13 +87,13 @@ class MenuService {
   }
 
   async createItem(payload: CreateMenuItemPayload): Promise<MenuItem> {
-    const response = await api.post<{ data: MenuItem }>('/menu/items', payload);
-    return response.data.data;
+    const response = await api.post<{ data: any }>('/menu/items', payload);
+    return normalizeItem(response.data.data);
   }
 
   async updateItem(id: string, payload: UpdateMenuItemPayload): Promise<MenuItem> {
-    const response = await api.put<{ data: MenuItem }>(`/menu/items/${id}`, payload);
-    return response.data.data;
+    const response = await api.put<{ data: any }>(`/menu/items/${id}`, payload);
+    return normalizeItem(response.data.data);
   }
 
   async deleteItem(id: string): Promise<void> {

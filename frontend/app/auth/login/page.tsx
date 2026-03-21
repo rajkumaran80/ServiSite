@@ -39,7 +39,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      router.replace(redirect);
+      const { user: u } = useAuthStore.getState();
+      router.replace(u?.role === 'SUPER_ADMIN' ? '/superadmin' : redirect);
     }
   }, [isAuthenticated, isLoading, router, redirect]);
 
@@ -48,7 +49,8 @@ export default function LoginPage() {
     try {
       await login(data.email, data.password);
       toast.success('Welcome back!');
-      router.push(redirect);
+      const { user: u } = useAuthStore.getState();
+      router.push(u?.role === 'SUPER_ADMIN' ? '/superadmin' : redirect);
     } catch (error: any) {
       const message =
         error?.response?.data?.message || 'Invalid email or password';

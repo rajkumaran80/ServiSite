@@ -6,10 +6,11 @@ import WhatsAppButton from '../../components/tenant/WhatsAppButton';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
+
 async function getTenant(slug: string) {
   try {
     const res = await fetch(`${API_URL}/tenant/${slug}`, {
-      next: { revalidate: 300 }, // Cache for 5 minutes
+      cache: 'no-store', // always fresh so admin changes appear immediately
     });
 
     if (!res.ok) return null;
@@ -58,11 +59,10 @@ export default async function TenantLayout({
     notFound();
   }
 
-  const theme = tenant.themeSettings || {
-    primaryColor: '#3B82F6',
-    secondaryColor: '#1E40AF',
-    fontFamily: 'Inter',
-  };
+  const theme = tenant.themeSettings || {};
+  const primaryColor = (theme as any).primaryColor || '#3B82F6';
+  const secondaryColor = (theme as any).secondaryColor || '#1E40AF';
+  const fontFamily = (theme as any).fontFamily || 'Inter';
 
   // Convert hex color to RGB for CSS custom properties
   function hexToRgb(hex: string): string {
@@ -71,8 +71,8 @@ export default async function TenantLayout({
     return `${parseInt(result[1], 16)} ${parseInt(result[2], 16)} ${parseInt(result[3], 16)}`;
   }
 
-  const primaryRgb = hexToRgb(theme.primaryColor);
-  const secondaryRgb = hexToRgb(theme.secondaryColor);
+  const primaryRgb = hexToRgb(primaryColor);
+  const secondaryRgb = hexToRgb(secondaryColor);
 
   return (
     <>
@@ -80,12 +80,12 @@ export default async function TenantLayout({
         :root {
           --color-primary: ${primaryRgb};
           --color-secondary: ${secondaryRgb};
-          --font-family: '${theme.fontFamily}', system-ui, sans-serif;
+          --font-family: '${fontFamily}', system-ui, sans-serif;
         }
       `}</style>
       <div
         style={{
-          fontFamily: `'${theme.fontFamily}', system-ui, sans-serif`,
+          fontFamily: `'${fontFamily}', system-ui, sans-serif`,
         }}
         className="min-h-screen flex flex-col bg-white"
       >

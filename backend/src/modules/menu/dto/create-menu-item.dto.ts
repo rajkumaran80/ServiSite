@@ -51,7 +51,7 @@ export class CreateMenuItemDto {
   @IsOptional()
   isPopular?: boolean;
 
-  @ApiPropertyOptional({ example: ['gluten', 'dairy'], description: 'List of allergens' })
+  @ApiPropertyOptional({ example: ['gluten', 'dairy'] })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -63,8 +63,12 @@ export class CreateMenuItemDto {
   @IsOptional()
   sortOrder?: number;
 
-  @ApiPropertyOptional({ description: 'Category ID to associate this item with' })
-  @IsString()
+  @ApiPropertyOptional({
+    example: ['cat_id_1', 'cat_id_2'],
+    description: 'Category IDs to associate this item with (supports multiple)',
+  })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  categoryId?: string;
+  categoryIds?: string[];
 }

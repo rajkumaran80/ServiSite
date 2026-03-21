@@ -122,10 +122,19 @@ export class MenuService {
   async deleteCategory(tenantId: string, id: string): Promise<void> {
     await this.findCategoryById(tenantId, id);
 
-    await this.prisma.menuItem.updateMany({
-      where: { tenantId, categoryId: id },
-      data: { categoryId: null },
+    // Disconnect items from this category via M2M (no column to nullify)
+    const itemsInCategory = await this.prisma.menuItem.findMany({
+      where: { tenantId, categories: { some: { id } } },
+      select: { id: true },
     });
+    await Promise.all(
+      itemsInCategory.map((item) =>
+        this.prisma.menuItem.update({
+          where: { id: item.id },
+          data: { categories: { disconnect: { id } } },
+        }),
+      ),
+    );
 
     await this.prisma.category.delete({ where: { id } });
   }
@@ -133,19 +142,24 @@ export class MenuService {
   // ---- Menu Items ----
 
   async createMenuItem(tenantId: string, dto: CreateMenuItemDto): Promise<MenuItem> {
-    if (dto.categoryId) {
-      await this.findCategoryById(tenantId, dto.categoryId);
+    const { categoryIds, ...rest } = dto;
+
+    if (categoryIds?.length) {
+      await Promise.all(categoryIds.map((id) => this.findCategoryById(tenantId, id)));
     }
 
-    return this.prisma.menuItem.create({
+    const item = await this.prisma.menuItem.create({
       data: {
-        ...dto,
+        ...rest,
         tenantId,
-        price: dto.price,
-        allergens: dto.allergens ?? [],
+        allergens: rest.allergens ?? [],
+        categories: categoryIds?.length
+          ? { connect: categoryIds.map((id) => ({ id })) }
+          : undefined,
       },
-      include: { category: true },
+      include: { categories: { select: { id: true, name: true } } },
     });
+    return { ...item, price: parseFloat(item.price.toString()), categoryIds: item.categories.map((c) => c.id) } as any;
   }
 
   async findAllMenuItems(
@@ -154,14 +168,21 @@ export class MenuService {
   ): Promise<MenuItem[]> {
     const where: any = { tenantId };
 
-    if (options?.categoryId) where.categoryId = options.categoryId;
+    if (options?.categoryId) {
+      where.categories = { some: { id: options.categoryId } };
+    }
     if (options?.isAvailable !== undefined) where.isAvailable = options.isAvailable;
 
-    return this.prisma.menuItem.findMany({
+    const items = await this.prisma.menuItem.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { category: { select: { id: true, name: true } } },
+      include: { categories: { select: { id: true, name: true } } },
     });
+    return items.map((item) => ({
+      ...item,
+      price: parseFloat(item.price.toString()),
+      categoryIds: (item.categories ?? []).map((c) => c.id),
+    })) as any;
   }
 
   async findMenuByGroups(tenantId: string) {
@@ -176,7 +197,7 @@ export class MenuService {
       isPopular: item.isPopular,
       allergens: item.allergens,
       sortOrder: item.sortOrder,
-      categoryId: item.categoryId,
+      categoryIds: (item.categories ?? []).map((c: any) => c.id),
     });
 
     const groups = await this.prisma.menuGroup.findMany({
@@ -189,6 +210,7 @@ export class MenuService {
             menuItems: {
               where: { isAvailable: true },
               orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+              include: { categories: { select: { id: true } } },
             },
           },
         },
@@ -196,7 +218,7 @@ export class MenuService {
     });
 
     const uncategorized = await this.prisma.menuItem.findMany({
-      where: { tenantId, categoryId: null, isAvailable: true },
+      where: { tenantId, categories: { none: {} }, isAvailable: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
 
@@ -225,12 +247,12 @@ export class MenuService {
   async findMenuItemById(tenantId: string, id: string): Promise<MenuItem> {
     const item = await this.prisma.menuItem.findFirst({
       where: { id, tenantId },
-      include: { category: true },
+      include: { categories: { select: { id: true, name: true } } },
     });
 
     if (!item) throw new NotFoundException(`Menu item '${id}' not found`);
 
-    return item;
+    return { ...item, price: parseFloat(item.price.toString()), categoryIds: item.categories.map((c) => c.id) } as any;
   }
 
   async updateMenuItem(
@@ -240,15 +262,23 @@ export class MenuService {
   ): Promise<MenuItem> {
     await this.findMenuItemById(tenantId, id);
 
-    if (dto.categoryId) {
-      await this.findCategoryById(tenantId, dto.categoryId);
+    const { categoryIds, ...rest } = dto;
+
+    if (categoryIds?.length) {
+      await Promise.all(categoryIds.map((cid) => this.findCategoryById(tenantId, cid)));
     }
 
-    return this.prisma.menuItem.update({
+    const updated = await this.prisma.menuItem.update({
       where: { id },
-      data: dto,
-      include: { category: true },
+      data: {
+        ...rest,
+        ...(categoryIds !== undefined && {
+          categories: { set: categoryIds.map((cid) => ({ id: cid })) },
+        }),
+      },
+      include: { categories: { select: { id: true, name: true } } },
     });
+    return { ...updated, price: parseFloat(updated.price.toString()), categoryIds: updated.categories.map((c) => c.id) } as any;
   }
 
   async deleteMenuItem(tenantId: string, id: string): Promise<void> {

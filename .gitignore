@@ -54,3 +54,6 @@ docker-compose.override.yml
 # Misc
 .vercel
 *.pem
+
+# Local credentials (never commit)
+CREDENTIALS.md

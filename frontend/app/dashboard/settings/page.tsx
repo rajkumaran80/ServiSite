@@ -7,9 +7,9 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../../store/auth.store';
 import tenantService from '../../../services/tenant.service';
-import uploadService from '../../../services/upload.service';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
+import { RESTAURANT_PAGE_TEMPLATES, getPageTemplate } from '../../../config/page-templates';
 
 const tenantSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(100),
@@ -54,7 +54,10 @@ export default function SettingsPage() {
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [bannerUrl, setBannerUrl] = useState<string>('');
-  const [activeSection, setActiveSection] = useState<'general' | 'appearance' | 'contact'>('general');
+  const [promoImageUrl, setPromoImageUrl] = useState<string>('');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('classic');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [activeSection, setActiveSection] = useState<'general' | 'appearance' | 'design' | 'contact'>('general');
 
   const tenantForm = useForm<TenantForm>({
     resolver: zodResolver(tenantSchema),
@@ -89,6 +92,8 @@ export default function SettingsPage() {
           setTenant(currentTenant);
           setLogoUrl(currentTenant.logo || '');
           setBannerUrl(currentTenant.banner || '');
+          setPromoImageUrl((currentTenant.themeSettings as any)?.promoImageUrl || '');
+          setSelectedTemplate((currentTenant.themeSettings as any)?.pageTemplate || 'classic');
 
           tenantForm.reset({
             name: currentTenant.name,
@@ -143,6 +148,8 @@ export default function SettingsPage() {
           primaryColor: data.primaryColor,
           secondaryColor: data.secondaryColor,
           fontFamily: data.fontFamily,
+          promoImageUrl: promoImageUrl || undefined,
+          pageTemplate: selectedTemplate,
         },
       });
       setTenant(updated);
@@ -151,6 +158,31 @@ export default function SettingsPage() {
       toast.error('Failed to save settings');
     } finally {
       setIsSavingTenant(false);
+    }
+  };
+
+  const handleSaveTemplate = async (templateId: string) => {
+    if (!tenant) return;
+    setIsSavingTemplate(true);
+    try {
+      const tmpl = getPageTemplate(templateId);
+      const updated = await tenantService.update(tenant.id, {
+        themeSettings: {
+          ...(tenant.themeSettings as any || {}),
+          pageTemplate: templateId,
+          primaryColor: tmpl.primaryColor,
+          secondaryColor: tmpl.secondaryColor,
+          fontFamily: tmpl.fontFamily,
+          promoImageUrl: promoImageUrl || undefined,
+        },
+      });
+      setTenant(updated);
+      setSelectedTemplate(templateId);
+      toast.success(`Template "${tmpl.name}" applied!`);
+    } catch {
+      toast.error('Failed to apply template');
+    } finally {
+      setIsSavingTemplate(false);
     }
   };
 
@@ -185,7 +217,7 @@ export default function SettingsPage() {
 
       {/* Section Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-        {(['general', 'appearance', 'contact'] as const).map((section) => (
+        {(['general', 'design', 'appearance', 'contact'] as const).map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
@@ -225,7 +257,10 @@ export default function SettingsPage() {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   <option value="RESTAURANT">Restaurant</option>
-                  <option value="SALON">Salon / Barbershop</option>
+                  <option value="CAFE">Café</option>
+                  <option value="BARBER_SHOP">Barber Shop</option>
+                  <option value="SALON">Salon</option>
+                  <option value="GYM">Gym & Fitness</option>
                   <option value="REPAIR_SHOP">Repair Shop</option>
                   <option value="OTHER">Other</option>
                 </select>
@@ -283,6 +318,89 @@ export default function SettingsPage() {
             Save General Settings
           </button>
         </form>
+      )}
+
+      {/* Design / Template Picker */}
+      {activeSection === 'design' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <h2 className="font-semibold text-gray-900 mb-1">Page Template</h2>
+            <p className="text-sm text-gray-500 mb-6">Choose a visual style for your public website. This sets colours, fonts and layout.</p>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {RESTAURANT_PAGE_TEMPLATES.map((tmpl) => {
+                const isSelected = selectedTemplate === tmpl.id;
+                return (
+                  <div
+                    key={tmpl.id}
+                    className={`rounded-2xl overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
+                      isSelected ? 'border-blue-500 shadow-lg scale-[1.01]' : 'border-transparent hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedTemplate(tmpl.id)}
+                  >
+                    {/* Visual preview */}
+                    <div className={`bg-gradient-to-br ${tmpl.previewGradient} p-5 h-32 flex flex-col justify-between relative overflow-hidden`}>
+                      {/* Fake nav bar */}
+                      <div className="flex items-center justify-between">
+                        <div className="w-16 h-2 bg-white/40 rounded" />
+                        <div className="flex gap-1.5">
+                          {[1,2,3].map(i => <div key={i} className="w-8 h-1.5 bg-white/30 rounded" />)}
+                        </div>
+                      </div>
+                      {/* Fake hero text */}
+                      <div>
+                        {tmpl.heroStyle === 'centered' ? (
+                          <div className="text-center">
+                            <div className="w-24 h-3 bg-white/70 rounded mx-auto mb-1.5" />
+                            <div className="w-16 h-2 bg-white/40 rounded mx-auto" />
+                          </div>
+                        ) : tmpl.heroStyle === 'minimal' ? (
+                          <div>
+                            <div className="w-28 h-3 bg-white/80 rounded mb-1.5" />
+                            <div className="w-20 h-2 bg-white/40 rounded" />
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="w-24 h-3 bg-white/80 rounded mb-1.5" />
+                            <div className="w-16 h-2 bg-white/40 rounded" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="bg-white p-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-gray-900 text-sm">{tmpl.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{tmpl.tagline}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Colour dot */}
+                        <div className="w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: tmpl.primaryColor }} />
+                        {isSelected && (
+                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <button
+            onClick={() => handleSaveTemplate(selectedTemplate)}
+            disabled={isSavingTemplate}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            {isSavingTemplate && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Apply Template
+          </button>
+        </div>
       )}
 
       {/* Appearance Settings */}
@@ -350,10 +468,22 @@ export default function SettingsPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Banner Image</label>
+              <p className="text-xs text-gray-400 mb-2">Full-width hero image shown at the top of your page</p>
               <ImageUpload
                 currentUrl={bannerUrl}
                 mediaType="banner"
                 onUpload={(url) => setBannerUrl(url)}
+                aspectRatio="banner"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">About / Promo Section Image</label>
+              <p className="text-xs text-gray-400 mb-2">Shown in the mid-page section — great for a restaurant interior, team photo, or product shot</p>
+              <ImageUpload
+                currentUrl={promoImageUrl}
+                mediaType="banner"
+                onUpload={(url) => setPromoImageUrl(url)}
                 aspectRatio="banner"
               />
             </div>

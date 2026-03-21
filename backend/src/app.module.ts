@@ -8,6 +8,7 @@ import { MenuModule } from './modules/menu/menu.module';
 import { MediaModule } from './modules/media/media.module';
 import { ContactModule } from './modules/contact/contact.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
+import { SuperAdminModule } from './modules/superadmin/superadmin.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
@@ -23,6 +24,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
     MediaModule,
     ContactModule,
     GalleryModule,
+    SuperAdminModule,
   ],
   controllers: [AppController],
 })

@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Body,
   UseInterceptors,
   UploadedFile,
   Query,
@@ -27,6 +28,25 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 @ApiBearerAuth()
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
+
+  @Post('presign')
+  @ApiOperation({ summary: 'Get a presigned SAS URL for direct browser-to-Azure upload' })
+  async getPresignedUrl(
+    @Body() body: { mediaType?: MediaType; contentType: string; filename: string },
+    @CurrentUser() user: any,
+  ) {
+    const { mediaType = 'misc', contentType, filename } = body;
+    if (!contentType || !filename) {
+      throw new BadRequestException('contentType and filename are required');
+    }
+    const result = await this.mediaService.generateUploadPresignedUrl(
+      user.tenantId,
+      mediaType,
+      contentType,
+      filename,
+    );
+    return { data: result, success: true };
+  }
 
   @Post()
   @ApiOperation({ summary: 'Upload a file to Azure Blob Storage' })
