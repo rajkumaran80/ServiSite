@@ -45,29 +45,18 @@ jobs:
           docker push "$IMAGE_TAG"
           docker push "$IMAGE_LATEST"
 
-      - name: Deploy to staging slot
+      - name: Deploy to production
         run: |
           az webapp config container set \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --name ${{ env.APP_NAME }} \
-            --slot staging \
             --docker-custom-image-name ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Wait for staging to be ready
+      - name: Restart app
         run: |
-          az webapp start \
+          az webapp restart \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --name ${{ env.APP_NAME }} \
-            --slot staging
-          sleep 30
-
-      - name: Swap staging → production
-        run: |
-          az webapp deployment slot swap \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --name ${{ env.APP_NAME }} \
-            --slot staging \
-            --target-slot production
+            --name ${{ env.APP_NAME }}
 
       - name: Azure Logout
         if: always()
