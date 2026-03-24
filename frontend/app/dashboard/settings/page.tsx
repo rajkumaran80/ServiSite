@@ -8,12 +8,13 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '../../../store/auth.store';
 import tenantService from '../../../services/tenant.service';
 import ImageUpload from '../../../components/ui/ImageUpload';
+import MultiImageUpload from '../../../components/ui/MultiImageUpload';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
-import { RESTAURANT_PAGE_TEMPLATES, getPageTemplate } from '../../../config/page-templates';
+import { getTemplatesForType, getPageTemplate } from '../../../config/page-templates';
 
 const tenantSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(100),
-  type: z.enum(['RESTAURANT', 'SALON', 'REPAIR_SHOP', 'OTHER']),
+  type: z.enum(['RESTAURANT', 'CAFE', 'BARBER_SHOP', 'SALON', 'GYM', 'REPAIR_SHOP', 'OTHER']),
   whatsappNumber: z.string().optional(),
   currency: z.string().min(1),
   timezone: z.string().min(1),
@@ -53,11 +54,18 @@ export default function SettingsPage() {
   const [isSavingTenant, setIsSavingTenant] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string>('');
-  const [bannerUrl, setBannerUrl] = useState<string>('');
+  const [bannerUrls, setBannerUrls] = useState<string[]>([]);
   const [promoImageUrl, setPromoImageUrl] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('classic');
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
-  const [activeSection, setActiveSection] = useState<'general' | 'appearance' | 'design' | 'contact'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'appearance' | 'design' | 'contact' | 'domain'>('general');
+  const [customDomain, setCustomDomain] = useState('');
+  const [domainInput, setDomainInput] = useState('');
+  const [domainStatus, setDomainStatus] = useState<string | null>(null);
+  const [domainToken, setDomainToken] = useState<string | null>(null);
+  const [txtRecord, setTxtRecord] = useState<{ name: string; value: string } | null>(null);
+  const [isSavingDomain, setIsSavingDomain] = useState(false);
+  const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
 
   const tenantForm = useForm<TenantForm>({
     resolver: zodResolver(tenantSchema),
@@ -91,9 +99,19 @@ export default function SettingsPage() {
         if (currentTenant) {
           setTenant(currentTenant);
           setLogoUrl(currentTenant.logo || '');
-          setBannerUrl(currentTenant.banner || '');
+          // Prefer bannerImages array, fall back to single banner field
+          const storedBanners = (currentTenant.themeSettings as any)?.bannerImages;
+          setBannerUrls(
+            Array.isArray(storedBanners) && storedBanners.length > 0
+              ? storedBanners
+              : currentTenant.banner ? [currentTenant.banner] : []
+          );
           setPromoImageUrl((currentTenant.themeSettings as any)?.promoImageUrl || '');
           setSelectedTemplate((currentTenant.themeSettings as any)?.pageTemplate || 'classic');
+          setCustomDomain(currentTenant.customDomain || '');
+          setDomainInput(currentTenant.customDomain || '');
+          setDomainStatus(currentTenant.customDomainStatus || null);
+          setDomainToken(currentTenant.customDomainToken || null);
 
           tenantForm.reset({
             name: currentTenant.name,
@@ -131,6 +149,56 @@ export default function SettingsPage() {
     loadData();
   }, [user?.tenantId]);
 
+  const handleSetCustomDomain = async () => {
+    if (!tenant || !domainInput.trim()) return;
+    setIsSavingDomain(true);
+    try {
+      const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
+      setCustomDomain(domainInput.trim());
+      setDomainStatus('pending');
+      setTxtRecord({ name: result.txtName, value: result.txtValue });
+      setDomainToken(result.txtValue);
+      toast.success('Domain saved — add the TXT record then click Verify');
+    } catch {
+      toast.error('Failed to save custom domain');
+    } finally {
+      setIsSavingDomain(false);
+    }
+  };
+
+  const handleVerifyDomain = async () => {
+    if (!tenant) return;
+    setIsVerifyingDomain(true);
+    try {
+      const result = await tenantService.verifyCustomDomain(tenant.id);
+      setDomainStatus(result.status);
+      if (result.status === 'active') {
+        toast.success('Domain verified! Your custom domain is now active.');
+      } else {
+        toast.error('Verification failed — TXT record not found yet. DNS changes can take up to 48 hours.');
+      }
+    } catch {
+      toast.error('Verification failed');
+    } finally {
+      setIsVerifyingDomain(false);
+    }
+  };
+
+  const handleRemoveDomain = async () => {
+    if (!tenant || !confirm('Remove the custom domain? This cannot be undone.')) return;
+    try {
+      await tenantService.removeCustomDomain(tenant.id);
+      setCustomDomain('');
+      setDomainInput('');
+      setDomainStatus(null);
+      setDomainToken(null);
+      setTxtRecord(null);
+      toast.success('Custom domain removed');
+    } catch {
+      toast.error('Failed to remove custom domain');
+    }
+  };
+
   const handleSaveTenant = async (data: TenantForm) => {
     if (!tenant) return;
     setIsSavingTenant(true);
@@ -143,13 +211,14 @@ export default function SettingsPage() {
         timezone: data.timezone,
         locale: data.locale,
         logo: logoUrl || undefined,
-        banner: bannerUrl || undefined,
+        banner: bannerUrls[0] || undefined,
         themeSettings: {
           primaryColor: data.primaryColor,
           secondaryColor: data.secondaryColor,
           fontFamily: data.fontFamily,
           promoImageUrl: promoImageUrl || undefined,
           pageTemplate: selectedTemplate,
+          bannerImages: bannerUrls.length > 0 ? bannerUrls : undefined,
         },
       });
       setTenant(updated);
@@ -217,7 +286,7 @@ export default function SettingsPage() {
 
       {/* Section Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-        {(['general', 'design', 'appearance', 'contact'] as const).map((section) => (
+        {(['general', 'design', 'appearance', 'contact', 'domain'] as const).map((section) => (
           <button
             key={section}
             onClick={() => setActiveSection(section)}
@@ -328,7 +397,7 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-500 mb-6">Choose a visual style for your public website. This sets colours, fonts and layout.</p>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              {RESTAURANT_PAGE_TEMPLATES.map((tmpl) => {
+              {getTemplatesForType(tenant?.type).map((tmpl) => {
                 const isSelected = selectedTemplate === tmpl.id;
                 return (
                   <div
@@ -342,9 +411,9 @@ export default function SettingsPage() {
                     <div className={`bg-gradient-to-br ${tmpl.previewGradient} p-5 h-32 flex flex-col justify-between relative overflow-hidden`}>
                       {/* Fake nav bar */}
                       <div className="flex items-center justify-between">
-                        <div className="w-16 h-2 bg-white/40 rounded" />
+                        <div className={`w-16 h-2 rounded ${['typographic', 'vintage', 'luxe', 'cozy'].includes(tmpl.heroStyle) ? 'bg-gray-800/50' : 'bg-white/40'}`} />
                         <div className="flex gap-1.5">
-                          {[1,2,3].map(i => <div key={i} className="w-8 h-1.5 bg-white/30 rounded" />)}
+                          {[1,2,3].map(i => <div key={i} className={`w-8 h-1.5 rounded ${['typographic', 'vintage', 'luxe', 'cozy'].includes(tmpl.heroStyle) ? 'bg-gray-500/40' : 'bg-white/30'}`} />)}
                         </div>
                       </div>
                       {/* Fake hero text */}
@@ -354,10 +423,80 @@ export default function SettingsPage() {
                             <div className="w-24 h-3 bg-white/70 rounded mx-auto mb-1.5" />
                             <div className="w-16 h-2 bg-white/40 rounded mx-auto" />
                           </div>
-                        ) : tmpl.heroStyle === 'minimal' ? (
+                        ) : tmpl.heroStyle === 'typographic' ? (
                           <div>
-                            <div className="w-28 h-3 bg-white/80 rounded mb-1.5" />
-                            <div className="w-20 h-2 bg-white/40 rounded" />
+                            <div className="w-32 h-4 bg-gray-800/80 rounded mb-1" />
+                            <div className="w-24 h-4 bg-gray-800/60 rounded mb-2" />
+                            <div className="w-10 h-1 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                          </div>
+                        ) : tmpl.heroStyle === 'neon' ? (
+                          <div>
+                            <div className="w-28 h-3 bg-white/90 rounded mb-1.5" style={{ boxShadow: `0 0 6px ${tmpl.primaryColor}` }} />
+                            <div className="w-16 h-1 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                          </div>
+                        ) : tmpl.heroStyle === 'sunset' ? (
+                          <div className="text-center">
+                            <div className="w-24 h-3 bg-white/90 rounded mx-auto mb-1.5 drop-shadow" />
+                            <div className="w-16 h-2 bg-white/50 rounded mx-auto" />
+                          </div>
+                        ) : tmpl.heroStyle === 'vintage' ? (
+                          <div>
+                            <div className="w-24 h-1 mb-0.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                            <div className="w-28 h-3 bg-gray-900/80 rounded mt-1 mb-1.5" />
+                            <div className="w-10 h-1.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                          </div>
+                        ) : tmpl.heroStyle === 'luxe' ? (
+                          <div>
+                            <div className="w-8 h-px mb-2" style={{ backgroundColor: tmpl.primaryColor }} />
+                            <div className="w-28 h-3 bg-gray-700/70 rounded mb-1.5" />
+                            <div className="w-10 h-px" style={{ backgroundColor: tmpl.primaryColor }} />
+                          </div>
+                        ) : tmpl.heroStyle === 'power' ? (
+                          <div>
+                            <div className="w-6 h-1.5 mb-1.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                            <div className="w-28 h-4 bg-white/90 rounded mb-1.5" />
+                            <div className="w-16 h-1 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                          </div>
+                        ) : tmpl.heroStyle === 'cozy' ? (
+                          <div>
+                            <div className="w-20 h-2 rounded-full mb-1.5" style={{ backgroundColor: `${tmpl.primaryColor}50` }} />
+                            <div className="w-28 h-3 bg-amber-900/60 rounded mb-1.5" />
+                            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: tmpl.primaryColor }} />
+                          </div>
+                        ) : tmpl.heroStyle === 'magazine' ? (
+                          <div className="mt-auto pt-4">
+                            <div className="w-8 h-0.5 mb-2" style={{ backgroundColor: tmpl.primaryColor }} />
+                            <div className="w-32 h-4 bg-white/90 rounded mb-1" />
+                            <div className="w-20 h-2.5 bg-white/50 rounded" />
+                          </div>
+                        ) : tmpl.heroStyle === 'split' ? (
+                          <div className="flex h-full -m-5 mt-2">
+                            <div className="flex-1 flex flex-col justify-center px-2 py-2" style={{ backgroundColor: tmpl.primaryColor }}>
+                              <div className="w-16 h-2.5 bg-white/80 rounded mb-1" />
+                              <div className="w-10 h-1.5 bg-white/50 rounded" />
+                            </div>
+                            <div className="w-1/3 bg-gray-400/40 rounded-r" />
+                          </div>
+                        ) : tmpl.heroStyle === 'cinematic' ? (
+                          <div>
+                            <div className="w-6 h-0.5 mb-2 flex gap-0.5">
+                              {[...Array(4)].map((_, i) => <div key={i} className="flex-1 bg-white/40" />)}
+                            </div>
+                            <div className="w-28 h-3.5 bg-white/90 rounded mb-1" />
+                            <div className="w-16 h-1 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                          </div>
+                        ) : tmpl.heroStyle === 'geometric' ? (
+                          <div>
+                            <div className="w-32 h-4 rounded mb-1 border-2" style={{ borderColor: tmpl.primaryColor, backgroundColor: 'transparent' }} />
+                            <div className="w-24 h-4 rounded border-2 ml-4" style={{ borderColor: `${tmpl.primaryColor}60`, backgroundColor: 'transparent' }} />
+                          </div>
+                        ) : tmpl.heroStyle === 'bold' ? (
+                          <div className="flex gap-2 -m-5 mt-2 h-20 items-center">
+                            <div className="flex-[3] h-full flex flex-col justify-center px-3" style={{ backgroundColor: tmpl.primaryColor }}>
+                              <div className="w-16 h-2.5 bg-white/80 rounded mb-1" />
+                              <div className="w-10 h-1.5 bg-white/50 rounded" />
+                            </div>
+                            <div className="flex-[2] h-full bg-gray-300/50 rounded-lg mx-1" />
                           </div>
                         ) : (
                           <div>
@@ -467,13 +606,11 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Banner Image</label>
-              <p className="text-xs text-gray-400 mb-2">Full-width hero image shown at the top of your page</p>
-              <ImageUpload
-                currentUrl={bannerUrl}
-                mediaType="banner"
-                onUpload={(url) => setBannerUrl(url)}
-                aspectRatio="banner"
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Banner Images</label>
+              <p className="text-xs text-gray-400 mb-2">Full-width hero images — add multiple to auto-rotate on your website</p>
+              <MultiImageUpload
+                urls={bannerUrls}
+                onChange={setBannerUrls}
               />
             </div>
 
@@ -596,6 +733,151 @@ export default function SettingsPage() {
             Save Contact Information
           </button>
         </form>
+      )}
+
+      {/* Custom Domain */}
+      {activeSection === 'domain' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+            <div>
+              <h2 className="font-semibold text-gray-900">Custom Domain</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Point your own domain (e.g. <span className="font-mono">pizzapalace.com</span>) to your ServiSite page instead of using the default subdomain.
+              </p>
+            </div>
+
+            {/* Status badge */}
+            {domainStatus && (
+              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                domainStatus === 'active' ? 'bg-green-100 text-green-700' :
+                domainStatus === 'pending' ? 'bg-amber-100 text-amber-700' :
+                domainStatus === 'failed' ? 'bg-red-100 text-red-700' :
+                'bg-gray-100 text-gray-600'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  domainStatus === 'active' ? 'bg-green-500' :
+                  domainStatus === 'pending' ? 'bg-amber-500' :
+                  domainStatus === 'failed' ? 'bg-red-500' :
+                  'bg-gray-400'
+                }`} />
+                {domainStatus === 'active' ? 'Active' :
+                 domainStatus === 'pending' ? 'Pending verification' :
+                 domainStatus === 'failed' ? 'Verification failed' :
+                 domainStatus}
+                {customDomain && ` — ${customDomain}`}
+              </div>
+            )}
+
+            {/* Domain input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Domain</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={domainInput}
+                  onChange={(e) => setDomainInput(e.target.value)}
+                  placeholder="pizzapalace.com"
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                  disabled={domainStatus === 'active'}
+                />
+                {domainStatus !== 'active' && (
+                  <button
+                    type="button"
+                    onClick={handleSetCustomDomain}
+                    disabled={isSavingDomain || !domainInput.trim()}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    {isSavingDomain && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    Save Domain
+                  </button>
+                )}
+                {customDomain && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveDomain}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium px-4 py-2.5 rounded-lg border border-red-200 hover:border-red-300 transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* DNS instructions */}
+            {(domainStatus === 'pending' || domainToken) && (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
+                  <h3 className="font-semibold text-amber-900 text-sm">Step 1 — Add a DNS TXT record for ownership verification</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono">
+                      <thead>
+                        <tr className="text-amber-700 text-left">
+                          <th className="pr-6 pb-2 font-semibold">Type</th>
+                          <th className="pr-6 pb-2 font-semibold">Host / Name</th>
+                          <th className="pb-2 font-semibold">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="text-amber-900">
+                          <td className="pr-6 py-1">TXT</td>
+                          <td className="pr-6 py-1 break-all">
+                            {txtRecord?.name || `_servisite-verify.${customDomain}`}
+                          </td>
+                          <td className="py-1 break-all">
+                            {txtRecord?.value || domainToken}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-amber-700">DNS changes can take up to 48 hours to propagate.</p>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+                  <h3 className="font-semibold text-blue-900 text-sm mb-3">Step 2 — Add a CNAME record to point traffic</h3>
+                  <table className="w-full text-xs font-mono">
+                    <thead>
+                      <tr className="text-blue-700 text-left">
+                        <th className="pr-6 pb-2 font-semibold">Type</th>
+                        <th className="pr-6 pb-2 font-semibold">Host / Name</th>
+                        <th className="pb-2 font-semibold">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="text-blue-900">
+                        <td className="pr-6 py-1">CNAME</td>
+                        <td className="pr-6 py-1">www</td>
+                        <td className="py-1">{tenant?.slug}.{process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p className="text-xs text-blue-700 mt-2">
+                    Note: For apex domains (no www), use Cloudflare CNAME flattening, Route 53 ALIAS, or a redirect from your registrar.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleVerifyDomain}
+                  disabled={isVerifyingDomain}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {isVerifyingDomain && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  Verify Domain Ownership
+                </button>
+              </div>
+            )}
+
+            {domainStatus === 'active' && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+                <p className="text-sm text-green-800 font-medium">
+                  ✓ Your custom domain <span className="font-mono font-bold">{customDomain}</span> is active.
+                  Visitors can now reach your site at this domain.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

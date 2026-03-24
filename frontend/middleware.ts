@@ -13,6 +13,7 @@ export function middleware(request: NextRequest) {
 
   // Extract subdomain
   let subdomain: string | null = null;
+  let isCustomDomain = false;
 
   // Handle production domain: {slug}.servisite.com
   if (hostname.endsWith(`.${appDomain}`)) {
@@ -21,6 +22,10 @@ export function middleware(request: NextRequest) {
   // Handle local development: {slug}.localhost:3000
   else if (hostname.includes('.localhost')) {
     subdomain = hostname.split('.localhost')[0];
+  }
+  // Otherwise treat as a potential custom domain (e.g. pizzapalace.com)
+  else if (hostname !== appDomain && hostname !== `www.${appDomain}` && !hostname.includes('localhost')) {
+    isCustomDomain = true;
   }
 
   // Skip middleware for:
@@ -35,6 +40,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Custom domain: forward hostname to backend for slug resolution, rewrite to a
+  // placeholder tenant segment — the backend will resolve via X-Tenant-Domain header.
+  if (isCustomDomain) {
+    const newUrl = url.clone();
+    // Use __custom__ as placeholder; backend resolves actual tenant from hostname
+    if (!pathname.startsWith('/__custom__')) {
+      newUrl.pathname = `/__custom__${pathname}`;
+    }
+    const response = NextResponse.rewrite(newUrl);
+    response.headers.set('x-tenant-domain', hostname);
+    return response;
+  }
+
   // If there's a subdomain, rewrite to [tenant] route
   if (subdomain && subdomain !== 'www' && subdomain !== 'app') {
     // Don't rewrite if already on a [tenant] path
@@ -46,25 +64,6 @@ export function middleware(request: NextRequest) {
       // Pass the tenant slug as a header for server components to read
       response.headers.set('x-tenant-slug', subdomain);
       return response;
-    }
-  }
-
-  // Protect dashboard routes - redirect to login if no auth cookie
-  if (pathname.startsWith('/dashboard')) {
-    const authCookie = request.cookies.get('auth-token');
-    if (!authCookie) {
-      url.pathname = '/auth/login';
-      url.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // Protect superadmin routes
-  if (pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/login')) {
-    const authCookie = request.cookies.get('auth-token');
-    if (!authCookie) {
-      url.pathname = '/superadmin/login';
-      return NextResponse.redirect(url);
     }
   }
 

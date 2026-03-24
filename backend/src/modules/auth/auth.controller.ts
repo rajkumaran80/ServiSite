@@ -8,6 +8,7 @@ import {
   Get,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -16,6 +17,8 @@ import { Public } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
+// Strict rate limit on all auth endpoints: 5 attempts per minute per IP
+@Throttle({ api: { limit: 5, ttl: 60_000 } })
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {

@@ -58,9 +58,9 @@ export class GalleryController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Get all gallery images for a tenant (public)' })
-  async findAll(@Tenant('id') tenantId: string) {
+  async findAll(@Tenant('id') tenantId: string, @Tenant('slug') slug: string) {
     if (!tenantId) throw new BadRequestException('Tenant context required');
-    const images = await this.galleryService.findAll(tenantId);
+    const images = await this.galleryService.findAll(tenantId, slug);
     return { data: images, meta: { total: images.length }, success: true };
   }
 
@@ -68,8 +68,8 @@ export class GalleryController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Add image to gallery' })
-  async addImage(@Body() dto: AddGalleryImageDto, @CurrentUser() user: any) {
-    const image = await this.galleryService.addImage(user.tenantId, dto);
+  async addImage(@Body() dto: AddGalleryImageDto, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    const image = await this.galleryService.addImage(user.tenantId, dto, slug);
     return { data: image, success: true, message: 'Image added to gallery' };
   }
 
@@ -81,8 +81,9 @@ export class GalleryController {
     @Param('id') id: string,
     @Body() dto: UpdateGalleryImageDto,
     @CurrentUser() user: any,
+    @Tenant('slug') slug: string,
   ) {
-    const image = await this.galleryService.updateImage(user.tenantId, id, dto);
+    const image = await this.galleryService.updateImage(user.tenantId, id, dto, slug);
     return { data: image, success: true, message: 'Image updated' };
   }
 
@@ -91,8 +92,8 @@ export class GalleryController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete gallery image' })
-  async deleteImage(@Param('id') id: string, @CurrentUser() user: any) {
-    await this.galleryService.deleteImage(user.tenantId, id);
+  async deleteImage(@Param('id') id: string, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    await this.galleryService.deleteImage(user.tenantId, id, slug);
   }
 
   @Put('reorder')
@@ -102,8 +103,9 @@ export class GalleryController {
   async reorder(
     @Body() body: { items: Array<{ id: string; sortOrder: number }> },
     @CurrentUser() user: any,
+    @Tenant('slug') slug: string,
   ) {
-    await this.galleryService.reorder(user.tenantId, body.items);
+    await this.galleryService.reorder(user.tenantId, body.items, slug);
     return { success: true, message: 'Gallery reordered' };
   }
 }

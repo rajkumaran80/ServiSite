@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "env": {
+      "value": "prod"
+    },
+    "location": {
+      "value": "uksouth"
+    },
+    "acrLoginServer": {
+      "value": "servisite.azurecr.io"
+    },
+    "backendImageTag": {
+      "value": "latest"
+    },
+    "frontendImageTag": {
+      "value": "latest"
+    },
+
+    "IMPORTANT": "The four secrets below must be passed securely — never commit real values here.",
+    "USAGE": "az deployment group create ... --parameters dbPassword='...' jwtSecret='...' revalidateSecret='...' internalSecret='...'",
+
+    "dbPassword": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/<subscription-id>/resourceGroups/servisite-rg/providers/Microsoft.KeyVault/vaults/<kv-name>"
+        },
+        "secretName": "db-password"
+      }
+    },
+    "jwtSecret": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/<subscription-id>/resourceGroups/servisite-rg/providers/Microsoft.KeyVault/vaults/<kv-name>"
+        },
+        "secretName": "jwt-secret"
+      }
+    },
+    "revalidateSecret": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/<subscription-id>/resourceGroups/servisite-rg/providers/Microsoft.KeyVault/vaults/<kv-name>"
+        },
+        "secretName": "revalidate-secret"
+      }
+    },
+    "internalSecret": {
+      "reference": {
+        "keyVault": {
+          "id": "/subscriptions/<subscription-id>/resourceGroups/servisite-rg/providers/Microsoft.KeyVault/vaults/<kv-name>"
+        },
+        "secretName": "internal-secret"
+      }
+    }
+  }
+}

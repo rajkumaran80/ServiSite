@@ -35,8 +35,9 @@ export class ContactController {
   async updateContact(
     @Body() dto: UpdateContactDto,
     @CurrentUser() user: any,
+    @Tenant('slug') slug: string,
   ) {
-    const contact = await this.contactService.upsert(user.tenantId, dto);
+    const contact = await this.contactService.upsert(user.tenantId, dto, slug);
     return { data: contact, success: true, message: 'Contact information updated' };
   }
 }

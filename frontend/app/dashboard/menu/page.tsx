@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
+import { api } from '../../../services/api';
 import menuService from '../../../services/menu.service';
 import uploadService from '../../../services/upload.service';
 import { ImageUpload } from '../../../components/ui/ImageUpload';
@@ -227,12 +228,14 @@ function ItemForm({
   item,
   categories,
   groups,
+  currency,
   onClose,
   onSave,
 }: {
   item: MenuItem | null;
   categories: Category[];
   groups: MenuGroup[];
+  currency: string;
   onClose: () => void;
   onSave: (i: MenuItem) => void;
 }) {
@@ -240,7 +243,6 @@ function ItemForm({
     name: item?.name ?? '',
     description: item?.description ?? '',
     price: item?.price != null ? String(item.price) : '',
-    currency: item?.currency ?? 'GBP',
     imageUrl: item?.imageUrl ?? '',
     isAvailable: item?.isAvailable ?? true,
     isPopular: item?.isPopular ?? false,
@@ -284,7 +286,7 @@ function ItemForm({
         name: form.name.trim(),
         description: form.description || undefined,
         price: priceNum,
-        currency: form.currency || undefined,
+        currency: currency || undefined,
         categoryIds: selectedCategoryIds,
         imageUrl,
         isAvailable: form.isAvailable,
@@ -318,14 +320,12 @@ function ItemForm({
       <FieldRow label="Description">
         <textarea rows={3} className={inputClass} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Short description..." />
       </FieldRow>
-      <div className="grid grid-cols-2 gap-4">
-        <FieldRow label="Price *">
+      <FieldRow label="Price *">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500 font-medium w-12 flex-shrink-0">{currency}</span>
           <input type="text" inputMode="decimal" className={inputClass} value={form.price} onChange={(e) => set('price', e.target.value)} placeholder="9.99" />
-        </FieldRow>
-        <FieldRow label="Currency">
-          <input className={inputClass} value={form.currency} onChange={(e) => set('currency', e.target.value)} placeholder="GBP" />
-        </FieldRow>
-      </div>
+        </div>
+      </FieldRow>
 
       {/* Categories — multi-select with optional group filter */}
       <div>
@@ -445,6 +445,7 @@ export default function DashboardMenuPage() {
   const [groups, setGroups] = useState<MenuGroup[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [currency, setCurrency] = useState<string>('GBP');
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'groups' | 'categories' | 'items'>('groups');
 
@@ -463,14 +464,16 @@ export default function DashboardMenuPage() {
 
   const loadData = async () => {
     try {
-      const [grps, cats, menuItems] = await Promise.all([
+      const [grps, cats, menuItems, tenantRes] = await Promise.all([
         menuService.getGroups(),
         menuService.getCategories(),
         menuService.getItems(),
+        api.get('/tenant/current'),
       ]);
       setGroups(grps);
       setCategories(cats);
       setItems(menuItems);
+      setCurrency(tenantRes.data?.data?.currency ?? 'GBP');
     } catch {
       toast.error('Failed to load menu data');
     } finally {
@@ -834,7 +837,7 @@ export default function DashboardMenuPage() {
                         <p className="text-sm text-gray-500 truncate mt-0.5">{item.description}</p>
                       )}
                       <span className="text-sm font-semibold text-blue-600">
-                        {menuService.formatPrice(item.price, item.currency)}
+                        {menuService.formatPrice(item.price, currency)}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
@@ -916,6 +919,7 @@ export default function DashboardMenuPage() {
             item={editingItem}
             categories={categories}
             groups={groups}
+            currency={currency}
             onClose={() => { setShowItemForm(false); setEditingItem(null); }}
             onSave={(saved) => {
               if (editingItem) {

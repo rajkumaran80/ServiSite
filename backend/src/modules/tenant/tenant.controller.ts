@@ -29,11 +29,7 @@ export class TenantController {
   @ApiOperation({ summary: 'Create a new tenant with admin user' })
   async create(@Body() createTenantDto: CreateTenantDto) {
     const tenant = await this.tenantService.create(createTenantDto);
-    return {
-      data: tenant,
-      success: true,
-      message: 'Tenant created successfully',
-    };
+    return { data: tenant, success: true, message: 'Tenant created successfully' };
   }
 
   @Get()
@@ -42,11 +38,16 @@ export class TenantController {
   @ApiOperation({ summary: 'List all tenants (admin only)' })
   async findAll() {
     const tenants = await this.tenantService.findAll();
-    return {
-      data: tenants,
-      meta: { total: tenants.length },
-      success: true,
-    };
+    return { data: tenants, meta: { total: tenants.length }, success: true };
+  }
+
+  @Get('current')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get the authenticated user's tenant" })
+  async getCurrent(@CurrentUser() user: any) {
+    const tenant = await this.tenantService.findById(user.tenantId);
+    return { data: tenant, success: true };
   }
 
   @Public()
@@ -55,41 +56,25 @@ export class TenantController {
   @ApiParam({ name: 'slug', example: 'pizza-palace' })
   async findBySlug(@Param('slug') slug: string) {
     const tenant = await this.tenantService.findBySlug(slug);
-    return {
-      data: tenant,
-      success: true,
-    };
+    return { data: tenant, success: true };
   }
 
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update tenant settings' })
-  @ApiParam({ name: 'id', description: 'Tenant ID' })
-  async update(
-    @Param('id') id: string,
-    @Body() updateTenantDto: UpdateTenantDto,
-    @CurrentUser() user: any,
-  ) {
-    // Users can only update their own tenant unless they are super-admin
+  async update(@Param('id') id: string, @Body() updateTenantDto: UpdateTenantDto) {
     const tenant = await this.tenantService.update(id, updateTenantDto);
-    return {
-      data: tenant,
-      success: true,
-      message: 'Tenant updated successfully',
-    };
+    return { data: tenant, success: true, message: 'Tenant updated successfully' };
   }
 
   @Get(':id/stats')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get tenant statistics' })
-  async getStats(@Param('id') id: string, @CurrentUser() user: any) {
+  async getStats(@Param('id') id: string) {
     const stats = await this.tenantService.getTenantStats(id);
-    return {
-      data: stats,
-      success: true,
-    };
+    return { data: stats, success: true };
   }
 
   @Delete(':id')
@@ -100,5 +85,41 @@ export class TenantController {
   @ApiOperation({ summary: 'Delete tenant (admin only)' })
   async remove(@Param('id') id: string) {
     await this.tenantService.delete(id);
+  }
+
+  // ── Custom Domain Endpoints ───────────────────────────────────────────────
+
+  @Post(':id/custom-domain')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Register a custom domain — returns DNS verification instructions' })
+  async setCustomDomain(
+    @Param('id') id: string,
+    @Body() body: { domain: string },
+  ) {
+    const result = await this.tenantService.setCustomDomain(id, body.domain);
+    return {
+      data: result,
+      success: true,
+      message: `Add a TXT record at ${result.txtRecord} with value "${result.token}", then call the verify endpoint.`,
+    };
+  }
+
+  @Post(':id/custom-domain/verify')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Check DNS and activate custom domain' })
+  async verifyCustomDomain(@Param('id') id: string) {
+    const result = await this.tenantService.verifyCustomDomain(id);
+    return { data: result, success: result.verified };
+  }
+
+  @Delete(':id/custom-domain')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove custom domain' })
+  async removeCustomDomain(@Param('id') id: string) {
+    await this.tenantService.removeCustomDomain(id);
   }
 }

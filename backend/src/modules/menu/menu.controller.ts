@@ -28,11 +28,10 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 export class MenuController {
   constructor(private readonly menuService: MenuService) {}
 
-  // ---- Menu Groups ----
+  // ── Menu Groups ────────────────────────────────────────────────────────────
 
   @Public()
   @Get('groups')
-  @ApiOperation({ summary: 'List all menu groups for a tenant' })
   async findAllGroups(@Tenant('id') tenantId: string) {
     if (!tenantId) throw new BadRequestException('Tenant context required');
     const groups = await this.menuService.findAllMenuGroups(tenantId);
@@ -42,34 +41,24 @@ export class MenuController {
   @Post('groups')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new menu group' })
-  async createGroup(@Body() dto: CreateMenuGroupDto, @CurrentUser() user: any) {
-    const group = await this.menuService.createMenuGroup(user.tenantId, dto);
+  async createGroup(@Body() dto: CreateMenuGroupDto, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    const group = await this.menuService.createMenuGroup(user.tenantId, dto, slug);
     return { data: group, success: true, message: 'Menu group created' };
   }
 
   @Put('groups/reorder')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Reorder menu groups' })
-  async reorderGroups(
-    @Body() body: { groups: Array<{ id: string; sortOrder: number }> },
-    @CurrentUser() user: any,
-  ) {
-    await this.menuService.reorderGroups(user.tenantId, body.groups);
+  async reorderGroups(@Body() body: { groups: Array<{ id: string; sortOrder: number }> }, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    await this.menuService.reorderGroups(user.tenantId, body.groups, slug);
     return { success: true, message: 'Menu groups reordered' };
   }
 
   @Put('groups/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update a menu group' })
-  async updateGroup(
-    @Param('id') id: string,
-    @Body() dto: Partial<CreateMenuGroupDto>,
-    @CurrentUser() user: any,
-  ) {
-    const group = await this.menuService.updateMenuGroup(user.tenantId, id, dto);
+  async updateGroup(@Param('id') id: string, @Body() dto: Partial<CreateMenuGroupDto>, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    const group = await this.menuService.updateMenuGroup(user.tenantId, id, dto, slug);
     return { data: group, success: true, message: 'Menu group updated' };
   }
 
@@ -77,16 +66,14 @@ export class MenuController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a menu group' })
-  async deleteGroup(@Param('id') id: string, @CurrentUser() user: any) {
-    await this.menuService.deleteMenuGroup(user.tenantId, id);
+  async deleteGroup(@Param('id') id: string, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    await this.menuService.deleteMenuGroup(user.tenantId, id, slug);
   }
 
-  // ---- Categories ----
+  // ── Categories ─────────────────────────────────────────────────────────────
 
   @Public()
   @Get('categories')
-  @ApiOperation({ summary: 'List all categories for a tenant' })
   async findAllCategories(@Tenant('id') tenantId: string) {
     if (!tenantId) throw new BadRequestException('Tenant context required');
     const categories = await this.menuService.findAllCategories(tenantId);
@@ -96,22 +83,16 @@ export class MenuController {
   @Post('categories')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new category' })
-  async createCategory(@Body() dto: CreateCategoryDto, @CurrentUser() user: any) {
-    const category = await this.menuService.createCategory(user.tenantId, dto);
+  async createCategory(@Body() dto: CreateCategoryDto, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    const category = await this.menuService.createCategory(user.tenantId, dto, slug);
     return { data: category, success: true, message: 'Category created' };
   }
 
   @Put('categories/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update a category' })
-  async updateCategory(
-    @Param('id') id: string,
-    @Body() dto: Partial<CreateCategoryDto>,
-    @CurrentUser() user: any,
-  ) {
-    const category = await this.menuService.updateCategory(user.tenantId, id, dto);
+  async updateCategory(@Param('id') id: string, @Body() dto: Partial<CreateCategoryDto>, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    const category = await this.menuService.updateCategory(user.tenantId, id, dto, slug);
     return { data: category, success: true, message: 'Category updated' };
   }
 
@@ -119,23 +100,17 @@ export class MenuController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a category' })
-  async deleteCategory(@Param('id') id: string, @CurrentUser() user: any) {
-    await this.menuService.deleteCategory(user.tenantId, id);
+  async deleteCategory(@Param('id') id: string, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    await this.menuService.deleteCategory(user.tenantId, id, slug);
   }
 
-  // ---- Menu Items ----
+  // ── Menu Items ─────────────────────────────────────────────────────────────
 
   @Public()
   @Get('items')
-  @ApiOperation({ summary: 'List all menu items for a tenant' })
   @ApiQuery({ name: 'categoryId', required: false })
   @ApiQuery({ name: 'available', required: false, type: Boolean })
-  async findAllItems(
-    @Tenant('id') tenantId: string,
-    @Query('categoryId') categoryId?: string,
-    @Query('available') available?: string,
-  ) {
+  async findAllItems(@Tenant('id') tenantId: string, @Query('categoryId') categoryId?: string, @Query('available') available?: string) {
     if (!tenantId) throw new BadRequestException('Tenant context required');
     const isAvailable = available === 'true' ? true : available === 'false' ? false : undefined;
     const items = await this.menuService.findAllMenuItems(tenantId, { categoryId, isAvailable });
@@ -144,25 +119,22 @@ export class MenuController {
 
   @Public()
   @Get('full')
-  @ApiOperation({ summary: 'Get full menu organized by groups and categories (public)' })
-  async getFullMenu(@Tenant('id') tenantId: string) {
+  async getFullMenu(@Tenant('id') tenantId: string, @Tenant('slug') slug: string) {
     if (!tenantId) throw new BadRequestException('Tenant context required');
-    const menu = await this.menuService.findMenuByGroups(tenantId);
+    const menu = await this.menuService.findMenuByGroups(tenantId, slug);
     return { data: menu, success: true };
   }
 
   @Post('items')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new menu item' })
-  async createItem(@Body() dto: CreateMenuItemDto, @CurrentUser() user: any) {
-    const item = await this.menuService.createMenuItem(user.tenantId, dto);
+  async createItem(@Body() dto: CreateMenuItemDto, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    const item = await this.menuService.createMenuItem(user.tenantId, dto, slug);
     return { data: item, success: true, message: 'Menu item created' };
   }
 
   @Public()
   @Get('items/:id')
-  @ApiOperation({ summary: 'Get a single menu item' })
   async findOne(@Param('id') id: string, @Tenant('id') tenantId: string) {
     if (!tenantId) throw new BadRequestException('Tenant context required');
     const item = await this.menuService.findMenuItemById(tenantId, id);
@@ -172,25 +144,16 @@ export class MenuController {
   @Put('items/reorder')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Reorder menu items' })
-  async reorderItems(
-    @Body() body: { items: Array<{ id: string; sortOrder: number }> },
-    @CurrentUser() user: any,
-  ) {
-    await this.menuService.reorderItems(user.tenantId, body.items);
+  async reorderItems(@Body() body: { items: Array<{ id: string; sortOrder: number }> }, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    await this.menuService.reorderItems(user.tenantId, body.items, slug);
     return { success: true, message: 'Items reordered' };
   }
 
   @Put('items/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update a menu item' })
-  async updateItem(
-    @Param('id') id: string,
-    @Body() dto: UpdateMenuItemDto,
-    @CurrentUser() user: any,
-  ) {
-    const item = await this.menuService.updateMenuItem(user.tenantId, id, dto);
+  async updateItem(@Param('id') id: string, @Body() dto: UpdateMenuItemDto, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    const item = await this.menuService.updateMenuItem(user.tenantId, id, dto, slug);
     return { data: item, success: true, message: 'Menu item updated' };
   }
 
@@ -198,8 +161,7 @@ export class MenuController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a menu item' })
-  async deleteItem(@Param('id') id: string, @CurrentUser() user: any) {
-    await this.menuService.deleteMenuItem(user.tenantId, id);
+  async deleteItem(@Param('id') id: string, @CurrentUser() user: any, @Tenant('slug') slug: string) {
+    await this.menuService.deleteMenuItem(user.tenantId, id, slug);
   }
 }

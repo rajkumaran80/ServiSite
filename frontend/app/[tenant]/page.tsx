@@ -9,7 +9,9 @@ const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
 
 async function getTenant(slug: string) {
   try {
-    const res = await fetch(`${API_URL}/tenant/${slug}`, { cache: 'no-store' });
+    const res = await fetch(`${API_URL}/tenant/${slug}`, {
+      next: { tags: [`tenant:${slug}`], revalidate: 1800 },
+    });
     if (!res.ok) return null;
     const data = await res.json();
     return data.data;
@@ -19,7 +21,7 @@ async function getTenant(slug: string) {
 async function getFeaturedItems(slug: string) {
   try {
     const res = await fetch(`${API_URL}/menu/items?available=true`, {
-      next: { revalidate: 30 },
+      next: { tags: [`tenant:${slug}:menu`], revalidate: 300 },
       headers: { 'X-Tenant-ID': slug },
     });
     if (!res.ok) return [];
@@ -31,7 +33,7 @@ async function getFeaturedItems(slug: string) {
 async function getMenuGroups(slug: string) {
   try {
     const res = await fetch(`${API_URL}/menu/groups`, {
-      next: { revalidate: 30 },
+      next: { tags: [`tenant:${slug}:menu`], revalidate: 1800 },
       headers: { 'X-Tenant-ID': slug },
     });
     if (!res.ok) return [];
@@ -66,6 +68,14 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   const primaryColor = theme.primaryColor || template.primaryColor;
   const fontFamily = theme.fontFamily || template.fontFamily;
 
+  // Banner images: prefer themeSettings.bannerImages array, fall back to single banner field
+  const bannerImages: string[] =
+    Array.isArray(theme.bannerImages) && theme.bannerImages.length > 0
+      ? theme.bannerImages
+      : tenant.banner
+      ? [tenant.banner]
+      : [];
+
   const featurePoints = isRestaurant
     ? [
         { icon: '🌿', title: 'Fresh Ingredients', desc: 'Locally sourced, quality produce every day' },
@@ -83,6 +93,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
       {/* Hero */}
       <HeroSection
         tenant={tenant}
+        bannerImages={bannerImages}
         heroStyle={template.heroStyle}
         primaryColor={primaryColor}
         fontFamily={fontFamily}

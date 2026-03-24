@@ -7,7 +7,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1
 
 async function getTenant(slug: string) {
   try {
-    const res = await fetch(`${API_URL}/tenant/${slug}`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API_URL}/tenant/${slug}`, {
+      next: { tags: [`tenant:${slug}`], revalidate: 1800 },
+    });
     if (!res.ok) return null;
     const data = await res.json();
     return data.data;
@@ -17,7 +19,7 @@ async function getTenant(slug: string) {
 async function getGallery(slug: string): Promise<GalleryImage[]> {
   try {
     const res = await fetch(`${API_URL}/gallery`, {
-      next: { revalidate: 120 },
+      next: { tags: [`tenant:${slug}:gallery`], revalidate: 900 },
       headers: { 'X-Tenant-ID': slug },
     });
     if (!res.ok) return [];
@@ -30,8 +32,14 @@ export async function generateMetadata({ params }: { params: { tenant: string } 
   const tenant = await getTenant(params.tenant);
   if (!tenant) return { title: 'Gallery' };
   return {
-    title: `Gallery | ${tenant.name}`,
-    description: `Photo gallery for ${tenant.name}`,
+    title: 'Gallery',
+    description: `Browse photos from ${tenant.name}. See our space, work and atmosphere.`,
+    openGraph: {
+      title: `Gallery | ${tenant.name}`,
+      description: `Browse photos from ${tenant.name}.`,
+      images: tenant.banner ? [{ url: tenant.banner, alt: tenant.name }] : [],
+    },
+    twitter: { card: 'summary_large_image', title: `Gallery | ${tenant.name}` },
   };
 }
 

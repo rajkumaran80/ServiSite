@@ -239,14 +239,14 @@ async function main() {
     ]);
 
     await createItems(salon.id, [
-      { name: "Women's Haircut & Style", description: 'Includes wash, cut, blow dry and style.', price: 65.0, currency: 'USD', isPopular: true, allergens: [], sortOrder: 0, categoryIds: [hair.id] },
-      { name: "Men's Haircut", description: 'Classic or modern cut with wash and style finish.', price: 35.0, currency: 'USD', allergens: [], sortOrder: 1, categoryIds: [hair.id] },
-      { name: 'Full Color', description: 'Single process color application. Price varies by hair length.', price: 95.0, currency: 'USD', allergens: [], sortOrder: 2, categoryIds: [hair.id] },
-      { name: 'Balayage / Highlights', description: 'Hand-painted highlights for a natural, sun-kissed look.', price: 140.0, currency: 'USD', isPopular: true, allergens: [], sortOrder: 3, categoryIds: [hair.id] },
-      { name: 'Classic Manicure', description: 'Nail shaping, cuticle care, massage and polish.', price: 30.0, currency: 'USD', allergens: [], sortOrder: 0, categoryIds: [nails.id] },
-      { name: 'Gel Manicure', description: 'Long-lasting gel polish with UV cure. Lasts up to 3 weeks.', price: 45.0, currency: 'USD', allergens: [], sortOrder: 1, categoryIds: [nails.id] },
-      { name: 'Deep Conditioning Treatment', description: '30-minute intensive hair mask for dry or damaged hair.', price: 40.0, currency: 'USD', allergens: [], sortOrder: 0, categoryIds: [spa.id] },
-      { name: 'Head Massage (30 min)', description: 'Relaxing scalp and shoulder massage.', price: 45.0, currency: 'USD', allergens: [], sortOrder: 1, categoryIds: [spa.id] },
+      { name: "Women's Haircut & Style", description: 'Includes wash, cut, blow dry and style.', price: 65.0, currency: 'GBP', isPopular: true, allergens: [], sortOrder: 0, categoryIds: [hair.id] },
+      { name: "Men's Haircut", description: 'Classic or modern cut with wash and style finish.', price: 35.0, currency: 'GBP', allergens: [], sortOrder: 1, categoryIds: [hair.id] },
+      { name: 'Full Color', description: 'Single process color application. Price varies by hair length.', price: 95.0, currency: 'GBP', allergens: [], sortOrder: 2, categoryIds: [hair.id] },
+      { name: 'Balayage / Highlights', description: 'Hand-painted highlights for a natural, sun-kissed look.', price: 140.0, currency: 'GBP', isPopular: true, allergens: [], sortOrder: 3, categoryIds: [hair.id] },
+      { name: 'Classic Manicure', description: 'Nail shaping, cuticle care, massage and polish.', price: 30.0, currency: 'GBP', allergens: [], sortOrder: 0, categoryIds: [nails.id] },
+      { name: 'Gel Manicure', description: 'Long-lasting gel polish with UV cure. Lasts up to 3 weeks.', price: 45.0, currency: 'GBP', allergens: [], sortOrder: 1, categoryIds: [nails.id] },
+      { name: 'Deep Conditioning Treatment', description: '30-minute intensive hair mask for dry or damaged hair.', price: 40.0, currency: 'GBP', allergens: [], sortOrder: 0, categoryIds: [spa.id] },
+      { name: 'Head Massage (30 min)', description: 'Relaxing scalp and shoulder massage.', price: 45.0, currency: 'GBP', allergens: [], sortOrder: 1, categoryIds: [spa.id] },
     ]);
 
     console.log(`  ✓ Salon created: ${salonSlug}`);

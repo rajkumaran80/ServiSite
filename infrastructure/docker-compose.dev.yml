@@ -45,7 +45,7 @@ services:
     profiles:
       - tools
 
-  # Redis (for future caching / queues)
+  # Redis — caching layer (always on in dev)
   redis:
     image: redis:7-alpine
     container_name: servisite_dev_redis
@@ -55,8 +55,11 @@ services:
     command: redis-server --save 60 1 --loglevel warning
     volumes:
       - redis_dev_data:/data
-    profiles:
-      - full
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   postgres_dev_data:

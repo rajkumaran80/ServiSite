@@ -39,15 +39,23 @@ model Tenant {
   locale         String     @default("en")
   whatsappNumber String?
   qrCodeUrl      String?
+  // Custom domain support
+  customDomain          String?   @unique
+  customDomainStatus    String?   // pending | verified | active | failed
+  customDomainToken     String?   // DNS TXT verification token
+  customDomainVerifiedAt DateTime?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  users       User[]
-  categories  Category[]
-  menuItems   MenuItem[]
-  menuGroups  MenuGroup[]
-  contactInfo ContactInfo?
-  gallery     GalleryImage[]
+  users           User[]
+  categories      Category[]
+  menuItems       MenuItem[]
+  menuGroups      MenuGroup[]
+  contactInfo     ContactInfo?
+  gallery         GalleryImage[]
+  navigationItems NavigationItem[]
+  pages           Page[]
+  pageEntries     PageEntry[]
 
   @@map("tenants")
 }
@@ -168,4 +176,54 @@ model GalleryImage {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("gallery_images")
+}
+
+model NavigationItem {
+  id           String   @id @default(cuid())
+  tenantId     String
+  label        String
+  href         String
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  openInNewTab Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("navigation_items")
+}
+
+model Page {
+  id          String   @id @default(cuid())
+  tenantId    String
+  slug        String
+  title       String
+  sections    Json     @default("[]")
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, slug])
+  @@map("pages")
+}
+
+model PageEntry {
+  id        String   @id @default(cuid())
+  tenantId  String
+  pageKey   String
+  title     String
+  imageUrl  String?
+  data      Json     @default("{}")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, pageKey])
+  @@map("page_entries")
 }

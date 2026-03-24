@@ -24,6 +24,7 @@ const nextConfig = {
 
   async headers() {
     return [
+      // Security headers on all routes
       {
         source: '/:path*',
         headers: [
@@ -31,6 +32,58 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
+        ],
+      },
+      // Tenant home pages — CDN-cacheable for 5 min, stale-while-revalidate 1 hr
+      {
+        source: '/:tenant',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+          { key: 'Vary', value: 'Host' },
+        ],
+      },
+      // Menu — CDN-cacheable for 5 min (changes more often)
+      {
+        source: '/:tenant/menu',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=1800' },
+          { key: 'Vary', value: 'Host' },
+        ],
+      },
+      // Gallery — CDN-cacheable for 15 min
+      {
+        source: '/:tenant/gallery',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=900, stale-while-revalidate=3600' },
+          { key: 'Vary', value: 'Host' },
+        ],
+      },
+      // Contact & other tenant pages — CDN-cacheable for 1 hr
+      {
+        source: '/:tenant/:page',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=86400' },
+          { key: 'Vary', value: 'Host' },
+        ],
+      },
+      // Dashboard & auth — never cache
+      {
+        source: '/dashboard/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
+        ],
+      },
+      {
+        source: '/auth/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
+        ],
+      },
+      // API routes — no cache
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store' },
         ],
       },
     ];

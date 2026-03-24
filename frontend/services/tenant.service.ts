@@ -43,6 +43,26 @@ class TenantService {
     const response = await api.put<{ data: ContactInfo }>('/contact', payload);
     return response.data.data;
   }
+
+  async setCustomDomain(tenantId: string, domain: string): Promise<{ txtName: string; txtValue: string }> {
+    const response = await api.post<{ data: { txtName: string; txtValue: string } }>(
+      `/tenant/${tenantId}/custom-domain`,
+      { domain },
+    );
+    return response.data.data;
+  }
+
+  async verifyCustomDomain(tenantId: string): Promise<{ status: string }> {
+    const response = await api.post<{ data: { status: string } }>(
+      `/tenant/${tenantId}/custom-domain/verify`,
+      {},
+    );
+    return response.data.data;
+  }
+
+  async removeCustomDomain(tenantId: string): Promise<void> {
+    await api.delete(`/tenant/${tenantId}/custom-domain`);
+  }
 }
 
 export const tenantService = new TenantService();

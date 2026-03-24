@@ -235,6 +235,7 @@ export default function MenuPage() {
 
   const currency = tenant.currency || 'GBP';
   const isRestaurant = tenant.type === 'RESTAURANT';
+  const primaryColor = (tenant.themeSettings as any)?.primaryColor || '#3B82F6';
   const activeSection = menu.groups.find((s) => s.id === activeTab);
   const hasContent =
     menu.groups.some((s) => s.categories?.some((c) => c.menuItems && c.menuItems.length > 0)) ||
@@ -243,45 +244,45 @@ export default function MenuPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Page Header */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-            {isRestaurant ? 'Our Menu' : 'Our Services'}
-          </h1>
-          <p className="text-gray-500 mt-2">
-            {tenant.name}
-            {isRestaurant ? ' · Classic British Dining Experience' : ''}
-          </p>
-        </div>
+      <div
+        className="py-16 px-6 text-center"
+        style={{ background: `linear-gradient(135deg, ${primaryColor}ee, ${primaryColor}99)` }}
+      >
+        <div className="text-5xl mb-4">{isRestaurant ? '🍽️' : '🛠️'}</div>
+        <h1 className="text-4xl font-bold text-white mb-2">
+          {isRestaurant ? 'Our Menu' : 'Our Services'}
+        </h1>
+        <p className="text-white/75 text-lg">{tenant.name}</p>
       </div>
 
       {/* Group Tab Bar */}
       {menu.groups.length > 0 && (
         <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex gap-1 overflow-x-auto py-2 scrollbar-none">
-              {menu.groups.map((group) => (
-                <button
-                  key={group.id}
-                  onClick={() => setActiveTab(group.id)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    activeTab === group.id
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-700'
-                  }`}
-                >
-                  {group.icon && <span className="text-base leading-none">{group.icon}</span>}
-                  {group.name}
-                </button>
-              ))}
+            <div className="flex justify-center gap-1 overflow-x-auto py-2 scrollbar-none">
+              {menu.groups.map((group) => {
+                const isActive = activeTab === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    onClick={() => setActiveTab(group.id)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      isActive ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    style={isActive ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}}
+                  >
+                    {group.icon && <span className="text-base leading-none">{group.icon}</span>}
+                    {group.name}
+                  </button>
+                );
+              })}
               {menu.uncategorized.length > 0 && (
                 <button
                   onClick={() => setActiveTab('uncategorized')}
-                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    activeTab === 'uncategorized'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-blue-50 hover:text-blue-700'
+                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    activeTab === 'uncategorized' ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
+                  style={activeTab === 'uncategorized' ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}}
                 >
                   Other
                 </button>

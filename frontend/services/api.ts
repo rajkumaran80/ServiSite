@@ -25,6 +25,13 @@ export const api: AxiosInstance = axios.create({
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
+    // Sent on every request so the backend can reject calls not coming from
+    // this frontend. Only meaningful in production (backend skips check in dev).
+    // NEXT_PUBLIC_ prefix intentionally omitted — this value is only used in
+    // client-side dashboard code which already requires a logged-in user.
+    ...(process.env.INTERNAL_SECRET
+      ? { 'X-Internal-Secret': process.env.INTERNAL_SECRET }
+      : {}),
   },
 });
 

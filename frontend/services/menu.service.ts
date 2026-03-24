@@ -104,7 +104,7 @@ class MenuService {
     await api.put('/menu/items/reorder', { items });
   }
 
-  formatPrice(price: string | number, currency = 'USD', locale = 'en-GB'): string {
+  formatPrice(price: string | number, currency = 'GBP', locale = 'en-GB'): string {
     const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
     return new Intl.NumberFormat(locale, {
       style: 'currency',

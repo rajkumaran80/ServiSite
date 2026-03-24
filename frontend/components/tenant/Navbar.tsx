@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Tenant } from '../../types/tenant.types';
+import { PREDEFINED_PAGES, resolveNavPages } from '../../config/predefined-pages';
+import { getPageTemplate } from '../../config/page-templates';
 
 interface NavbarProps {
   tenant: Tenant;
@@ -13,18 +15,25 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const primaryColor = (tenant.themeSettings as any)?.primaryColor || '#3B82F6';
+  const themeSettings = (tenant.themeSettings as any) ?? {};
+  const primaryColor = themeSettings.primaryColor || '#3B82F6';
   const tenantBase = `/${tenant.slug}`;
+  const navPages = resolveNavPages(themeSettings.navPages);
+  const template = getPageTemplate(themeSettings.pageTemplate);
+  const showLogo = template.showLogo !== false;
 
-  const navLinks = [
-    { href: tenantBase, label: 'Home' },
-    { href: `${tenantBase}/menu`, label: tenant.type === 'RESTAURANT' ? 'Menu' : 'Services' },
-    { href: `${tenantBase}/gallery`, label: 'Gallery' },
-    { href: `${tenantBase}/contact`, label: 'Contact' },
-  ];
+  const isRestaurantLike = ['RESTAURANT', 'CAFE'].includes(tenant.type);
+
+  // Build nav links from predefined pages filtered by enabled state
+  const navLinks = PREDEFINED_PAGES.filter((page) => navPages[page.key]).map((page) => {
+    const label =
+      page.key === 'menu' && !isRestaurantLike ? 'Services' : page.label;
+    const href = page.slug ? `${tenantBase}/${page.slug}` : tenantBase;
+    return { key: page.key, label, href };
+  });
 
   const isActive = (href: string) => {
-    if (href === tenantBase) return pathname === href || pathname === tenantBase + '/';
+    if (href === tenantBase) return pathname === href || pathname === `${tenantBase}/`;
     return pathname.startsWith(href);
   };
 
@@ -41,12 +50,12 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
                 alt={`${tenant.name} logo`}
                 className="w-10 h-10 rounded-lg object-cover ring-2 ring-white/30"
               />
-            ) : (
+            ) : showLogo ? (
               <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg bg-white/20">
                 {tenant.name.charAt(0).toUpperCase()}
               </div>
-            )}
-            <span className="font-bold text-white text-lg hidden sm:block tracking-tight">
+            ) : null}
+            <span className="font-bold text-white text-lg tracking-tight">
               {tenant.name}
             </span>
           </Link>
@@ -55,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <Link
-                key={link.href}
+                key={link.key}
                 href={link.href}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
                   isActive(link.href)
@@ -108,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
           <div className="px-4 py-3 space-y-1">
             {navLinks.map((link) => (
               <Link
-                key={link.href}
+                key={link.key}
                 href={link.href}
                 onClick={() => setIsMenuOpen(false)}
                 className={`block px-4 py-3 rounded-lg text-sm font-semibold transition-colors ${

@@ -2,6 +2,7 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -20,6 +21,29 @@ async function bootstrap() {
 
   app.setGlobalPrefix(apiPrefix);
 
+  // Security headers — applied before anything else
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameSrc: ["'none'"],
+          upgradeInsecureRequests: configService.get('NODE_ENV') === 'production' ? [] : null,
+        },
+      },
+      hsts: configService.get('NODE_ENV') === 'production'
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
+      crossOriginEmbedderPolicy: false, // allow tenant pages to embed maps/iframes
+    }),
+  );
+
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
@@ -37,7 +61,7 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Internal-Secret'],
   });
 
   app.useGlobalPipes(

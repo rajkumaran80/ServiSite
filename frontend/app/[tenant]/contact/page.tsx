@@ -7,18 +7,8 @@ const DAYS_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'sat
 
 async function getTenant(slug: string) {
   try {
-    const res = await fetch(`${API_URL}/tenant/${slug}`, { next: { revalidate: 300 } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.data;
-  } catch { return null; }
-}
-
-async function getContact(slug: string) {
-  try {
-    const res = await fetch(`${API_URL}/contact`, {
-      next: { revalidate: 300 },
-      headers: { 'X-Tenant-ID': slug },
+    const res = await fetch(`${API_URL}/tenant/${slug}`, {
+      next: { tags: [`tenant:${slug}`, `tenant:${slug}:contact`], revalidate: 3600 },
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -29,19 +19,29 @@ async function getContact(slug: string) {
 export async function generateMetadata({ params }: { params: { tenant: string } }): Promise<Metadata> {
   const tenant = await getTenant(params.tenant);
   if (!tenant) return { title: 'Contact' };
+  const contact = tenant.contactInfo;
+  const address = [contact?.address, contact?.city, contact?.country].filter(Boolean).join(', ');
+  const description = address
+    ? `Contact ${tenant.name}. Find us at ${address}.`
+    : `Get in touch with ${tenant.name}. View our contact details and opening hours.`;
   return {
-    title: `Contact | ${tenant.name}`,
-    description: `Contact information for ${tenant.name}`,
+    title: 'Contact',
+    description,
+    openGraph: {
+      title: `Contact | ${tenant.name}`,
+      description,
+      images: tenant.banner ? [{ url: tenant.banner, alt: tenant.name }] : [],
+    },
+    twitter: { card: 'summary', title: `Contact | ${tenant.name}`, description },
   };
 }
 
 export default async function ContactPage({ params }: { params: { tenant: string } }) {
-  const [tenant, contact] = await Promise.all([
-    getTenant(params.tenant),
-    getContact(params.tenant),
-  ]);
-
+  const tenant = await getTenant(params.tenant);
   if (!tenant) notFound();
+
+  // contactInfo is already included in the tenant response via findBySlug
+  const contact = tenant.contactInfo ?? null;
 
   const openingHours = contact?.openingHours || {};
   const sortedDays = DAYS_ORDER.filter((day) => day in openingHours);
@@ -57,6 +57,15 @@ export default async function ContactPage({ params }: { params: { tenant: string
   ]
     .filter(Boolean)
     .join(', ');
+
+  // Build a reliable map embed URL:
+  // - Use mapUrl directly if it already contains "embed" (proper embed URL)
+  // - Otherwise generate one from the address
+  const mapEmbedUrl = contact?.mapUrl?.includes('embed')
+    ? contact.mapUrl
+    : fullAddress
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&output=embed`
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -181,35 +190,38 @@ export default async function ContactPage({ params }: { params: { tenant: string
 
           {/* Map embed or placeholder */}
           <div>
-            {contact?.mapUrl ? (
-              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 h-full min-h-[400px]">
+            {mapEmbedUrl ? (
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 h-full min-h-[400px] flex flex-col">
                 <iframe
-                  src={contact.mapUrl.replace('/maps/', '/maps/embed?')}
-                  className="w-full h-full min-h-[400px]"
+                  src={mapEmbedUrl}
+                  className="w-full flex-1 min-h-[400px]"
                   style={{ border: 0 }}
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   title={`${tenant.name} location`}
                 />
+                {fullAddress && (
+                  <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+                    <p className="text-sm text-gray-500 truncate">{fullAddress}</p>
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(fullAddress)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-3 text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap flex-shrink-0"
+                    >
+                      Open in Maps →
+                    </a>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 flex flex-col items-center justify-center min-h-[400px] text-center">
                 <div className="text-6xl mb-4">🗺️</div>
                 <h3 className="text-lg font-semibold text-gray-700">Location Map</h3>
                 <p className="text-gray-500 mt-2">
-                  {fullAddress || 'Address will appear here'}
+                  {fullAddress || 'Add your address in Settings → Contact'}
                 </p>
-                {fullAddress && (
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(fullAddress)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 inline-block bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    Open in Google Maps
-                  </a>
-                )}
               </div>
             )}
           </div>

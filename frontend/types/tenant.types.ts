@@ -6,6 +6,9 @@ export interface ThemeSettings {
   fontFamily: string;
   logoPosition?: 'left' | 'center';
   heroStyle?: 'full' | 'compact';
+  pageTemplate?: string;
+  promoImageUrl?: string;
+  [key: string]: unknown;
 }
 
 export interface Tenant {
@@ -23,6 +26,10 @@ export interface Tenant {
   qrCodeUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  customDomain?: string | null;
+  customDomainStatus?: 'pending' | 'verified' | 'active' | 'failed' | null;
+  customDomainToken?: string | null;
+  customDomainVerifiedAt?: string | null;
   contactInfo?: ContactInfo | null;
   _count?: {
     menuItems: number;
