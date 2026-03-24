@@ -5,11 +5,12 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production --frozen-lockfile
 
-# Stage 2: Build
+# Stage 2: Build (needs all deps including devDependencies for tailwindcss, etc.)
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json* ./
+RUN npm ci --frozen-lockfile
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
