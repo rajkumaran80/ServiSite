@@ -22,6 +22,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://servisite.co.uk'),
   title: {
     template: '%s | ServiSite',
     default: 'ServiSite - Digital presence for your business',
