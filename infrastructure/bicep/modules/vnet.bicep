@@ -40,7 +40,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
         }
       }
       {
-        // PostgreSQL, Redis, Storage Private Endpoints
+        // Redis, Storage Private Endpoints — keep at original 10.0.3.0/24 (has active allocations)
         name: 'snet-data'
         properties: {
           addressPrefix: '10.0.3.0/24'
@@ -55,6 +55,20 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }
+      {
+        // PostgreSQL Flexible Server — requires dedicated delegated subnet
+        name: 'snet-postgres'
+        properties: {
+          addressPrefix: '10.0.5.0/24'
+          delegations: [
+            {
+              name: 'postgres'
+              properties: { serviceName: 'Microsoft.DBforPostgreSQL/flexibleServers' }
+            }
+          ]
+          privateEndpointNetworkPolicies: 'Disabled'
+        }
+      }
     ]
   }
 }
@@ -65,3 +79,4 @@ output subnetFrontendId string = vnet.properties.subnets[0].id
 output subnetBackendId string = vnet.properties.subnets[1].id
 output subnetDataId string = vnet.properties.subnets[2].id
 output subnetKeyvaultId string = vnet.properties.subnets[3].id
+output subnetPostgresId string = vnet.properties.subnets[4].id

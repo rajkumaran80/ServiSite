@@ -87,7 +87,8 @@ module database 'modules/database.bicep' = {
   params: {
     prefix: prefix
     location: location
-    subnetId: vnet.outputs.subnetDataId
+    subnetId: vnet.outputs.subnetPostgresId
+    vnetId: vnet.outputs.vnetId
     dbPassword: dbPassword
   }
 }
@@ -116,9 +117,6 @@ module appservice 'modules/appservice.bicep' = {
     redisUrl: 'rediss://:${redis.outputs.primaryKey}@${redis.outputs.hostName}:6380'
     storageAccountName: storage.outputs.accountName
     keyVaultUri: keyvault.outputs.uri
-    jwtSecret: jwtSecret
-    revalidateSecret: revalidateSecret
-    internalSecret: internalSecret
     appDomain: appDomain
   }
 }

@@ -3,6 +3,7 @@
 param prefix string
 param location string
 param subnetId string
+param vnetId string
 
 @secure()
 param dbPassword string
@@ -63,6 +64,16 @@ resource requireSsl 'Microsoft.DBforPostgreSQL/flexibleServers/configurations@20
 resource postgresDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: '${prefix}-postgres.private.postgres.database.azure.com'
   location: 'global'
+}
+
+resource postgresDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: postgresDnsZone
+  name: '${prefix}-postgres-dns-link'
+  location: 'global'
+  properties: {
+    virtualNetwork: { id: vnetId }
+    registrationEnabled: false
+  }
 }
 
 output fqdn string = postgres.properties.fullyQualifiedDomainName

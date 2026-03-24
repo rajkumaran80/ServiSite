@@ -15,13 +15,6 @@ param storageAccountName string
 param keyVaultUri string
 param appDomain string
 
-@secure()
-param jwtSecret string
-@secure()
-param revalidateSecret string
-@secure()
-param internalSecret string
-
 // ── App Service Plan (shared by both apps) ────────────────────────────────────
 
 resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
