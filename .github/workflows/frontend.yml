@@ -13,8 +13,9 @@ permissions:
   contents: read
 
 env:
-  REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+  REGISTRY: servisite.azurecr.io
   IMAGE_NAME: servisite-frontend
+  APP_NAME: servisite-prod-frontend
   RESOURCE_GROUP: servisite-rg
 
 jobs:
@@ -25,7 +26,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # OIDC login — no long-lived secrets
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
@@ -34,7 +34,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Log in to Azure Container Registry
-        run: az acr login --name ${{ env.REGISTRY }}
+        run: az acr login --name servisite
 
       - name: Build and push Docker image
         working-directory: frontend
@@ -52,18 +52,26 @@ jobs:
         run: |
           az webapp config container set \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --name ${{ secrets.AZURE_FRONTEND_APP_NAME }} \
+            --name ${{ env.APP_NAME }} \
             --slot staging \
             --docker-custom-image-name ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Wait for staging to be ready
+        run: |
+          az webapp start \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --name ${{ env.APP_NAME }} \
+            --slot staging
+          sleep 30
 
       - name: Swap staging → production
         run: |
           az webapp deployment slot swap \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --name ${{ secrets.AZURE_FRONTEND_APP_NAME }} \
+            --name ${{ env.APP_NAME }} \
             --slot staging \
             --target-slot production
 
       - name: Azure Logout
         if: always()
-        run: az logout
+        run: az logout || true

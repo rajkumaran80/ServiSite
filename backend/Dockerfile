@@ -28,6 +28,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# prisma CLI needed for migrate deploy at startup
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 
 USER nestjs
 
@@ -36,4 +38,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
-CMD ["node", "dist/main"]
+# Run pending migrations then start — safe to run on every container start
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
