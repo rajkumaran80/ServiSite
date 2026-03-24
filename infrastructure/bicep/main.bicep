@@ -35,8 +35,11 @@ param revalidateSecret string
 @secure()
 param internalSecret string
 
-@description('Azure Container Registry login server')
+@description('Azure Container Registry login server (e.g. servisite.azurecr.io)')
 param acrLoginServer string
+
+@description('Azure Container Registry name (e.g. servisite)')
+param acrName string
 
 @description('Backend Docker image tag')
 param backendImageTag string = 'latest'
@@ -111,6 +114,7 @@ module appservice 'modules/appservice.bicep' = {
     subnetFrontendId: vnet.outputs.subnetFrontendId
     subnetBackendId: vnet.outputs.subnetBackendId
     acrLoginServer: acrLoginServer
+    acrName: acrName
     backendImageTag: backendImageTag
     frontendImageTag: frontendImageTag
     databaseUrl: 'postgresql://servisite:${dbPassword}@${database.outputs.fqdn}:5432/servisite?sslmode=require'

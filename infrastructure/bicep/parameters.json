@@ -11,6 +11,9 @@
     "acrLoginServer": {
       "value": "servisite.azurecr.io"
     },
+    "acrName": {
+      "value": "servisite"
+    },
     "backendImageTag": {
       "value": "latest"
     },

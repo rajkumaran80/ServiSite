@@ -7,6 +7,7 @@ param location string
 param subnetFrontendId string
 param subnetBackendId string
 param acrLoginServer string
+param acrName string
 param backendImageTag string
 param frontendImageTag string
 param databaseUrl string
@@ -87,22 +88,6 @@ resource backendVnetIntegration 'Microsoft.Web/sites/networkConfig@2023-01-01' =
   }
 }
 
-// Staging slot for zero-downtime deploys
-resource backendStaging 'Microsoft.Web/sites/slots@2023-01-01' = {
-  parent: backend
-  name: 'staging'
-  location: location
-  identity: { type: 'SystemAssigned' }
-  properties: {
-    serverFarmId: plan.id
-    httpsOnly: true
-    siteConfig: {
-      linuxFxVersion: 'DOCKER|${acrLoginServer}/servisite-backend:${backendImageTag}'
-      acrUseManagedIdentityCreds: true
-    }
-  }
-}
-
 // ── Frontend App Service ──────────────────────────────────────────────────────
 
 resource frontend 'Microsoft.Web/sites@2023-01-01' = {
@@ -161,23 +146,35 @@ resource frontendVnetIntegration 'Microsoft.Web/sites/networkConfig@2023-01-01' 
   }
 }
 
-// Staging slot
-resource frontendStaging 'Microsoft.Web/sites/slots@2023-01-01' = {
-  parent: frontend
-  name: 'staging'
-  location: location
-  identity: { type: 'SystemAssigned' }
-  properties: {
-    serverFarmId: plan.id
-    httpsOnly: true
-    siteConfig: {
-      linuxFxVersion: 'DOCKER|${acrLoginServer}/servisite-frontend:${frontendImageTag}'
-      acrUseManagedIdentityCreds: true
-    }
-  }
+// ── ACR reference (created before Bicep deploy) ───────────────────────────────
+
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
+  name: acrName
 }
 
 // ── RBAC: Managed Identities ──────────────────────────────────────────────────
+
+// AcrPull — App Services pull their container images using managed identity
+var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+resource backendAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(backend.id, acr.id, acrPullRoleId)
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
+    principalId: backend.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource frontendAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(frontend.id, acr.id, acrPullRoleId)
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
+    principalId: frontend.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
 
 // Storage Blob Data Contributor — backend can read/write blobs without a connection string
 var storageBlobContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
