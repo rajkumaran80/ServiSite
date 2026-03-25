@@ -41,6 +41,9 @@ param acrLoginServer string
 @description('Azure Container Registry name (e.g. servisite)')
 param acrName string
 
+@description('Front Door profile unique ID — sent in X-Azure-FDID header (az afd profile show --query frontDoorId)')
+param frontDoorId string
+
 @description('Backend Docker image tag')
 param backendImageTag string = 'latest'
 
@@ -115,6 +118,7 @@ module appservice 'modules/appservice.bicep' = {
     subnetBackendId: vnet.outputs.subnetBackendId
     acrLoginServer: acrLoginServer
     acrName: acrName
+    frontDoorId: frontDoorId
     backendImageTag: backendImageTag
     frontendImageTag: frontendImageTag
     databaseUrl: 'postgresql://servisite:${dbPassword}@${database.outputs.fqdn}:5432/servisite?sslmode=require'

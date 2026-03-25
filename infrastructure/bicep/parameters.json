@@ -14,6 +14,9 @@
     "acrName": {
       "value": "servisite"
     },
+    "frontDoorId": {
+      "value": "98142934-547a-4459-b178-52858fcee774"
+    },
     "backendImageTag": {
       "value": "latest"
     },

@@ -8,6 +8,7 @@ param subnetFrontendId string
 param subnetBackendId string
 param acrLoginServer string
 param acrName string
+param frontDoorId string
 param backendImageTag string
 param frontendImageTag string
 param databaseUrl string
@@ -68,9 +69,9 @@ resource backend 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'FRONTEND_URL', value: 'https://${appDomain}' }
         { name: 'ALLOWED_ORIGINS', value: 'https://${appDomain},https://www.${appDomain}' }
         // Secrets via Key Vault references — no plaintext values in config
-        { name: 'JWT_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(keyVaultUri, '/')[2]};SecretName=jwt-secret)' }
-        { name: 'REVALIDATE_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(keyVaultUri, '/')[2]};SecretName=revalidate-secret)' }
-        { name: 'INTERNAL_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(keyVaultUri, '/')[2]};SecretName=internal-secret)' }
+        { name: 'JWT_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=jwt-secret)' }
+        { name: 'REVALIDATE_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=revalidate-secret)' }
+        { name: 'INTERNAL_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=internal-secret)' }
         { name: 'WEBSITES_PORT', value: '3001' }
         { name: 'DOCKER_REGISTRY_SERVER_URL', value: 'https://${acrLoginServer}' }
       ]
@@ -112,7 +113,7 @@ resource frontend 'Microsoft.Web/sites@2023-01-01' = {
           tag: 'ServiceTag'
           ipAddress: 'AzureFrontDoor.Backend'
           headers: {
-            'X-Azure-FDID': [ '${prefix}-fd' ]  // Validate our specific FD instance
+            'X-Azure-FDID': [ frontDoorId ]
           }
         }
         {
@@ -127,8 +128,8 @@ resource frontend 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'NODE_ENV', value: 'production' }
         { name: 'NEXT_PUBLIC_APP_DOMAIN', value: appDomain }
         { name: 'NEXT_PUBLIC_API_URL', value: 'http://${prefix}-backend:3001/api/v1' }  // Private VNet hostname
-        { name: 'INTERNAL_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(keyVaultUri, '/')[2]};SecretName=internal-secret)' }
-        { name: 'REVALIDATE_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(keyVaultUri, '/')[2]};SecretName=revalidate-secret)' }
+        { name: 'INTERNAL_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=internal-secret)' }
+        { name: 'REVALIDATE_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=revalidate-secret)' }
         { name: 'WEBSITES_PORT', value: '3000' }
         { name: 'DOCKER_REGISTRY_SERVER_URL', value: 'https://${acrLoginServer}' }
       ]
