@@ -54,6 +54,7 @@ export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(InternalSecretMiddleware)
+      .exclude({ path: 'api/v1/health', method: RequestMethod.ALL })
       .forRoutes('*');
 
     consumer
