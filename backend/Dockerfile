@@ -20,16 +20,20 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# openssl required by Prisma engine detection on Alpine
+RUN apk add --no-cache openssl
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Copy with correct ownership so nestjs user can write to node_modules/@prisma
+COPY --from=deps --chown=nestjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 # prisma CLI needed for migrate deploy at startup
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
 USER nestjs
 
