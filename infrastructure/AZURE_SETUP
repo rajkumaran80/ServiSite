@@ -148,3 +148,49 @@ az ad app federated-credential create \
     "subject": "repo:rajkumaran80/ServiSite:ref:refs/heads/main",
     "audiences": ["api://AzureADMultiApp"]
   }'
+
+
+  az webapp config access-restriction add \
+  --resource-group servisite-rg \
+  --name servisite-prod-frontend \
+  --action Allow \
+  --priority 100 \
+  --rule-name allow-front-door \
+  --service-tag AzureFrontDoor.Backend \
+  --http-header x-azure-fdid=98142934-547a-4459-b178-52858fcee774
+
+  Good question. These manual commands are one-time patches because the Bicep deploy was never run — the App Services were created by GitHub Actions (which only deploys containers), but the full infrastructure (role assignments, access restrictions) was never set up by Bicep.
+
+What should have happened:
+
+
+az deployment group create ... (Bicep)
+  → Creates App Services
+  → Grants AcrPull role automatically
+  → Sets correct X-Azure-FDID restriction automatically
+  → Everything works on first deploy
+What actually happened:
+
+App Services were created manually/partially
+Bicep was never run
+So we're patching each missing piece manually
+For a fresh environment (dev, staging, or redo prod):
+
+You just run ONE command:
+
+
+az deployment group create \
+  --resource-group servisite-rg \
+  --template-file infrastructure/bicep/main.bicep \
+  --parameters @infrastructure/bicep/parameters.json \
+  --parameters \
+    dbPassword='...' \
+    jwtSecret='...' \
+    revalidateSecret='...' \
+    internalSecret='...'
+
+    That single command creates everything — VNet, subnets, PostgreSQL, Redis, Key Vault, Storage, App Services, AcrPull roles, access restrictions, Front Door — all in one go. No manual patching needed.
+
+The manual commands I ran today are already captured in the Bicep (I've been updating the files as we go). So next time it'll just work from the Bicep.
+
+The only reason today was messy is because we bootstrapped infrastructure in the wrong order.
