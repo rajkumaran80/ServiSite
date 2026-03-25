@@ -23,5 +23,6 @@
       "@modules/*": ["src/modules/*"],
       "@prisma/*": ["src/prisma/*"]
     }
-  }
+  },
+  "exclude": ["node_modules", "test", "dist"]
 }
