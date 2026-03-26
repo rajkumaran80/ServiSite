@@ -267,3 +267,22 @@ Add new migration names to the array as they are created.
 | DB name | `servisitedb` |
 | DB user | `servisiteadmin` |
 | Subscription ID | `8ecb7c89-073f-45a8-88b5-49ef2708228b` |
+
+
+All done. Here's the full security status:
+
+Item	Before	After
+Key Vault firewall	IP 45.146.9.205/32 allowed	✅ Removed — only private endpoint + Azure services
+ACR admin	Enabled	✅ Disabled
+Blob public access	true (account-level open)	✅ false
+ACI subnet snet-aci-temp	Orphaned, still existed	✅ Deleted
+PostgreSQL	—	✅ Was already private-only
+App Services	—	✅ Already AFD-only (locked)
+Front Door WAF	—	✅ Already in Prevention mode with DRS + Bot Manager
+Architecture security summary:
+
+Traffic enters only via Azure Front Door → WAF filters it → App Services (locked to AFD by FDID header check)
+Database on private VNet — no public access, no internet route
+Key Vault on private endpoint — no public IP rules
+ACR accessed by App Services via managed identity — no admin credentials active
+Media storage: HTTPS-only, TLS 1.2+, no anonymous blob reads
