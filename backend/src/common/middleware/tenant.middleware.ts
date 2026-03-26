@@ -22,6 +22,23 @@ export class TenantMiddleware implements NestMiddleware {
   ) {}
 
   async use(req: TenantRequest, res: Response, next: NextFunction) {
+    // Skip for routes that don't need tenant context. The NestJS exclude() in
+    // app.module.ts may not match reliably behind Azure App Service proxies, so
+    // we also guard here using the original URL from multiple sources.
+    const rawUrl =
+      (req.headers['x-original-url'] as string) ||
+      req.originalUrl ||
+      req.url ||
+      '';
+    if (
+      rawUrl.includes('/api/v1/health') ||
+      rawUrl.includes('/api/v1/auth/') ||
+      rawUrl.includes('/api/v1/tenant') ||
+      rawUrl.startsWith('/docs')
+    ) {
+      return next();
+    }
+
     const host = req.headers.host || '';
     // When behind Azure Front Door / proxies, the original host is preserved here
     const forwardedHost = (req.headers['x-forwarded-host'] as string) || host;
