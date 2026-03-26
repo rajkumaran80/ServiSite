@@ -17,23 +17,23 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
 
   const themeSettings = (tenant.themeSettings as any) ?? {};
   const primaryColor = themeSettings.primaryColor || '#3B82F6';
-  const tenantBase = `/${tenant.slug}`;
   const navPages = resolveNavPages(themeSettings.navPages);
   const template = getPageTemplate(themeSettings.pageTemplate);
   const showLogo = template.showLogo !== false;
 
   const isRestaurantLike = ['RESTAURANT', 'CAFE'].includes(tenant.type);
 
-  // Build nav links from predefined pages filtered by enabled state
+  // Build nav links — paths are relative to tenant root (/).
+  // The middleware rewrites subdomain requests so /menu is correct for costa.servisite.co.uk/menu.
   const navLinks = PREDEFINED_PAGES.filter((page) => navPages[page.key]).map((page) => {
     const label =
       page.key === 'menu' && !isRestaurantLike ? 'Services' : page.label;
-    const href = page.slug ? `${tenantBase}/${page.slug}` : tenantBase;
+    const href = page.slug ? `/${page.slug}` : '/';
     return { key: page.key, label, href };
   });
 
   const isActive = (href: string) => {
-    if (href === tenantBase) return pathname === href || pathname === `${tenantBase}/`;
+    if (href === '/') return pathname === '/' || pathname === '';
     return pathname.startsWith(href);
   };
 
@@ -43,7 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
         <div className="flex items-center justify-between h-16">
 
           {/* Logo / Name */}
-          <Link href={tenantBase} className="flex items-center gap-3 flex-shrink-0">
+          <Link href="/" className="flex items-center gap-3 flex-shrink-0">
             {tenant.logo ? (
               <img
                 src={tenant.logo}

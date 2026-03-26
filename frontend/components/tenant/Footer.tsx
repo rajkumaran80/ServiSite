@@ -7,7 +7,7 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ tenant }) => {
-  const tenantBase = `/${tenant.slug}`;
+  const tenantBase = '';
   const year = new Date().getFullYear();
 
   return (
@@ -43,7 +43,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
             <h4 className="text-white font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2">
               <li>
-                <Link href={tenantBase} className="text-gray-400 hover:text-white text-sm transition-colors">
+                <Link href="/" className="text-gray-400 hover:text-white text-sm transition-colors">
                   Home
                 </Link>
               </li>

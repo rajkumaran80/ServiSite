@@ -107,7 +107,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               {menuGroups.map((group: any) => (
                 <Link
                   key={group.id}
-                  href={`/${params.tenant}/menu?group=${group.id}`}
+                  href={`/menu?group=${group.id}`}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all text-sm font-semibold text-gray-700"
                 >
                   {group.icon && <span className="text-lg">{group.icon}</span>}
@@ -115,7 +115,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 </Link>
               ))}
               <Link
-                href={`/${params.tenant}/menu`}
+                href={`/menu`}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white shadow hover:shadow-lg hover:-translate-y-0.5 transition-all"
                 style={{ backgroundColor: primaryColor }}
               >
@@ -141,7 +141,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 </h2>
               </div>
               <Link
-                href={`/${params.tenant}/menu`}
+                href={`/menu`}
                 className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold"
                 style={{ color: primaryColor }}
               >
@@ -154,7 +154,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               /* Elegant: 2-col large cards */
               <div className="grid sm:grid-cols-2 gap-8">
                 {featuredItems.slice(0, 4).map((item: any) => (
-                  <Link key={item.id} href={`/${params.tenant}/menu`}
+                  <Link key={item.id} href={`/menu`}
                     className="group relative overflow-hidden rounded-2xl bg-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
                     style={{ minHeight: '320px' }}
                   >
@@ -182,7 +182,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               /* Classic / Modern / Fresh: 3-col card grid */
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {featuredItems.map((item: any) => (
-                  <Link key={item.id} href={`/${params.tenant}/menu`}
+                  <Link key={item.id} href={`/menu`}
                     className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
                   >
                     <div className="relative h-52 bg-gray-100 overflow-hidden">
@@ -209,7 +209,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             )}
 
             <div className="text-center mt-10 sm:hidden">
-              <Link href={`/${params.tenant}/menu`}
+              <Link href={`/menu`}
                 className="inline-block text-white font-bold px-8 py-3.5 rounded-xl shadow-lg"
                 style={{ backgroundColor: primaryColor }}>
                 View Full {isRestaurant ? 'Menu' : 'Services'}
