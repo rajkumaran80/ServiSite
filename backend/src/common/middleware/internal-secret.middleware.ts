@@ -41,9 +41,19 @@ export class InternalSecretMiddleware implements NestMiddleware {
       req.originalUrl ||
       req.url ||
       '';
+    const method = req.method?.toUpperCase();
     if (
       rawUrl.includes('/api/v1/health') ||
-      rawUrl.includes('/api/v1/auth/')
+      rawUrl.includes('/api/v1/auth/') ||
+      // Public read-only content routes — served by Next.js SSR without the
+      // secret (tenant sites are publicly accessible anyway)
+      (method === 'GET' || method === 'HEAD') && (
+        rawUrl.includes('/api/v1/tenant/') ||
+        rawUrl.includes('/api/v1/menu') ||
+        rawUrl.includes('/api/v1/gallery') ||
+        rawUrl.includes('/api/v1/page-entries') ||
+        rawUrl.includes('/api/v1/pages/')
+      )
     ) {
       return next();
     }
