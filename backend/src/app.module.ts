@@ -55,20 +55,20 @@ export class AppModule {
     consumer
       .apply(InternalSecretMiddleware)
       .exclude(
-        { path: 'api/v1/health', method: RequestMethod.ALL },
-        { path: 'api/v1/auth/(.*)', method: RequestMethod.ALL },
+        { path: '/api/v1/health', method: RequestMethod.ALL },
+        { path: '/api/v1/auth/(.*)', method: RequestMethod.ALL },
       )
       .forRoutes('*');
 
     consumer
       .apply(TenantMiddleware)
       .exclude(
-        { path: 'api/v1/health', method: RequestMethod.ALL },
-        { path: 'api/v1/auth/(.*)', method: RequestMethod.ALL },
-        { path: 'api/v1/tenant', method: RequestMethod.POST },
-        { path: 'api/v1/tenant', method: RequestMethod.GET },
-        { path: 'docs/(.*)', method: RequestMethod.ALL },
-        { path: 'docs', method: RequestMethod.ALL },
+        { path: '/api/v1/health', method: RequestMethod.ALL },
+        { path: '/api/v1/auth/(.*)', method: RequestMethod.ALL },
+        { path: '/api/v1/tenant', method: RequestMethod.POST },
+        { path: '/api/v1/tenant', method: RequestMethod.GET },
+        { path: '/docs/(.*)', method: RequestMethod.ALL },
+        { path: '/docs', method: RequestMethod.ALL },
       )
       .forRoutes('*');
   }

@@ -33,6 +33,21 @@ export class InternalSecretMiddleware implements NestMiddleware {
       return next();
     }
 
+    // Skip for routes that are self-authenticating or publicly accessible.
+    // Use multiple URL sources because Azure App Service / AFD proxies can
+    // affect req.url — req.originalUrl and x-original-url are more reliable.
+    const rawUrl =
+      (req.headers['x-original-url'] as string) ||
+      req.originalUrl ||
+      req.url ||
+      '';
+    if (
+      rawUrl.includes('/api/v1/health') ||
+      rawUrl.includes('/api/v1/auth/')
+    ) {
+      return next();
+    }
+
     const provided = req.headers['x-internal-secret'];
     if (provided !== this.secret) {
       this.logger.warn(`Rejected request missing/wrong X-Internal-Secret from ${req.ip}`);
