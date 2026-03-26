@@ -39,12 +39,14 @@ export default function JsonLd({ tenant, canonicalUrl }: Props) {
     }),
     ...(contact?.email && { email: contact.email }),
     ...(contact?.openingHours && {
-      openingHoursSpecification: Object.entries(contact.openingHours).map(([day, hours]) => ({
-        '@type': 'OpeningHoursSpecification',
-        dayOfWeek: `https://schema.org/${day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()}`,
-        opens: hours.split(/[-–]/)[0]?.trim(),
-        closes: hours.split(/[-–]/)[1]?.trim(),
-      })),
+      openingHoursSpecification: Object.entries(contact.openingHours)
+        .filter(([, hours]) => !(hours as any).closed)
+        .map(([day, hours]) => ({
+          '@type': 'OpeningHoursSpecification',
+          dayOfWeek: `https://schema.org/${day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()}`,
+          opens: (hours as any).open ?? '',
+          closes: (hours as any).close ?? '',
+        })),
     }),
   };
 
