@@ -42,7 +42,7 @@ jobs:
           IMAGE_TAG=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           IMAGE_LATEST=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           docker build \
-            --build-arg NEXT_PUBLIC_API_URL="https://servisite.co.uk/api/v1" \
+            --build-arg NEXT_PUBLIC_API_URL="https://www.servisite.co.uk/api/v1" \
             --build-arg NEXT_PUBLIC_APP_DOMAIN="servisite.co.uk" \
             -t "$IMAGE_TAG" -t "$IMAGE_LATEST" .
           docker push "$IMAGE_TAG"
