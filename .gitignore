@@ -45,8 +45,7 @@ coverage/
 # TypeScript
 *.tsbuildinfo
 
-# Prisma
-backend/prisma/migrations/
+# Prisma (migrations must be committed - they are needed for production deployments)
 
 # Docker
 docker-compose.override.yml
