@@ -5,7 +5,9 @@ import type { NextRequest } from 'next/server';
 const MAIN_DOMAIN_ROUTES = ['/dashboard', '/auth'];
 
 export function middleware(request: NextRequest) {
-  const hostname = request.headers.get('host') || '';
+  // X-Forwarded-Host is set by Azure Front Door to the original client hostname.
+  // Fall back to Host when running locally without a proxy.
+  const hostname = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
   const url = request.nextUrl.clone();
   const pathname = url.pathname;
 
