@@ -61,10 +61,27 @@ services:
       timeout: 3s
       retries: 5
 
+  # Azurite — Azure Blob Storage emulator for local dev
+  # Access via: http://127.0.0.1:10000/devstoreaccount1
+  # Dashboard: http://localhost:10001 (optional)
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    container_name: servisite_dev_azurite
+    restart: unless-stopped
+    ports:
+      - "10000:10000"  # Blob service
+      - "10001:10001"  # Queue service
+      - "10002:10002"  # Table service
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --loose
+    volumes:
+      - azurite_dev_data:/data
+
 volumes:
   postgres_dev_data:
     driver: local
   pgadmin_data:
     driver: local
   redis_dev_data:
+    driver: local
+  azurite_dev_data:
     driver: local
