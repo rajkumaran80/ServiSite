@@ -92,7 +92,7 @@ export class TenantController {
   @Post(':id/custom-domain')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Register a custom domain — returns DNS verification instructions' })
+  @ApiOperation({ summary: 'Register a custom domain — creates Azure DNS zone and returns NS records' })
   async setCustomDomain(
     @Param('id') id: string,
     @Body() body: { domain: string },
@@ -101,7 +101,9 @@ export class TenantController {
     return {
       data: result,
       success: true,
-      message: `Add a TXT record at ${result.txtRecord} with value "${result.token}", then call the verify endpoint.`,
+      message: result.nsRecords.length
+        ? `DNS zone created. Add these nameservers in your registrar (Ionos): ${result.nsRecords.join(', ')}`
+        : 'Domain saved. Azure DNS zone creation is not configured — set AZURE_SUBSCRIPTION_ID and AZURE_DNS_RESOURCE_GROUP.',
     };
   }
 

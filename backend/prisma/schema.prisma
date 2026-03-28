@@ -42,9 +42,10 @@ model Tenant {
   qrCodeUrl      String?
   // Custom domain support
   customDomain          String?   @unique
-  customDomainStatus    String?   // pending | verified | active | failed
-  customDomainToken     String?   // DNS TXT verification token
+  customDomainStatus    String?   // pending | active | failed
+  customDomainToken     String?   // DNS TXT verification token (legacy)
   customDomainVerifiedAt DateTime?
+  customDomainNsRecords String[]  // Azure DNS Zone nameservers to add in registrar
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 

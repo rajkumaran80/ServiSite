@@ -12,6 +12,7 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Tenant } from '@prisma/client';
 import { TenantCacheService, TTL } from '../../common/cache/tenant-cache.service';
 import { NotifyNextjsService } from '../../common/notify/notify-nextjs.service';
+import { AzureDnsService } from './azure-dns.service';
 import { randomBytes } from 'crypto';
 import { promises as dns } from 'dns';
 
@@ -24,6 +25,7 @@ export class TenantService {
     private readonly authService: AuthService,
     private readonly tenantCache: TenantCacheService,
     private readonly notify: NotifyNextjsService,
+    private readonly azureDns: AzureDnsService,
   ) {}
 
   async create(createTenantDto: CreateTenantDto): Promise<Tenant> {
@@ -145,9 +147,12 @@ export class TenantService {
 
   /**
    * Step 1: Tenant submits their custom domain.
-   * We generate a verification token and return DNS instructions.
+   * Creates an Azure DNS Zone and returns the nameservers to configure at the registrar.
    */
-  async setCustomDomain(tenantId: string, domain: string): Promise<{ token: string; txtRecord: string }> {
+  async setCustomDomain(
+    tenantId: string,
+    domain: string,
+  ): Promise<{ nsRecords: string[] }> {
     const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
 
     // Check the domain isn't already taken by another tenant
@@ -158,74 +163,75 @@ export class TenantService {
       throw new ConflictException(`Domain '${normalised}' is already registered`);
     }
 
-    const token = `srv-verify-${randomBytes(8).toString('hex')}`;
+    // Create Azure DNS Zone and retrieve its nameservers
+    const nsRecords = await this.azureDns.createZone(normalised);
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
         customDomain: normalised,
         customDomainStatus: 'pending',
-        customDomainToken: token,
+        customDomainNsRecords: nsRecords,
         customDomainVerifiedAt: null,
       },
     });
 
-    return {
-      token,
-      txtRecord: `_servisite-verify.${normalised}`,
-    };
+    return { nsRecords };
   }
 
   /**
-   * Step 2: Check DNS and activate the domain if TXT record matches.
+   * Check whether the domain's NS records have been delegated to Azure DNS.
+   * Activates the domain if at least one Azure NS is found.
    */
   async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string }> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { customDomain: true, customDomainToken: true, customDomainStatus: true, slug: true },
+      select: {
+        customDomain: true,
+        customDomainNsRecords: true,
+        customDomainStatus: true,
+        slug: true,
+      },
     });
 
-    if (!tenant?.customDomain || !tenant.customDomainToken) {
-      throw new BadRequestException('No custom domain pending verification');
+    if (!tenant?.customDomain) {
+      throw new BadRequestException('No custom domain set');
     }
     if (tenant.customDomainStatus === 'active') {
       return { verified: true, message: 'Domain already active' };
     }
 
-    const txtHost = `_servisite-verify.${tenant.customDomain}`;
-    let found = false;
+    const expectedNs = (tenant.customDomainNsRecords ?? []).map((ns) =>
+      ns.replace(/\.$/, '').toLowerCase(),
+    );
 
+    let delegated = false;
     try {
-      const records = await dns.resolveTxt(txtHost);
-      found = records.flat().includes(tenant.customDomainToken);
+      const actualNs = await dns.resolveNs(tenant.customDomain);
+      delegated = actualNs.some((ns) => expectedNs.includes(ns.toLowerCase()));
     } catch {
-      // DNS resolution failed — record not yet propagated
+      // NS lookup failed — not yet propagated
     }
 
-    if (!found) {
-      await this.prisma.tenant.update({
-        where: { id: tenantId },
-        data: { customDomainStatus: 'failed' },
-      });
-      return { verified: false, message: `TXT record not found at ${txtHost}. DNS changes can take up to 48 hours.` };
+    if (!delegated) {
+      return {
+        verified: false,
+        message: `Nameservers not yet updated for ${tenant.customDomain}. NS changes can take up to 48 hours to propagate.`,
+      };
     }
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
-      data: {
-        customDomainStatus: 'active',
-        customDomainVerifiedAt: new Date(),
-      },
+      data: { customDomainStatus: 'active', customDomainVerifiedAt: new Date() },
     });
 
-    // Warm the domain→slug cache immediately
     await this.tenantCache.setDomainSlug(tenant.customDomain, tenant.slug);
 
     return { verified: true, message: `Domain ${tenant.customDomain} is now active!` };
   }
 
   /**
-   * Remove a custom domain from the tenant.
+   * Remove a custom domain from the tenant and clean up the Azure DNS zone.
    */
   async removeCustomDomain(tenantId: string): Promise<void> {
     const tenant = await this.prisma.tenant.findUnique({
@@ -234,7 +240,10 @@ export class TenantService {
     });
 
     if (tenant?.customDomain) {
-      await this.tenantCache.deleteDomainSlug(tenant.customDomain);
+      await Promise.all([
+        this.tenantCache.deleteDomainSlug(tenant.customDomain),
+        this.azureDns.deleteZone(tenant.customDomain),
+      ]);
     }
 
     await this.prisma.tenant.update({
@@ -243,6 +252,7 @@ export class TenantService {
         customDomain: null,
         customDomainStatus: null,
         customDomainToken: null,
+        customDomainNsRecords: [],
         customDomainVerifiedAt: null,
       },
     });

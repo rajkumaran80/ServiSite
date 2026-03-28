@@ -11,6 +11,8 @@ import ImageUpload from '../../../components/ui/ImageUpload';
 import MultiImageUpload from '../../../components/ui/MultiImageUpload';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
 import { getTemplatesForType, getPageTemplate } from '../../../config/page-templates';
+import TemplatePreviewModal, { type TemplateColorScheme } from '../../../components/ui/TemplatePreviewModal';
+import { revalidateTenantCache } from './actions';
 
 const tenantSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(100),
@@ -23,6 +25,7 @@ const tenantSchema = z.object({
   secondaryColor: z.string().min(1),
   fontFamily: z.string().min(1),
 });
+// Note: primaryColor/secondaryColor kept in schema so handleSaveTemplate can update them via setValue.
 
 const contactSchema = z.object({
   phone: z.string().optional(),
@@ -58,12 +61,14 @@ export default function SettingsPage() {
   const [promoImageUrl, setPromoImageUrl] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('classic');
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templateModalIndex, setTemplateModalIndex] = useState(0);
+  const [storedTemplateColors, setStoredTemplateColors] = useState<TemplateColorScheme | undefined>(undefined);
   const [activeSection, setActiveSection] = useState<'general' | 'appearance' | 'design' | 'contact' | 'domain'>('general');
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
-  const [domainToken, setDomainToken] = useState<string | null>(null);
-  const [txtRecord, setTxtRecord] = useState<{ name: string; value: string } | null>(null);
+  const [nsRecords, setNsRecords] = useState<string[]>([]);
   const [isSavingDomain, setIsSavingDomain] = useState(false);
   const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
 
@@ -108,10 +113,19 @@ export default function SettingsPage() {
           );
           setPromoImageUrl((currentTenant.themeSettings as any)?.promoImageUrl || '');
           setSelectedTemplate((currentTenant.themeSettings as any)?.pageTemplate || 'classic');
+          const ts = currentTenant.themeSettings as any;
+          if (ts?.primaryColor) {
+            setStoredTemplateColors({
+              primaryColor: ts.primaryColor,
+              secondaryColor: ts.secondaryColor || ts.primaryColor,
+              accentColor: ts.accentColor || ts.primaryColor,
+              surfaceColor: ts.surfaceColor || '#f4f4f5',
+            });
+          }
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
-          setDomainToken(currentTenant.customDomainToken || null);
+          setNsRecords(currentTenant.customDomainNsRecords || []);
 
           tenantForm.reset({
             name: currentTenant.name,
@@ -156,9 +170,12 @@ export default function SettingsPage() {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
       setCustomDomain(domainInput.trim());
       setDomainStatus('pending');
-      setTxtRecord({ name: result.txtName, value: result.txtValue });
-      setDomainToken(result.txtValue);
-      toast.success('Domain saved — add the TXT record then click Verify');
+      setNsRecords(result.nsRecords || []);
+      toast.success(
+        result.nsRecords?.length
+          ? 'Domain saved — add the nameservers in Ionos then click Check Status'
+          : 'Domain saved',
+      );
     } catch {
       toast.error('Failed to save custom domain');
     } finally {
@@ -191,8 +208,7 @@ export default function SettingsPage() {
       setCustomDomain('');
       setDomainInput('');
       setDomainStatus(null);
-      setDomainToken(null);
-      setTxtRecord(null);
+      setNsRecords([]);
       toast.success('Custom domain removed');
     } catch {
       toast.error('Failed to remove custom domain');
@@ -222,6 +238,7 @@ export default function SettingsPage() {
         },
       });
       setTenant(updated);
+      if (updated.slug) await revalidateTenantCache(updated.slug);
       toast.success('Settings saved successfully');
     } catch {
       toast.error('Failed to save settings');
@@ -230,7 +247,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveTemplate = async (templateId: string) => {
+  const handleSaveTemplate = async (templateId: string, customColors?: TemplateColorScheme) => {
     if (!tenant) return;
     setIsSavingTemplate(true);
     try {
@@ -239,14 +256,27 @@ export default function SettingsPage() {
         themeSettings: {
           ...(tenant.themeSettings as any || {}),
           pageTemplate: templateId,
-          primaryColor: tmpl.primaryColor,
-          secondaryColor: tmpl.secondaryColor,
+          primaryColor: customColors?.primaryColor ?? tmpl.primaryColor,
+          secondaryColor: customColors?.secondaryColor ?? tmpl.secondaryColor,
+          accentColor: customColors?.accentColor ?? tmpl.primaryColor,
+          surfaceColor: customColors?.surfaceColor,
           fontFamily: tmpl.fontFamily,
           promoImageUrl: promoImageUrl || undefined,
         },
       });
       setTenant(updated);
       setSelectedTemplate(templateId);
+      const appliedColors: TemplateColorScheme = {
+        primaryColor: customColors?.primaryColor ?? tmpl.primaryColor,
+        secondaryColor: customColors?.secondaryColor ?? tmpl.secondaryColor,
+        accentColor: customColors?.accentColor ?? tmpl.primaryColor,
+        surfaceColor: customColors?.surfaceColor ?? '#f4f4f5',
+      };
+      setStoredTemplateColors(appliedColors);
+      tenantForm.setValue('primaryColor', appliedColors.primaryColor);
+      tenantForm.setValue('secondaryColor', appliedColors.secondaryColor);
+      tenantForm.setValue('fontFamily', tmpl.fontFamily);
+      if (updated.slug) await revalidateTenantCache(updated.slug);
       toast.success(`Template "${tmpl.name}" applied!`);
     } catch {
       toast.error('Failed to apply template');
@@ -397,7 +427,7 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-500 mb-6">Choose a visual style for your public website. This sets colours, fonts and layout.</p>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              {getTemplatesForType(tenant?.type).map((tmpl) => {
+              {getTemplatesForType(tenant?.type).map((tmpl, idx) => {
                 const isSelected = selectedTemplate === tmpl.id;
                 return (
                   <div
@@ -405,7 +435,10 @@ export default function SettingsPage() {
                     className={`rounded-2xl overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
                       isSelected ? 'border-blue-500 shadow-lg scale-[1.01]' : 'border-transparent hover:border-gray-300'
                     }`}
-                    onClick={() => setSelectedTemplate(tmpl.id)}
+                    onClick={() => {
+                      setTemplateModalIndex(idx);
+                      setIsTemplateModalOpen(true);
+                    }}
                   >
                     {/* Visual preview */}
                     <div className={`bg-gradient-to-br ${tmpl.previewGradient} p-5 h-32 flex flex-col justify-between relative overflow-hidden`}>
@@ -531,14 +564,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <button
-            onClick={() => handleSaveTemplate(selectedTemplate)}
-            disabled={isSavingTemplate}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
-          >
-            {isSavingTemplate && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            Apply Template
-          </button>
+          <p className="text-sm text-gray-400">Click any template to preview and customise colours before applying.</p>
         </div>
       )}
 
@@ -547,39 +573,6 @@ export default function SettingsPage() {
         <form onSubmit={tenantForm.handleSubmit(handleSaveTenant)} className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
             <h2 className="font-semibold text-gray-900">Branding & Theme</h2>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Primary Color</label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="color"
-                    {...tenantForm.register('primaryColor')}
-                    className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer"
-                  />
-                  <input
-                    {...tenantForm.register('primaryColor')}
-                    placeholder="#3B82F6"
-                    className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Secondary Color</label>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="color"
-                    {...tenantForm.register('secondaryColor')}
-                    className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer"
-                  />
-                  <input
-                    {...tenantForm.register('secondaryColor')}
-                    placeholder="#1E40AF"
-                    className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                  />
-                </div>
-              </div>
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Font Family</label>
@@ -803,58 +796,47 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* DNS instructions */}
-            {(domainStatus === 'pending' || domainToken) && (
+            {/* NS records instructions */}
+            {domainStatus === 'pending' && (
               <div className="space-y-4">
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
-                  <h3 className="font-semibold text-amber-900 text-sm">Step 1 — Add a DNS TXT record for ownership verification</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs font-mono">
-                      <thead>
-                        <tr className="text-amber-700 text-left">
-                          <th className="pr-6 pb-2 font-semibold">Type</th>
-                          <th className="pr-6 pb-2 font-semibold">Host / Name</th>
-                          <th className="pb-2 font-semibold">Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="text-amber-900">
-                          <td className="pr-6 py-1">TXT</td>
-                          <td className="pr-6 py-1 break-all">
-                            {txtRecord?.name || `_servisite-verify.${customDomain}`}
-                          </td>
-                          <td className="py-1 break-all">
-                            {txtRecord?.value || domainToken}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                {nsRecords.length > 0 ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
+                    <div>
+                      <h3 className="font-semibold text-amber-900 text-sm">Update nameservers in Ionos</h3>
+                      <p className="text-xs text-amber-700 mt-1">
+                        Log in to your Ionos account, go to <strong>DNS → Nameservers</strong> for <span className="font-mono">{customDomain}</span>,
+                        and replace the existing nameservers with the ones below.
+                      </p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs font-mono">
+                        <thead>
+                          <tr className="text-amber-700 text-left">
+                            <th className="pr-6 pb-2 font-semibold">#</th>
+                            <th className="pb-2 font-semibold">Nameserver</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {nsRecords.map((ns, i) => (
+                            <tr key={ns} className="text-amber-900">
+                              <td className="pr-6 py-1">{i + 1}</td>
+                              <td className="py-1">{ns}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-xs text-amber-700">
+                      Nameserver changes can take up to 48 hours to propagate. Click <strong>Check Status</strong> once updated.
+                    </p>
                   </div>
-                  <p className="text-xs text-amber-700">DNS changes can take up to 48 hours to propagate.</p>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-                  <h3 className="font-semibold text-blue-900 text-sm mb-3">Step 2 — Add a CNAME record to point traffic</h3>
-                  <table className="w-full text-xs font-mono">
-                    <thead>
-                      <tr className="text-blue-700 text-left">
-                        <th className="pr-6 pb-2 font-semibold">Type</th>
-                        <th className="pr-6 pb-2 font-semibold">Host / Name</th>
-                        <th className="pb-2 font-semibold">Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="text-blue-900">
-                        <td className="pr-6 py-1">CNAME</td>
-                        <td className="pr-6 py-1">www</td>
-                        <td className="py-1">{tenant?.slug}.{process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com'}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <p className="text-xs text-blue-700 mt-2">
-                    Note: For apex domains (no www), use Cloudflare CNAME flattening, Route 53 ALIAS, or a redirect from your registrar.
-                  </p>
-                </div>
+                ) : (
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                    <p className="text-sm text-gray-600">
+                      Domain saved. Azure DNS zone creation is not configured on this server — nameservers are not available yet.
+                    </p>
+                  </div>
+                )}
 
                 <button
                   type="button"
@@ -863,21 +845,45 @@ export default function SettingsPage() {
                   className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
                 >
                   {isVerifyingDomain && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                  Verify Domain Ownership
+                  Check Status
                 </button>
               </div>
             )}
 
             {domainStatus === 'active' && (
-              <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-3">
                 <p className="text-sm text-green-800 font-medium">
                   ✓ Your custom domain <span className="font-mono font-bold">{customDomain}</span> is active.
                   Visitors can now reach your site at this domain.
                 </p>
+                {nsRecords.length > 0 && (
+                  <details className="text-xs">
+                    <summary className="text-green-700 cursor-pointer font-medium">View nameservers</summary>
+                    <ul className="mt-2 font-mono space-y-0.5 text-green-900">
+                      {nsRecords.map((ns) => <li key={ns}>{ns}</li>)}
+                    </ul>
+                  </details>
+                )}
               </div>
             )}
           </div>
         </div>
+      )}
+
+      {/* Template preview modal */}
+      {isTemplateModalOpen && tenant && (
+        <TemplatePreviewModal
+          templates={getTemplatesForType(tenant.type)}
+          initialIndex={templateModalIndex}
+          currentTemplateId={selectedTemplate}
+          storedColors={storedTemplateColors}
+          isSaving={isSavingTemplate}
+          onApply={async (templateId, colors) => {
+            await handleSaveTemplate(templateId, colors);
+            setIsTemplateModalOpen(false);
+          }}
+          onClose={() => setIsTemplateModalOpen(false)}
+        />
       )}
     </div>
   );

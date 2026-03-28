@@ -27,9 +27,10 @@ export interface Tenant {
   createdAt: string;
   updatedAt: string;
   customDomain?: string | null;
-  customDomainStatus?: 'pending' | 'verified' | 'active' | 'failed' | null;
+  customDomainStatus?: 'pending' | 'active' | 'failed' | null;
   customDomainToken?: string | null;
   customDomainVerifiedAt?: string | null;
+  customDomainNsRecords?: string[];
   contactInfo?: ContactInfo | null;
   _count?: {
     menuItems: number;

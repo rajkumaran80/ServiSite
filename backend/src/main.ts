@@ -52,7 +52,8 @@ async function bootstrap() {
       const isAllowed =
         allowedOrigins.includes(origin) ||
         origin.endsWith(`.${appDomain}`) ||
-        origin === `https://${appDomain}`;
+        origin === `https://${appDomain}` ||
+        /^https?:\/\/[^.]+\.localhost(:\d+)?$/.test(origin);
       if (isAllowed) {
         callback(null, true);
       } else {

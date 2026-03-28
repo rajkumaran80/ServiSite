@@ -5,7 +5,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1
 async function getTenant(slug: string) {
   try {
     const res = await fetch(`${API_URL}/tenant/${slug}`, {
-      next: { tags: [`tenant:${slug}`], revalidate: 1800 },
+      next: { tags: [`tenant:${slug}`], revalidate: 60 },
     });
     if (!res.ok) return null;
     return (await res.json()).data;

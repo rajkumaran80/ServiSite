@@ -11,7 +11,9 @@ const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.co.uk';
 async function getTenant(slug: string) {
   try {
     const res = await fetch(`${API_URL}/tenant/${slug}`, {
-      next: { tags: [`tenant:${slug}`], revalidate: 1800 },
+      // Tag-based caching: data is cached and immediately busted by revalidateTenantCache()
+      // after every admin save. Fallback TTL of 60s in case revalidation is missed.
+      next: { tags: [`tenant:${slug}`], revalidate: 60 },
     });
     if (!res.ok) return null;
     const data = await res.json();

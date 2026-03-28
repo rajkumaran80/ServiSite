@@ -35,7 +35,7 @@ export const MultiImageUpload: React.FC<MultiImageUploadProps> = ({ urls, onChan
       const file = fileArray[i];
       setProgress(`Uploading ${i + 1} of ${fileArray.length}…`);
       try {
-        const result = await uploadService.uploadFile(file, 'gallery');
+        const result = await uploadService.uploadFile(file, 'banner');
         uploaded.push(result.url);
       } catch {
         toast.error(`Failed to upload ${file.name}`);

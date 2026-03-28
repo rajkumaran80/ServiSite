@@ -18,7 +18,7 @@ const WhatsAppIcon = () => (
 );
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, heroStyle = 'dark', primaryColor, fontFamily }) => {
-  const tenantBase = `/${tenant.slug}`;
+  const tenantBase = ``;
   const ctaLabel = tenant.type === 'RESTAURANT' ? 'View Menu' : 'Our Services';
   const ctaHref = `${tenantBase}/menu`;
   const waHref = tenant.whatsappNumber
@@ -1029,11 +1029,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
   return (
     <section className="relative min-h-[560px] flex items-center overflow-hidden" style={{ backgroundColor: `${primaryColor}0a` }}>
       {hasBanners ? (
-        <BannerSlideshow
-          images={bannerImages}
-          overlayStyle={{ background: `linear-gradient(to right, ${primaryColor}33, transparent)` }}
-          className="opacity-20"
-        />
+        <div className="absolute inset-0" style={{ opacity: 0.25 }}>
+          <BannerSlideshow
+            images={bannerImages}
+            overlayStyle={{ background: `linear-gradient(to right, ${primaryColor}33, transparent)` }}
+          />
+        </div>
       ) : (
         <div className="absolute right-0 top-0 bottom-0 w-1/2 flex items-center justify-center text-[200px] opacity-10 select-none pointer-events-none">
           🌿

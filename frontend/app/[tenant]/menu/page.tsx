@@ -8,7 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1
 
 async function getTenant(slug: string) {
   try {
-    const res = await fetch(`${API_URL}/tenant/${slug}`, { next: { revalidate: 300 } } as RequestInit);
+    const res = await fetch(`${API_URL}/tenant/${slug}`, { cache: 'no-store' });
     if (!res.ok) return null;
     const data = await res.json();
     return data.data;

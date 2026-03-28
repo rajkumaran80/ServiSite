@@ -10,7 +10,7 @@ const RESERVED_SLUGS = ['menu', 'gallery', 'contact'];
 
 async function getTenant(tenantSlug: string) {
   try {
-    const res = await fetch(`${API_URL}/tenant/${tenantSlug}`, { cache: 'no-store' });
+    const res = await fetch(`${API_URL}/tenant/${tenantSlug}`, { next: { tags: [`tenant:${tenantSlug}`], revalidate: 60 } });
     if (!res.ok) return null;
     const data = await res.json();
     return data.data;
@@ -23,7 +23,7 @@ async function getPage(tenantId: string, slug: string): Promise<CmsPage | null> 
   try {
     const res = await fetch(`${API_URL}/pages/${slug}`, {
       headers: { 'x-tenant-id': tenantId },
-      cache: 'no-store',
+      next: { tags: [`tenant:${tenantId}:pages`], revalidate: 60 },
     });
     if (!res.ok) return null;
     const data = await res.json();

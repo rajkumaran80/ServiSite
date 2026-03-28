@@ -8,7 +8,7 @@ const DAYS_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'sat
 async function getTenant(slug: string) {
   try {
     const res = await fetch(`${API_URL}/tenant/${slug}`, {
-      next: { tags: [`tenant:${slug}`, `tenant:${slug}:contact`], revalidate: 3600 },
+      next: { tags: [`tenant:${slug}`], revalidate: 60 },
     });
     if (!res.ok) return null;
     const data = await res.json();

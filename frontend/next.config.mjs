@@ -12,6 +12,9 @@ const nextConfig = {
       },
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'via.placeholder.com' },
+      // Azurite local dev emulator
+      { protocol: 'http', hostname: '127.0.0.1', port: '10000', pathname: '/**' },
+      { protocol: 'http', hostname: 'localhost', port: '10000', pathname: '/**' },
     ],
   },
 
@@ -36,19 +39,19 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'origin-when-cross-origin' },
         ],
       },
-      // Tenant home pages — CDN-cacheable for 5 min, stale-while-revalidate 1 hr
+      // Tenant home pages — CDN-cacheable for 5 min, but browsers must always revalidate
       {
         source: '/:tenant',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+          { key: 'Cache-Control', value: 'public, no-cache, s-maxage=300' },
           { key: 'Vary', value: 'Host' },
         ],
       },
-      // Menu — CDN-cacheable for 5 min (changes more often)
+      // Menu — CDN-cacheable for 5 min
       {
         source: '/:tenant/menu',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=1800' },
+          { key: 'Cache-Control', value: 'public, no-cache, s-maxage=300' },
           { key: 'Vary', value: 'Host' },
         ],
       },
@@ -56,7 +59,7 @@ const nextConfig = {
       {
         source: '/:tenant/gallery',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=900, stale-while-revalidate=3600' },
+          { key: 'Cache-Control', value: 'public, no-cache, s-maxage=900' },
           { key: 'Vary', value: 'Host' },
         ],
       },
@@ -64,7 +67,7 @@ const nextConfig = {
       {
         source: '/:tenant/:page',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=86400' },
+          { key: 'Cache-Control', value: 'public, no-cache, s-maxage=3600' },
           { key: 'Vary', value: 'Host' },
         ],
       },

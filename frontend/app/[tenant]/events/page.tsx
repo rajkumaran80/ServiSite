@@ -7,7 +7,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1
 
 async function getTenant(slug: string) {
   try {
-    const res = await fetch(`${API_URL}/tenant/${slug}`, { cache: 'no-store' });
+    const res = await fetch(`${API_URL}/tenant/${slug}`, { next: { tags: [`tenant:${slug}`], revalidate: 60 } });
     if (!res.ok) return null;
     return (await res.json()).data;
   } catch { return null; }
@@ -17,7 +17,7 @@ async function getEntries(tenantSlug: string, pageKey: string) {
   try {
     const res = await fetch(`${API_URL}/page-entries?pageKey=${pageKey}`, {
       headers: { 'x-tenant-id': tenantSlug },
-      cache: 'no-store',
+      next: { tags: [`tenant:${tenantSlug}:entries`], revalidate: 60 },
     });
     if (!res.ok) return [];
     return (await res.json()).data ?? [];
