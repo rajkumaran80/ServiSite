@@ -14,6 +14,11 @@ import { SuperAdminModule } from './modules/superadmin/superadmin.module';
 import { NavigationModule } from './modules/navigation/navigation.module';
 import { PagesModule } from './modules/pages/pages.module';
 import { PageEntriesModule } from './modules/page-entries/page-entries.module';
+import { OrderingModule } from './modules/ordering/ordering.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { ModifiersModule } from './modules/modifiers/modifiers.module';
+import { BundlesModule } from './modules/bundles/bundles.module';
+import { PricingModule } from './modules/pricing/pricing.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { InternalSecretMiddleware } from './common/middleware/internal-secret.middleware';
 import { CacheModule } from './common/cache/cache.module';
@@ -42,6 +47,11 @@ import { NotifyModule } from './common/notify/notify.module';
     NavigationModule,
     PagesModule,
     PageEntriesModule,
+    OrderingModule,
+    BillingModule,
+    ModifiersModule,
+    BundlesModule,
+    PricingModule,
   ],
   controllers: [AppController],
   providers: [

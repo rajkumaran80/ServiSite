@@ -82,7 +82,7 @@ export default function LandingPage() {
                 Sign In
               </Link>
               <Link
-                href="/auth/login"
+                href="/auth/signup"
                 className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 Get Started Free
@@ -112,18 +112,19 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/auth/login"
+              href="/auth/signup"
               className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-4 rounded-xl text-lg transition-colors shadow-lg shadow-blue-200"
             >
-              Start for free →
+              Start free trial →
             </Link>
             <a
-              href="#features"
+              href="#pricing"
               className="w-full sm:w-auto text-gray-700 hover:text-gray-900 font-medium px-8 py-4 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors text-lg"
             >
-              See how it works
+              See pricing
             </a>
           </div>
+          <p className="text-sm text-gray-400 mt-4">7-day free trial &nbsp;·&nbsp; No credit card required</p>
 
           {/* Demo preview */}
           <div className="mt-16 relative">
@@ -198,6 +199,126 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-6">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Simple, transparent pricing
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Start free for 7 days — no credit card required. Pay only when you're ready to go live.
+            </p>
+          </div>
+
+          {/* Trial callout */}
+          <div className="flex justify-center mb-12">
+            <div className="inline-flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 px-6 py-3 rounded-full text-sm font-medium">
+              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              7-day free trial &nbsp;·&nbsp; No credit card needed &nbsp;·&nbsp; Cancel any time
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Basic Plan */}
+            <div className="border-2 border-gray-200 rounded-2xl p-8 hover:border-blue-300 transition-colors">
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Basic</p>
+                <div className="flex items-end gap-1">
+                  <span className="text-4xl font-bold text-gray-900">£49</span>
+                  <span className="text-gray-500 mb-1">/month</span>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">+ £299 one-time setup fee</p>
+              </div>
+              <p className="text-gray-600 text-sm mb-6">
+                Everything you need for a professional business website.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  'Custom subdomain (yourname.servisite.com)',
+                  'Menu / services showcase',
+                  'Photo gallery',
+                  'Contact & WhatsApp integration',
+                  'Custom branding & colours',
+                  'Admin dashboard',
+                  'Mobile-friendly design',
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm text-gray-700">
+                    <svg className="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/auth/signup?plan=basic"
+                className="block w-full text-center py-3 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold rounded-xl transition-colors"
+              >
+                Start free trial
+              </Link>
+            </div>
+
+            {/* Ordering Plan */}
+            <div className="border-2 border-blue-600 rounded-2xl p-8 relative shadow-lg shadow-blue-100">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                <span className="bg-blue-600 text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wide">
+                  Most Popular
+                </span>
+              </div>
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide mb-2">Ordering</p>
+                <div className="flex items-end gap-1">
+                  <span className="text-4xl font-bold text-gray-900">£99</span>
+                  <span className="text-gray-500 mb-1">/month</span>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">+ £299 one-time setup fee</p>
+              </div>
+              <p className="text-gray-600 text-sm mb-6">
+                Everything in Basic, plus a full online ordering system to take orders and grow revenue.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {[
+                  'Everything in Basic',
+                  'Online ordering with cart',
+                  'Bundle & combo meals',
+                  'Item modifiers (sizes, extras)',
+                  'Pricing rules & discounts',
+                  'Real-time order notifications',
+                  'Email & WhatsApp order alerts',
+                  '5% platform fee on orders (rest goes to you)',
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm text-gray-700">
+                    <svg className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/auth/signup?plan=ordering"
+                className="block w-full text-center py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+              >
+                Start free trial
+              </Link>
+            </div>
+          </div>
+
+          {/* Setup fee note */}
+          <div className="mt-10 max-w-2xl mx-auto bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-900">
+            <p className="font-semibold mb-1">About the £299 one-time setup fee</p>
+            <p className="text-amber-800 leading-relaxed">
+              This is paid once to activate your site after the trial. It covers your custom domain setup,
+              onboarding, and first-month service. Monthly billing starts from month 2. You can pay any
+              time during or after the trial from your dashboard — <strong>no card needed to sign up</strong>.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="py-20 bg-blue-600">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -209,7 +330,7 @@ export default function LandingPage() {
             Set up your page in under 5 minutes.
           </p>
           <Link
-            href="/auth/login"
+            href="/auth/signup"
             className="inline-block bg-white text-blue-600 font-semibold px-10 py-4 rounded-xl text-lg hover:bg-blue-50 transition-colors shadow-lg"
           >
             Create your free page →

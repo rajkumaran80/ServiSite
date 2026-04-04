@@ -27,27 +27,118 @@ enum UserRole {
   STAFF
 }
 
+enum TenantPlan {
+  BASIC
+  ORDERING
+  BOOKING
+}
+
+// Billing lifecycle status
+enum TenantStatus {
+  TRIAL          // 0–7 days free
+  GRACE          // 8–21 days — registration fee unpaid
+  ACTIVE         // Registration paid + subscription active
+  SUSPENDED      // >21 days without registration payment
+  CANCELLED      // Subscription cancelled
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum BundlePricingType {
+  FIXED
+  SUM
+  DISCOUNTED
+}
+
+enum ChoiceSourceType {
+  MENU_GROUP
+  CATEGORY
+  ITEM
+}
+
+enum PricingRuleType {
+  BOGO
+  PERCENTAGE
+  FIXED_AMOUNT
+  HAPPY_HOUR
+}
+
+enum ModifierGroupType {
+  SINGLE_SELECT
+  MULTI_SELECT
+}
+
+enum HalfHalfPricingMode {
+  MAX      // charge the higher half price
+  AVERAGE  // charge average of both halves
+  SUM      // charge sum of both halves
+}
+
+model AppConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_config")
+}
+
+// IP-based registration rate limiting
+model RegistrationAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  email     String
+  createdAt DateTime @default(now())
+
+  @@index([ip])
+  @@index([createdAt])
+  @@map("registration_attempts")
+}
+
 model Tenant {
-  id             String     @id @default(cuid())
+  id             String       @id @default(cuid())
   name           String
-  slug           String     @unique
-  type           TenantType @default(RESTAURANT)
+  slug           String       @unique
+  type           TenantType   @default(RESTAURANT)
   logo           String?
   banner         String?
-  themeSettings  Json?      @default("{}")
-  currency       String     @default("USD")
-  timezone       String     @default("UTC")
-  locale         String     @default("en")
+  themeSettings  Json?        @default("{}")
+  currency       String       @default("GBP")
+  phone          String?
+  timezone       String       @default("UTC")
+  locale         String       @default("en")
   whatsappNumber String?
   qrCodeUrl      String?
+  plan           TenantPlan   @default(BASIC)
   // Custom domain support
   customDomain          String?   @unique
-  customDomainStatus    String?   // pending | active | failed
-  customDomainToken     String?   // DNS TXT verification token (legacy)
+  customDomainStatus    String?
+  customDomainToken     String?
   customDomainVerifiedAt DateTime?
-  customDomainNsRecords String[]  // Azure DNS Zone nameservers to add in registrar
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  customDomainNsRecords String[]
+  // Email verification — site is only public after admin verifies email
+  emailVerified Boolean @default(false)
+  // Billing / subscription
+  status                      TenantStatus @default(TRIAL)
+  trialEndsAt                 DateTime?
+  gracePeriodEndsAt           DateTime?
+  stripeCustomerId            String?      @unique
+  stripeSubscriptionId        String?      @unique
+  stripeConnectId             String?      @unique
+  registrationFeePaid         Boolean      @default(false)
+  registrationFeePaymentIntent String?
+  currentPeriodEnd            DateTime?
+  lastReminderSentAt          DateTime?
+  reminderCount               Int          @default(0)
+  suspendedAt                 DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   users           User[]
   categories      Category[]
@@ -58,23 +149,40 @@ model Tenant {
   navigationItems NavigationItem[]
   pages           Page[]
   pageEntries     PageEntry[]
+  choiceGroups    ChoiceGroup[]
+  bundles         Bundle[]
+  pricingRules    PricingRule[]
+  orders          Order[]
+  modifierGroups  ModifierGroup[]
+  itemVariants    ItemVariant[]
+  halfHalfConfigs HalfHalfConfig[]
+  billingEvents   BillingEvent[]
+  auditLogs       AuditLog[]
 
   @@map("tenants")
 }
 
 model User {
-  id           String   @id @default(cuid())
-  tenantId     String
-  email        String
-  passwordHash String
-  role         UserRole @default(STAFF)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  tenantId        String
+  email           String
+  normalizedEmail String?  // dots/plus removed — for duplicate detection
+  passwordHash    String?  // nullable for Google-only users
+  googleId        String?  @unique
+  role            UserRole @default(STAFF)
+  // Email verification
+  emailVerified           Boolean   @default(false)
+  emailVerificationToken  String?   @unique
+  emailVerificationExpiry DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  refreshTokens RefreshToken[]
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  refreshTokens     RefreshToken[]
+  pushSubscriptions PushSubscription[]
 
   @@unique([tenantId, email])
+  @@index([normalizedEmail])
   @@map("users")
 }
 
@@ -88,6 +196,57 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
+}
+
+// Web Push subscriptions for order notifications (tenant admin)
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+
+// Audit log — tracks all admin actions, including superadmin impersonation
+model AuditLog {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  userId               String   // The session user (tenant admin)
+  userEmail            String
+  impersonatedById     String?  // Superadmin user ID if acting via impersonation
+  impersonatedByEmail  String?  // Superadmin email
+  action               String   // e.g. "menu.item.update", "settings.update"
+  resource             String?  // e.g. "MenuItem", "Tenant"
+  resourceId           String?
+  metadata             Json     @default("{}")
+  createdAt            DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Billing event log — audit trail + webhook idempotency
+model BillingEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  type        String   // registration_paid | subscription_created | grace_started | suspended | payment_failed | etc.
+  stripeEvent String?  @unique // Stripe event ID — prevents double-processing
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("billing_events")
 }
 
 model MenuGroup {
@@ -141,11 +300,110 @@ model MenuItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  categories Category[]
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categories     Category[]
+  orderLines     OrderLine[]
+  modifierGroups MenuItemModifierGroup[]
+  variants       ItemVariant[]
+  halfHalfLeft   HalfHalfConfig[]        @relation("HalfHalfLeft")
+  halfHalfRight  HalfHalfConfig[]        @relation("HalfHalfRight")
 
   @@map("menu_items")
 }
+
+// ── Item Variants (size-based pricing) ──────────────────────────────────────
+
+model ItemVariant {
+  id        String   @id @default(cuid())
+  tenantId  String
+  menuItemId String
+  name      String   // "Small", "Medium", "Large", "10\"", "12\""
+  price     Decimal  @db.Decimal(10, 2)
+  isDefault Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+  @@map("item_variants")
+}
+
+// ── Half & Half Config (e.g. pizza half-half) ─────────────────────────────
+
+model HalfHalfConfig {
+  id          String              @id @default(cuid())
+  tenantId    String
+  name        String              // "Half & Half Pizza"
+  leftItemId  String              // left half menu item
+  rightItemId String              // right half menu item
+  pricingMode HalfHalfPricingMode @default(MAX)
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leftItem  MenuItem @relation("HalfHalfLeft",  fields: [leftItemId],  references: [id], onDelete: Cascade)
+  rightItem MenuItem @relation("HalfHalfRight", fields: [rightItemId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("half_half_configs")
+}
+
+// ── Item modifier system ─────────────────────────────────────────────────────
+
+model ModifierGroup {
+  id        String            @id @default(cuid())
+  tenantId  String
+  name      String            // "Size", "Crust Type", "Extras"
+  type      ModifierGroupType @default(SINGLE_SELECT)
+  required  Boolean           @default(false)
+  minSelect Int               @default(0)
+  maxSelect Int?              // null = unlimited
+  freeLimit Int               @default(0)  // first N selections are free (toppings use case)
+  sortOrder Int               @default(0)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  options   ModifierOption[]
+  menuItems MenuItemModifierGroup[]
+
+  @@map("modifier_groups")
+}
+
+model ModifierOption {
+  id              String   @id @default(cuid())
+  modifierGroupId String
+  name            String   // "Small", "Medium", "Large", "Extra Cheese"
+  priceAdjustment Decimal  @default(0) @db.Decimal(10, 2)
+  isDefault       Boolean  @default(false)
+  isAvailable     Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@map("modifier_options")
+}
+
+// Join: MenuItem ↔ ModifierGroup (ordered many-to-many)
+model MenuItemModifierGroup {
+  menuItemId      String
+  modifierGroupId String
+  sortOrder       Int    @default(0)
+
+  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, modifierGroupId])
+  @@map("menu_item_modifier_groups")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 
 model ContactInfo {
   id           String   @id @default(cuid())
@@ -228,4 +486,125 @@ model PageEntry {
 
   @@index([tenantId, pageKey])
   @@map("page_entries")
+}
+
+model ChoiceGroup {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  minSelection Int      @default(1)
+  maxSelection Int      @default(1)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sources            ChoiceGroupSource[]
+  bundleChoiceGroups BundleChoiceGroup[]
+
+  @@map("choice_groups")
+}
+
+model ChoiceGroupSource {
+  id            String           @id @default(cuid())
+  choiceGroupId String
+  sourceType    ChoiceSourceType
+  sourceId      String
+
+  choiceGroup ChoiceGroup @relation(fields: [choiceGroupId], references: [id], onDelete: Cascade)
+
+  @@map("choice_group_sources")
+}
+
+model Bundle {
+  id          String            @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  imageUrl    String?
+  pricingType BundlePricingType @default(FIXED)
+  basePrice   Decimal?          @db.Decimal(10, 2)
+  discountPct Decimal?          @db.Decimal(5, 2)
+  isActive    Boolean           @default(true)
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  choiceGroups BundleChoiceGroup[]
+  orderLines   OrderLine[]
+
+  @@map("bundles")
+}
+
+model BundleChoiceGroup {
+  id            String @id @default(cuid())
+  bundleId      String
+  choiceGroupId String
+  sortOrder     Int    @default(0)
+
+  bundle      Bundle      @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  choiceGroup ChoiceGroup @relation(fields: [choiceGroupId], references: [id], onDelete: Cascade)
+
+  @@map("bundle_choice_groups")
+}
+
+model PricingRule {
+  id        String          @id @default(cuid())
+  tenantId  String
+  name      String
+  type      PricingRuleType
+  condition Json
+  action    Json
+  priority  Int             @default(0)
+  stackable Boolean         @default(false)
+  validFrom DateTime?
+  validTo   DateTime?
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("pricing_rules")
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  tenantId      String
+  status        OrderStatus @default(PENDING)
+  customerName  String?
+  customerEmail String?
+  customerPhone String?
+  tableNumber   String?
+  notes         String?
+  subtotal      Decimal     @db.Decimal(10, 2)
+  discountAmt   Decimal     @db.Decimal(10, 2) @default(0)
+  total         Decimal     @db.Decimal(10, 2)
+  currency      String      @default("GBP")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines  OrderLine[]
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String?
+  bundleId   String?
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  lineTotal  Decimal  @db.Decimal(10, 2)
+  notes      String?
+  selections Json?    // modifier selections: [{ groupId, groupName, options: [{ optionId, name, priceAdj }] }]
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  bundle   Bundle?   @relation(fields: [bundleId], references: [id], onDelete: SetNull)
+
+  @@map("order_lines")
 }

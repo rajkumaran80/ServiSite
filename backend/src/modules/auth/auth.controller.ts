@@ -6,16 +6,28 @@ import {
   HttpStatus,
   UseGuards,
   Get,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
-import { AuthGuard } from '@nestjs/passport';
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Public } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+
+class GoogleLoginDto {
+  @IsString()
+  @IsNotEmpty()
+  idToken: string;
+}
+
+class ResendVerificationDto {
+  @IsEmail()
+  email: string;
+}
 
 // Strict rate limit on all auth endpoints: 5 attempts per minute per IP
 @Throttle({ api: { limit: 5, ttl: 60_000 } })
@@ -29,7 +41,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiResponse({ status: 200, description: 'Login successful, returns token pair' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or email not verified' })
   async login(@Body() loginDto: LoginDto) {
     const result = await this.authService.login(loginDto);
     return {
@@ -40,11 +52,50 @@ export class AuthController {
   }
 
   @Public()
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login or link account with Google ID token' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid Google token or no matching account' })
+  async googleLogin(@Body() body: GoogleLoginDto) {
+    const result = await this.authService.googleLogin(body.idToken);
+    return {
+      data: result,
+      success: true,
+      message: 'Login successful',
+    };
+  }
+
+  @Public()
+  @SkipThrottle()
+  @Get('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify email address via token' })
+  @ApiResponse({ status: 200, description: 'Email verified' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async verifyEmail(@Query('token') token: string) {
+    const result = await this.authService.verifyEmail(token);
+    return { data: result, success: true, message: result.message };
+  }
+
+  @Public()
+  @SkipThrottle()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend email verification link' })
+  async resendVerification(@Body() body: ResendVerificationDto) {
+    await this.authService.resendVerificationEmail(body.email);
+    return {
+      data: null,
+      success: true,
+      message: 'If that email exists and is unverified, a new link has been sent.',
+    };
+  }
+
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token using refresh token' })
-  @ApiResponse({ status: 200, description: 'New token pair returned' })
-  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
   async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     const tokens = await this.authService.refreshTokens(refreshTokenDto.refreshToken);
     return {
@@ -59,7 +110,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout and invalidate refresh token' })
-  @ApiResponse({ status: 200, description: 'Logged out successfully' })
   async logout(@Body() refreshTokenDto: RefreshTokenDto) {
     await this.authService.logout(refreshTokenDto.refreshToken);
     return {

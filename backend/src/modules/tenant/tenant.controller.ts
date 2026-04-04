@@ -6,10 +6,12 @@ import {
   Delete,
   Body,
   Param,
+  Req,
   HttpCode,
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { TenantService } from './tenant.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
@@ -22,14 +24,24 @@ import { UserRole } from '@prisma/client';
 @ApiTags('tenants')
 @Controller('tenant')
 export class TenantController {
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(
+    private readonly tenantService: TenantService,
+  ) {}
 
   @Public()
   @Post()
-  @ApiOperation({ summary: 'Create a new tenant with admin user' })
-  async create(@Body() createTenantDto: CreateTenantDto) {
-    const tenant = await this.tenantService.create(createTenantDto);
-    return { data: tenant, success: true, message: 'Tenant created successfully' };
+  @ApiOperation({ summary: 'Create a new tenant with admin user (self-signup)' })
+  async create(@Body() createTenantDto: CreateTenantDto, @Req() req: Request) {
+    const clientIp =
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      'unknown';
+    const result = await this.tenantService.create(createTenantDto, clientIp);
+    return {
+      data: result,
+      success: true,
+      message: result.message,
+    };
   }
 
   @Get()

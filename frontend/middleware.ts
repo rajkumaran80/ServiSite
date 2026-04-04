@@ -57,6 +57,16 @@ export function middleware(request: NextRequest) {
 
   // If there's a subdomain, rewrite to [tenant] route
   if (subdomain && subdomain !== 'www' && subdomain !== 'app') {
+    // Auth and dashboard routes pass through as-is — the dashboard is shared across
+    // all tenants and accessed via subdomain with token auth (superadmin impersonation).
+    if (
+      pathname.startsWith('/auth/') || pathname === '/auth' ||
+      pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/superadmin')
+    ) {
+      return NextResponse.next();
+    }
+
     // Don't rewrite if already on a [tenant] path
     if (!pathname.startsWith('/[tenant]')) {
       const newUrl = url.clone();

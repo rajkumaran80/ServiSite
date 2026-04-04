@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { api } from '../../../services/api';
 import menuService from '../../../services/menu.service';
 import uploadService from '../../../services/upload.service';
 import { ImageUpload } from '../../../components/ui/ImageUpload';
-import type { MenuGroup, Category, MenuItem, CreateMenuGroupPayload, CreateCategoryPayload, CreateMenuItemPayload } from '../../../types/menu.types';
+import type { MenuGroup, Category, MenuItem, CreateMenuGroupPayload, CreateCategoryPayload, CreateMenuItemPayload, ItemVariant } from '../../../types/menu.types';
 
 // ─── Small helper components ────────────────────────────────────────────────
 
@@ -439,6 +440,131 @@ function ItemForm({
   );
 }
 
+// ─── Item Variants Modal ─────────────────────────────────────────────────────
+
+function VariantsModal({
+  item,
+  currency,
+  onClose,
+}: {
+  item: MenuItem;
+  currency: string;
+  onClose: () => void;
+}) {
+  const [variants, setVariants] = useState<Array<{ name: string; price: string; isDefault: boolean }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    menuService.getVariants(item.id)
+      .then((v) => setVariants(v.map((x) => ({ name: x.name, price: String(x.price), isDefault: x.isDefault }))))
+      .catch(() => toast.error('Failed to load variants'))
+      .finally(() => setIsLoading(false));
+  }, [item.id]);
+
+  const addVariant = () => setVariants((prev) => [...prev, { name: '', price: '', isDefault: prev.length === 0 }]);
+  const removeVariant = (i: number) => setVariants((prev) => prev.filter((_, idx) => idx !== i));
+  const updateVariant = (i: number, key: 'name' | 'price' | 'isDefault', value: any) => {
+    setVariants((prev) =>
+      prev.map((v, idx) =>
+        idx === i
+          ? { ...v, [key]: value }
+          : key === 'isDefault' && value
+          ? { ...v, isDefault: false }
+          : v,
+      ),
+    );
+  };
+
+  const handleSave = async () => {
+    const payload = variants.map((v, i) => ({
+      name: v.name.trim(),
+      price: parseFloat(v.price) || 0,
+      isDefault: v.isDefault,
+      sortOrder: i,
+    })).filter((v) => v.name);
+
+    setSaving(true);
+    try {
+      await menuService.saveVariants(item.id, payload);
+      toast.success('Variants saved');
+      onClose();
+    } catch {
+      toast.error('Failed to save variants');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={`Size Variants — ${item.name}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-gray-500">
+          Add size variants (e.g. Small / Medium / Large). Each variant has its own price.
+          When variants exist, the base item price is ignored — customers select a size first.
+        </p>
+
+        {isLoading ? (
+          <div className="py-8 flex justify-center"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
+        ) : (
+          <>
+            <div className="space-y-2">
+              {variants.map((v, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    className={inputClass + ' flex-1'}
+                    placeholder="Size name (e.g. Small)"
+                    value={v.name}
+                    onChange={(e) => updateVariant(i, 'name', e.target.value)}
+                  />
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-500">{currency}</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="w-24 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      placeholder="9.99"
+                      value={v.price}
+                      onChange={(e) => updateVariant(i, 'price', e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateVariant(i, 'isDefault', true)}
+                    className={`text-xs px-2 py-1 rounded border transition-colors flex-shrink-0 ${v.isDefault ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-500 hover:border-blue-400'}`}
+                    title="Set as default"
+                  >
+                    Default
+                  </button>
+                  <button type="button" onClick={() => removeVariant(i)} className="text-red-400 hover:text-red-600 p-1 rounded flex-shrink-0">✕</button>
+                </div>
+              ))}
+              {variants.length === 0 && (
+                <p className="text-sm text-gray-400 italic text-center py-4">No variants — item uses its base price.</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={addVariant}
+              className="w-full border border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 rounded-xl py-2 text-sm font-medium transition-colors"
+            >
+              + Add Size
+            </button>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onClose} disabled={saving} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="button" onClick={handleSave} disabled={saving} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save Variants'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Main Dashboard Menu Page ────────────────────────────────────────────────
 
 export default function DashboardMenuPage() {
@@ -461,6 +587,7 @@ export default function DashboardMenuPage() {
   const [showItemForm, setShowItemForm] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [variantItem, setVariantItem] = useState<MenuItem | null>(null);
 
   const loadData = async () => {
     try {
@@ -582,6 +709,32 @@ export default function DashboardMenuPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {groups.length === 0 && (
+            <button
+              onClick={async () => {
+                if (!confirm('Load the default menu template for your business type?')) return;
+                try {
+                  await api.post('/menu/seed-template', { clearExisting: false });
+                  await loadData();
+                  toast.success('Template loaded — menu seeded');
+                } catch (e: any) {
+                  toast.error(e?.response?.data?.message || 'Failed to load template');
+                }
+              }}
+              className="flex items-center gap-1.5 border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              ✨ Load Template
+            </button>
+          )}
+          <Link href="/dashboard/menu/modifiers" className="flex items-center gap-1.5 border border-gray-300 hover:border-blue-400 text-gray-600 hover:text-blue-600 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            Modifiers
+          </Link>
+          <Link href="/dashboard/menu/bundles" className="flex items-center gap-1.5 border border-gray-300 hover:border-orange-400 text-gray-600 hover:text-orange-600 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            Bundles
+          </Link>
+          <Link href="/dashboard/menu/pricing" className="flex items-center gap-1.5 border border-gray-300 hover:border-green-400 text-gray-600 hover:text-green-600 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            Pricing Rules
+          </Link>
           {activeTab === 'groups' && (
             <button
               onClick={() => { setEditingGroup(null); setShowGroupForm(true); }}
@@ -840,7 +993,7 @@ export default function DashboardMenuPage() {
                         {menuService.formatPrice(item.price, currency)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => handleToggleAvailability(item)}
                         className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
@@ -850,6 +1003,13 @@ export default function DashboardMenuPage() {
                         }`}
                       >
                         {item.isAvailable ? 'Available' : 'Unavailable'}
+                      </button>
+                      <button
+                        onClick={() => setVariantItem(item)}
+                        className="text-xs px-2.5 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium transition-colors"
+                        title="Manage size variants"
+                      >
+                        Sizes
                       </button>
                       <button
                         onClick={() => { setEditingItem(item); setShowItemForm(true); }}
@@ -932,6 +1092,14 @@ export default function DashboardMenuPage() {
             }}
           />
         </Modal>
+      )}
+
+      {variantItem && (
+        <VariantsModal
+          item={variantItem}
+          currency={currency}
+          onClose={() => setVariantItem(null)}
+        />
       )}
     </div>
   );

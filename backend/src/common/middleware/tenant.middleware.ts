@@ -10,6 +10,7 @@ export interface TenantRequest extends Request {
     slug: string;
     name: string;
     type: string;
+    status: string;
   };
 }
 
@@ -87,7 +88,7 @@ export class TenantMiddleware implements NestMiddleware {
 
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug },
-      select: { id: true, slug: true, name: true, type: true },
+      select: { id: true, slug: true, name: true, type: true, status: true },
     });
 
     if (!tenant) {
@@ -96,6 +97,17 @@ export class TenantMiddleware implements NestMiddleware {
         return next();
       }
       throw new NotFoundException(`Tenant '${slug}' not found`);
+    }
+
+    // Block suspended tenants from serving public pages.
+    // Allow billing endpoints so they can still pay to reactivate.
+    if (tenant.status === 'SUSPENDED' && !rawUrl.includes('/api/v1/billing')) {
+      res.status(402).json({
+        success: false,
+        message: 'This account has been suspended. Please complete payment to reactivate.',
+        code: 'ACCOUNT_SUSPENDED',
+      });
+      return;
     }
 
     // Cache identity for 30 min (same as TENANT_PROFILE)

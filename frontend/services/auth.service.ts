@@ -27,6 +27,25 @@ class AuthService {
     return response.data.data;
   }
 
+  async googleLogin(idToken: string): Promise<LoginResponse> {
+    const response = await api.post<{ data: LoginResponse; success: boolean }>(
+      '/auth/google',
+      { idToken },
+    );
+    return response.data.data;
+  }
+
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const response = await api.get<{ data: { message: string }; success: boolean }>(
+      `/auth/verify-email?token=${encodeURIComponent(token)}`,
+    );
+    return response.data.data;
+  }
+
+  async resendVerification(email: string): Promise<void> {
+    await api.post('/auth/resend-verification', { email });
+  }
+
   saveTokens(accessToken: string, refreshToken: string) {
     if (typeof window !== 'undefined') {
       localStorage.setItem('accessToken', accessToken);

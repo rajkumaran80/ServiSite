@@ -127,6 +127,14 @@ api.interceptors.response.use(
       }
     }
 
+    // Handle 402 - account suspended, redirect to billing page
+    if (error.response?.status === 402 && typeof window !== 'undefined') {
+      if (!window.location.pathname.includes('/dashboard/billing')) {
+        window.location.href = '/dashboard/billing';
+      }
+      return Promise.reject(error);
+    }
+
     return Promise.reject(error);
   },
 );

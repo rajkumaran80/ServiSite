@@ -226,6 +226,85 @@ function AddTenantModal({
   );
 }
 
+// ─── Delete Confirmation Modal ───────────────────────────────────────────────
+
+function DeleteTenantModal({
+  tenant,
+  onConfirm,
+  onCancel,
+  deleting,
+}: {
+  tenant: TenantSummary;
+  onConfirm: () => void;
+  onCancel: () => void;
+  deleting: boolean;
+}) {
+  const [typed, setTyped] = useState('');
+  const matches = typed === tenant.name;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="bg-red-50 border-b border-red-100 px-6 py-5 rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-600 text-xl">⚠️</div>
+            <div>
+              <h2 className="text-lg font-bold text-red-900">Delete Tenant</h2>
+              <p className="text-sm text-red-600">This action is permanent and cannot be undone.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div className="bg-gray-50 rounded-xl p-4 text-sm space-y-1.5 text-gray-700">
+            <p><span className="font-medium">Business:</span> {tenant.name}</p>
+            <p><span className="font-medium">Slug:</span> {tenant.slug}</p>
+            <p><span className="font-medium">Admin:</span> {tenant.users[0]?.email || '—'}</p>
+          </div>
+
+          <p className="text-sm text-gray-600">
+            This will permanently delete the business, all users, menu items, orders, gallery images, and billing records.
+          </p>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Type <span className="font-bold text-red-700">{tenant.name}</span> to confirm:
+            </label>
+            <input
+              autoFocus
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={tenant.name}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            />
+            {typed.length > 0 && !matches && (
+              <p className="text-xs text-red-500 mt-1">Name does not match</p>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={onCancel}
+              disabled={deleting}
+              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={!matches || deleting}
+              className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors"
+            >
+              {deleting ? 'Deleting...' : 'Delete permanently'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function SuperAdminPage() {
@@ -238,6 +317,8 @@ export default function SuperAdminPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<BusinessTemplate | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TenantSummary | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) { router.replace('/superadmin/login'); return; }
@@ -254,16 +335,75 @@ export default function SuperAdminPage() {
     finally { setLoading(false); }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete "${name}" and ALL its data? This cannot be undone.`)) return;
-    setDeletingId(id);
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeletingId(deleteTarget.id);
     try {
-      await superAdminService.deleteTenant(id);
-      setTenants((prev) => prev.filter((t) => t.id !== id));
+      await superAdminService.deleteTenant(deleteTarget.id);
+      setTenants((prev) => prev.filter((t) => t.id !== deleteTarget.id));
       setStats((prev) => ({ ...prev, tenantCount: prev.tenantCount - 1 }));
       toast.success('Tenant deleted');
+      setDeleteTarget(null);
     } catch { toast.error('Failed to delete tenant'); }
     finally { setDeletingId(null); }
+  };
+
+  const [seedingId, setSeedingId] = useState<string | null>(null);
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+
+  const buildTenantUrl = (slug: string, path: string) => {
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? 'localhost';
+    const isLocalhost = appDomain === 'localhost' || appDomain.startsWith('localhost:');
+    if (isLocalhost) {
+      const port = window.location.port || '3000';
+      return `http://${slug}.localhost:${port}${path}`;
+    }
+    return `https://${slug}.${appDomain}${path}`;
+  };
+
+  const handleImpersonate = async (t: TenantSummary) => {
+    setImpersonatingId(t.id);
+    try {
+      const { accessToken, refreshToken, user, tenantSlug } = await superAdminService.impersonate(t.id);
+      const userParam = encodeURIComponent(JSON.stringify(user));
+      const url = buildTenantUrl(tenantSlug, `/auth/impersonate?accessToken=${accessToken}&refreshToken=${refreshToken}&user=${userParam}`);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      toast.error('Failed to open dashboard');
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
+
+  const handleApplyTemplate = async (t: TenantSummary) => {
+    const haItems = t._count.menuItems > 0;
+    const msg = haItems
+      ? `"${t.name}" already has ${t._count.menuItems} items. Overwrite with the default template? This will delete all existing menu data.`
+      : `Seed "${t.name}" with the default ${t.type} template?`;
+    if (!confirm(msg)) return;
+    setSeedingId(t.id);
+    try {
+      await superAdminService.applyTemplate(t.id, haItems);
+      toast.success('Template applied — menu seeded');
+      setTenants((prev) => prev.map((x) => x.id === t.id ? { ...x } : x));
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to apply template');
+    } finally {
+      setSeedingId(null);
+    }
+  };
+
+  const handleToggleStatus = async (t: TenantSummary) => {
+    const isSuspended = t.status === 'SUSPENDED';
+    const action = isSuspended ? 'enable' : 'disable';
+    if (!confirm(`${action === 'enable' ? 'Re-enable' : 'Disable'} "${t.name}"?`)) return;
+    setTogglingId(t.id);
+    try {
+      await superAdminService.setTenantStatus(t.id, isSuspended ? 'ACTIVE' : 'SUSPENDED');
+      setTenants((prev) => prev.map((x) => x.id === t.id ? { ...x, status: isSuspended ? 'ACTIVE' : 'SUSPENDED' } : x));
+      toast.success(`Tenant ${action}d`);
+    } catch { toast.error(`Failed to ${action} tenant`); }
+    finally { setTogglingId(null); }
   };
 
   const handleResetPassword = async (id: string) => {
@@ -356,7 +496,7 @@ export default function SuperAdminPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    {['Business', 'Slug', 'Type', 'Currency', 'Admin Email', 'Items', 'Created', 'Actions'].map((h) => (
+                    {['Business', 'Slug', 'Type', 'Status', 'Admin Email', 'Items', 'Created', 'Actions'].map((h) => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -367,12 +507,27 @@ export default function SuperAdminPage() {
                       <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">{t.slug}</td>
                       <td className="px-4 py-3 text-gray-600">{typeLabel[t.type] || t.type}</td>
-                      <td className="px-4 py-3 text-gray-600">{t.currency}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          t.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
+                          t.status === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
+                          t.status === 'SUSPENDED' ? 'bg-red-100 text-red-700' :
+                          t.status === 'GRACE' ? 'bg-amber-100 text-amber-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>{t.status || '—'}</span>
+                      </td>
                       <td className="px-4 py-3 text-gray-600">{t.users[0]?.email || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{t._count.menuItems}</td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{new Date(t.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => handleImpersonate(t)}
+                            disabled={impersonatingId === t.id}
+                            className="text-xs px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            {impersonatingId === t.id ? '...' : 'Open Dashboard'}
+                          </button>
                           <button
                             onClick={() => handleResetPassword(t.id)}
                             disabled={resettingId === t.id}
@@ -381,11 +536,29 @@ export default function SuperAdminPage() {
                             {resettingId === t.id ? '...' : 'Reset PW'}
                           </button>
                           <button
-                            onClick={() => handleDelete(t.id, t.name)}
+                            onClick={() => handleToggleStatus(t)}
+                            disabled={togglingId === t.id}
+                            className={`text-xs px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 ${
+                              t.status === 'SUSPENDED'
+                                ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                            }`}
+                          >
+                            {togglingId === t.id ? '...' : t.status === 'SUSPENDED' ? 'Enable' : 'Disable'}
+                          </button>
+                          <button
+                            onClick={() => handleApplyTemplate(t)}
+                            disabled={seedingId === t.id}
+                            className="text-xs px-2.5 py-1 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            {seedingId === t.id ? '...' : 'Seed Menu'}
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(t)}
                             disabled={deletingId === t.id}
                             className="text-xs px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
                           >
-                            {deletingId === t.id ? '...' : 'Delete'}
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -418,6 +591,16 @@ export default function SuperAdminPage() {
             setStep('closed');
             loadData();
           }}
+        />
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <DeleteTenantModal
+          tenant={deleteTarget}
+          deleting={deletingId === deleteTarget.id}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>

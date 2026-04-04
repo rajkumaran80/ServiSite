@@ -18,6 +18,11 @@ class TenantService {
     return response.data.data;
   }
 
+  async signup(payload: CreateTenantPayload): Promise<{ message: string }> {
+    const response = await api.post<{ data: { message: string } }>('/tenant', payload);
+    return response.data.data;
+  }
+
   async create(payload: CreateTenantPayload): Promise<Tenant> {
     const response = await api.post<{ data: Tenant }>('/tenant', payload);
     return response.data.data;

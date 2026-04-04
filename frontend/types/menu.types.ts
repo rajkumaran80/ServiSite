@@ -85,3 +85,26 @@ export interface CreateMenuItemPayload {
 }
 
 export interface UpdateMenuItemPayload extends Partial<CreateMenuItemPayload> {}
+
+export interface ItemVariant {
+  id: string;
+  menuItemId: string;
+  name: string;
+  price: number;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
+export interface HalfHalfConfig {
+  id: string;
+  tenantId: string;
+  name: string;
+  leftItemId: string;
+  rightItemId: string;
+  pricingMode: 'MAX' | 'AVERAGE' | 'SUM';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  leftItem?: { id: string; name: string; price: number };
+  rightItem?: { id: string; name: string; price: number };
+}

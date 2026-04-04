@@ -8,6 +8,8 @@ import type {
   CreateMenuItemPayload,
   CreateMenuGroupPayload,
   UpdateMenuItemPayload,
+  ItemVariant,
+  HalfHalfConfig,
 } from '../types/menu.types';
 
 // Backend returns categories as [{id, name}] — normalize to categoryIds: string[]
@@ -102,6 +104,37 @@ class MenuService {
 
   async reorderItems(items: Array<{ id: string; sortOrder: number }>): Promise<void> {
     await api.put('/menu/items/reorder', { items });
+  }
+
+  // Item Variants
+  async getVariants(menuItemId: string): Promise<ItemVariant[]> {
+    const res = await api.get<{ data: ItemVariant[] }>(`/menu/items/${menuItemId}/variants`);
+    return res.data.data;
+  }
+
+  async saveVariants(menuItemId: string, variants: Array<{ name: string; price: number; isDefault?: boolean; sortOrder?: number }>): Promise<ItemVariant[]> {
+    const res = await api.put<{ data: ItemVariant[] }>(`/menu/items/${menuItemId}/variants`, { variants });
+    return res.data.data;
+  }
+
+  // Half & Half
+  async getHalfHalfConfigs(): Promise<HalfHalfConfig[]> {
+    const res = await api.get<{ data: HalfHalfConfig[] }>('/menu/half-half');
+    return res.data.data;
+  }
+
+  async createHalfHalf(payload: { name: string; leftItemId: string; rightItemId: string; pricingMode?: string }): Promise<HalfHalfConfig> {
+    const res = await api.post<{ data: HalfHalfConfig }>('/menu/half-half', payload);
+    return res.data.data;
+  }
+
+  async updateHalfHalf(id: string, payload: Partial<{ name: string; leftItemId: string; rightItemId: string; pricingMode: string; isActive: boolean }>): Promise<HalfHalfConfig> {
+    const res = await api.put<{ data: HalfHalfConfig }>(`/menu/half-half/${id}`, payload);
+    return res.data.data;
+  }
+
+  async deleteHalfHalf(id: string): Promise<void> {
+    await api.delete(`/menu/half-half/${id}`);
   }
 
   formatPrice(price: string | number, currency = 'GBP', locale = 'en-GB'): string {

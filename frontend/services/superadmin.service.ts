@@ -6,6 +6,7 @@ export interface TenantSummary {
   slug: string;
   type: string;
   currency: string;
+  status: string;
   createdAt: string;
   _count: { users: number; menuItems: number };
   users: Array<{ email: string; createdAt: string }>;
@@ -42,6 +43,19 @@ class SuperAdminService {
 
   async resetPassword(tenantId: string, newPassword: string): Promise<void> {
     await api.post(`/superadmin/tenants/${tenantId}/reset-password`, { newPassword });
+  }
+
+  async setTenantStatus(tenantId: string, status: string): Promise<void> {
+    await api.post(`/superadmin/tenants/${tenantId}/status`, { status });
+  }
+
+  async applyTemplate(tenantId: string, clearExisting = false): Promise<void> {
+    await api.post(`/superadmin/tenants/${tenantId}/apply-template`, { clearExisting });
+  }
+
+  async impersonate(tenantId: string): Promise<{ accessToken: string; refreshToken: string; user: any; tenantSlug: string }> {
+    const res = await api.post<{ data: any }>(`/superadmin/tenants/${tenantId}/impersonate`);
+    return res.data.data;
   }
 }
 

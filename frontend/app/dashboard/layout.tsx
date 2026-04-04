@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from '../../components/dashboard/Sidebar';
+import BillingBanner from '../../components/dashboard/BillingBanner';
 import { useAuthStore } from '../../store/auth.store';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -60,7 +61,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="min-h-screen bg-gray-50 flex">
         <Sidebar />
         <main className="flex-1 min-w-0 overflow-auto">
-          <div className="p-6 lg:p-8 max-w-7xl mx-auto">{children}</div>
+          <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+            <BillingBanner />
+            {children}
+          </div>
         </main>
       </div>
     </>
