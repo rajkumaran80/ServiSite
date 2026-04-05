@@ -1,196 +1,203 @@
-Everything is already prepared — Bicep templates, GitHub Actions, workflows. Here's the exact deployment sequence:
+ServiSite — Azure Deployment Guide
+====================================
+
+Known values
+------------
+Subscription ID : 8ecb7c89-073f-45a8-88b5-49ef2708228b
+Tenant ID       : 8766d9e6-5c26-4dfc-ba6a-2dd9b2abb395
+App ID (CI/CD)  : 4fb4af1d-cbda-4c89-9943-80f6682b0062
+Resource Group  : servisite-rg  (uksouth)
+ACR             : servisite.azurecr.io
+Front Door ID   : 98142934-547a-4459-b178-52858fcee774
+Domain          : servisite.co.uk
+
 
 Step 1 — Prerequisites (one-time)
+----------------------------------
 
-# Install Azure CLI if not already installed
-brew install azure-cli
-
-# Log in
-az login
-
-# Confirm correct subscription
-az account show --query "{name:name, id:id}" -o table
-
-# If wrong subscription:
-az account set --subscription "<your subscription id>"
-Step 2 — Create resource group + ACR
-
-az group create --name servisite-rg --location uksouth
-
-# Create Container Registry (must exist before Bicep deploy)
-az acr create \
-  --resource-group servisite-rg \
-  --name servisite \
-  --sku Basic \
-  --admin-enabled false
-Step 3 — Deploy infrastructure (Bicep)
-The parameters.json has Key Vault references that won't exist yet, so pass secrets directly for the first deploy:
+  brew install azure-cli
+  az login
+  az account set --subscription 8ecb7c89-073f-45a8-88b5-49ef2708228b
 
 
-cd /Users/kumaran/work/ServiSite/infrastructure/bicep
+Step 2 — Create resource group + ACR (one-time)
+------------------------------------------------
 
-az deployment group create \
-  --resource-group servisite-rg \
-  --template-file main.bicep \
-  --parameters parameters.json \
-  --parameters \
-    dbPassword='<strong-password>' \
-    jwtSecret='<random-32-char-string>' \
-    revalidateSecret='<random-string>' \
-    internalSecret='<random-string>'
-This creates: VNet, PostgreSQL, Redis, Key Vault, App Service (backend + frontend), Front Door + WAF, Blob Storage. Takes ~10–15 minutes.
+  az group create --name servisite-rg --location uksouth
 
-Step 4 — Set up OIDC for GitHub Actions
-
-# Get your subscription and tenant IDs
-az account show --query "{subscriptionId:id, tenantId:tenantId}" -o table
-
-# Create the service principal (app registration)
-az ad app create --display-name "servisite-github-actions"
-
-# Note the appId from the output, then:
-APP_ID="<appId from above>"
-
-az ad sp create --id $APP_ID
-
-# Assign Contributor role on the resource group
-az role assignment create \
-  --assignee $APP_ID \
-  --role Contributor \
-  --scope /subscriptions/$(az account show --query id -o tsv)/resourceGroups/servisite-rg
-
-# Also grant AcrPush role for Container Registry
-az role assignment create \
-  --assignee $APP_ID \
-  --role AcrPush \
-  --scope $(az acr show --name servisite --query id -o tsv)
-
-# Create federated credential for GitHub Actions (main branch)
-az ad app federated-credential create \
-  --id $APP_ID \
-  --parameters '{
-    "name": "servisite-github-main",
-    "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:<your-github-username>/ServiSite:ref:refs/heads/main",
-    "audiences": ["api://AzureADMultiApp"]
-  }'
-Step 5 — Add GitHub Secrets
-Go to your repo → Settings → Secrets and variables → Actions → New repository secret:
-
-Secret	Value
-AZURE_CLIENT_ID	The appId from Step 4
-AZURE_TENANT_ID	Your tenant ID from Step 4
-AZURE_SUBSCRIPTION_ID	Your subscription ID from Step 4
-ACR_LOGIN_SERVER	servisite.azurecr.io
-Step 6 — Run Prisma migration on production DB
-After Bicep deploys, get the DB connection string from Key Vault or App Service config, then:
+  az acr create \
+    --resource-group servisite-rg \
+    --name servisite \
+    --sku Basic \
+    --admin-enabled false
 
 
-# Temporary: run migration via a one-off command (use the prod DATABASE_URL)
-DATABASE_URL="postgresql://..." npx prisma migrate deploy
-Or connect via the App Service console in Azure Portal and run it there.
+Step 3 — Prepare secret parameters
+-------------------------------------
+parameters.secrets.json is already populated with current values (gitignored).
+If lost or on a new machine, recreate from the example:
 
-Step 7 — DNS in IONOS
-After Bicep deploys, get the Front Door hostname:
+  cp infrastructure/bicep/parameters.secrets.json.example \
+     infrastructure/bicep/parameters.secrets.json
+
+Current values in parameters.secrets.json:
+  dbPassword             REPLACE_WITH_STRONG_PROD_PASSWORD  ← change this before deploying!
+  jwtSecret              (set — from local .env)
+  revalidateSecret       (set — from local .env)
+  internalSecret         (set — from local .env)
+  stripeSecretKey        sk_test_... (switch to sk_live_ for production)
+  stripeWebhookSecret    whsec_... (re-register webhook after first deploy — see end of doc)
+  smtpPassword           Gmail App Password (aktaconsulting.digital@gmail.com)
+  vapidPrivateKey        (set — generated keypair)
+  twilioAuthToken        (set — Twilio console)
+  googleClientId         246900947852-... (Google OAuth)
+
+Non-secret config (in parameters.json — already set):
+  smtpHost               smtp.gmail.com
+  smtpUser               aktaconsulting.digital@gmail.com
+  emailFromAddress       aktaconsulting.digital@gmail.com
+  vapidPublicKey         BHCAgMdKl-... (generated keypair)
+  vapidSubject           mailto:aktaconsulting.digital@gmail.com
+  superadminAlertEmail   aktaconsulting.digital@gmail.com
+  twilioAccountSid       (see parameters.secrets.json — gitignored)
+  twilioWhatsappFrom     whatsapp:+14155238886
+  nextPublicGoogleClientId  246900947852-...
+  nextPublicStripePublishableKey  pk_test_... (switch to pk_live_ for production)
+
+IMPORTANT before production go-live:
+  - Replace dbPassword with a strong unique password
+  - Switch Stripe keys from sk_test_/pk_test_ to sk_live_/pk_live_
+  - Consider switching email from Gmail to a proper SMTP provider (SendGrid, Postmark)
 
 
-az afd endpoint show \
-  --resource-group servisite-rg \
-  --profile-name servisite-prod-fd \
-  --endpoint-name servisite \
-  --query hostName -o tsv
-Then in IONOS DNS for servisite.co.uk:
+Step 4 — Deploy infrastructure (Bicep)
+----------------------------------------
+Run once to create everything: VNet, PostgreSQL, Redis, Key Vault, Storage,
+App Services, Front Door + WAF, all role assignments. Takes ~10-15 minutes.
 
-Type	Name	Value
-ALIAS	@	<front-door-hostname>.azurefd.net
-CNAME	www	<front-door-hostname>.azurefd.net
-CNAME	*	<front-door-hostname>.azurefd.net
-Step 8 — First deploy
+  cd infrastructure/bicep
+
+  az deployment group create \
+    --resource-group servisite-rg \
+    --template-file main.bicep \
+    --parameters @parameters.json \
+    --parameters @parameters.secrets.json
+
+On re-deploy (e.g. after adding new env vars), run the same command again —
+Bicep is idempotent, it only updates what changed.
+
+
+Step 5 — OIDC for GitHub Actions (one-time, already done)
+----------------------------------------------------------
+App registration already created: 4fb4af1d-cbda-4c89-9943-80f6682b0062
+
+If recreating from scratch:
+
+  APP_ID="4fb4af1d-cbda-4c89-9943-80f6682b0062"
+
+  az role assignment create \
+    --assignee $APP_ID --role Contributor \
+    --scope /subscriptions/8ecb7c89-073f-45a8-88b5-49ef2708228b/resourceGroups/servisite-rg
+
+  az role assignment create \
+    --assignee $APP_ID --role AcrPush \
+    --scope $(az acr show --name servisite --query id -o tsv)
+
+  az ad app federated-credential create \
+    --id $APP_ID \
+    --parameters '{
+      "name": "servisite-github-main",
+      "issuer": "https://token.actions.githubusercontent.com",
+      "subject": "repo:rajkumaran80/ServiSite:ref:refs/heads/main",
+      "audiences": ["api://AzureADMultiApp"]
+    }'
+
+
+Step 6 — GitHub Secrets
+------------------------
+Go to: repo → Settings → Secrets and variables → Actions → New repository secret
+
+  Secret                            Value
+  --------------------------------  -----------------------------------------
+  AZURE_CLIENT_ID                   4fb4af1d-cbda-4c89-9943-80f6682b0062
+  AZURE_TENANT_ID                   8766d9e6-5c26-4dfc-ba6a-2dd9b2abb395
+  AZURE_SUBSCRIPTION_ID             8ecb7c89-073f-45a8-88b5-49ef2708228b
+  NEXT_PUBLIC_INTERNAL_SECRET       5dPboFGnPBie4c1vbPcAm0TS5EGEJ7Hp
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID      246900947852-3u5s1s73hn8hjvditb1jes2irgtqkkoh.apps.googleusercontent.com
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY  pk_test_51TGyN8Ru1yo6tsKszHr83x8tk7Za850PGGsxPnhShoeE6bD2d1fnLBJeBsoI4U1OLXY0ZO95N6MOqjVu4rQ9fhxv00z6Av16go
+
+
+Step 7 — Run Prisma migration on production DB
+-----------------------------------------------
+After first Bicep deploy, run migrations once:
+
+  # Get DATABASE_URL from App Service config
+  DATABASE_URL=$(az webapp config appsettings list \
+    --resource-group servisite-rg \
+    --name servisite-prod-backend \
+    --query "[?name=='DATABASE_URL'].value" -o tsv)
+
+  DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy
+
+
+Step 8 — DNS in IONOS (servisite.co.uk)
+-----------------------------------------
+Get the Front Door hostname after Bicep deploy:
+
+  az afd endpoint show \
+    --resource-group servisite-rg \
+    --profile-name servisite-prod-fd \
+    --endpoint-name servisite \
+    --query hostName -o tsv
+
+Add to IONOS DNS:
+
+  Type    Name    Value
+  ------  ------  ----------------------------------------
+  ALIAS   @       <front-door-hostname>.azurefd.net
+  CNAME   www     <front-door-hostname>.azurefd.net
+  CNAME   *       <front-door-hostname>.azurefd.net  ← wildcard for tenant subdomains
+
+
+Step 9 — First code deploy
+----------------------------
 Push to main or trigger manually:
 
+  gh workflow run backend.yml
+  gh workflow run frontend.yml
 
-# Trigger backend workflow
-gh workflow run backend.yml
-
-# Trigger frontend workflow  
-gh workflow run frontend.yml
-Or just push a commit to main — both workflows trigger automatically on changes to their respective directories.
-
-What to do first
-Run steps 1–3 now. Step 4 (OIDC) can run in parallel. You don't need DNS (Step 7) working to get the app running — you can test via the Front Door hostname directly first.
-
-Do you want me to check the Bicep main.bicep to confirm everything is wired correctly before you run the deploy?
-
-Subnet layout is now:
-
-Subnet	CIDR	Purpose
-snet-frontend	10.0.1.0/24	Frontend App Service VNet integration
-snet-backend	10.0.2.0/24	Backend App Service VNet integration
-snet-data	10.0.3.0/24	Redis + Storage private endpoints (unchanged)
-snet-keyvault	10.0.4.0/24	Key Vault private endpoint (unchanged)
-snet-postgres	10.0.5.0/24	PostgreSQL Flexible Server (new, dedicated)
-
-az account show --query "{subscriptionId:id, tenantId:tenantId}" -o table
-
-SubscriptionId                        TenantId
-------------------------------------  ------------------------------------
-8ecb7c89-073f-45a8-88b5-49ef2708228b  8766d9e6-5c26-4dfc-ba6a-2dd9b2abb395
-
-"appId": "4fb4af1d-cbda-4c89-9943-80f6682b0062",
-
-APP_ID="4fb4af1d-cbda-4c89-9943-80f6682b0062"
-
-az ad app federated-credential create \
-  --id $APP_ID \
-  --parameters '{
-    "name": "servisite-github-main",
-    "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:rajkumaran80/ServiSite:ref:refs/heads/main",
-    "audiences": ["api://AzureADMultiApp"]
-  }'
+Or just push a commit — both workflows trigger automatically on changes.
 
 
-  az webapp config access-restriction add \
-  --resource-group servisite-rg \
-  --name servisite-prod-frontend \
-  --action Allow \
-  --priority 100 \
-  --rule-name allow-front-door \
-  --service-tag AzureFrontDoor.Backend \
-  --http-header x-azure-fdid=98142934-547a-4459-b178-52858fcee774
+Stripe webhook endpoint
+------------------------
+After first deploy, register the webhook in Stripe Dashboard:
+  URL:    https://www.servisite.co.uk/api/v1/billing/webhook
+  Events: checkout.session.completed
+          customer.subscription.created
+          customer.subscription.updated
+          customer.subscription.deleted
+          invoice.payment_succeeded
+          invoice.payment_failed
+          account.updated
 
-  Good question. These manual commands are one-time patches because the Bicep deploy was never run — the App Services were created by GitHub Actions (which only deploys containers), but the full infrastructure (role assignments, access restrictions) was never set up by Bicep.
-
-What should have happened:
-
-
-az deployment group create ... (Bicep)
-  → Creates App Services
-  → Grants AcrPull role automatically
-  → Sets correct X-Azure-FDID restriction automatically
-  → Everything works on first deploy
-What actually happened:
-
-App Services were created manually/partially
-Bicep was never run
-So we're patching each missing piece manually
-For a fresh environment (dev, staging, or redo prod):
-
-You just run ONE command:
+Then copy the signing secret (whsec_...) into parameters.secrets.json
+and redeploy Bicep (Step 4) so Key Vault gets the updated value.
 
 
-az deployment group create \
-  --resource-group servisite-rg \
-  --template-file infrastructure/bicep/main.bicep \
-  --parameters @infrastructure/bicep/parameters.json \
-  --parameters \
-    dbPassword='...' \
-    jwtSecret='...' \
-    revalidateSecret='...' \
-    internalSecret='...'
+Generate VAPID keys (one-time)
+-------------------------------
+  npx web-push generate-vapid-keys
 
-    That single command creates everything — VNet, subnets, PostgreSQL, Redis, Key Vault, Storage, App Services, AcrPull roles, access restrictions, Front Door — all in one go. No manual patching needed.
+Copy publicKey → vapidPublicKey in parameters.secrets.json
+Copy privateKey → vapidPrivateKey in parameters.secrets.json
 
-The manual commands I ran today are already captured in the Bicep (I've been updating the files as we go). So next time it'll just work from the Bicep.
 
-The only reason today was messy is because we bootstrapped infrastructure in the wrong order.
+Subnet layout
+--------------
+  Subnet          CIDR          Purpose
+  snet-frontend   10.0.1.0/24   Frontend App Service VNet integration
+  snet-backend    10.0.2.0/24   Backend App Service VNet integration
+  snet-data       10.0.3.0/24   Redis + Storage private endpoints
+  snet-keyvault   10.0.4.0/24   Key Vault private endpoint
+  snet-postgres   10.0.5.0/24   PostgreSQL Flexible Server

@@ -35,6 +35,69 @@ param revalidateSecret string
 @secure()
 param internalSecret string
 
+@description('Stripe secret key (sk_live_...)')
+@secure()
+param stripeSecretKey string
+
+@description('Stripe webhook signing secret (whsec_...)')
+@secure()
+param stripeWebhookSecret string
+
+@description('SMTP password for email sending')
+@secure()
+param smtpPassword string
+
+@description('VAPID private key for Web Push notifications')
+@secure()
+param vapidPrivateKey string
+
+@description('Twilio auth token for WhatsApp notifications')
+@secure()
+param twilioAuthToken string = ''
+
+@description('Google OAuth client ID')
+@secure()
+param googleClientId string
+
+@description('VAPID public key (safe to expose — used by frontend push subscription)')
+param vapidPublicKey string
+
+@description('SMTP host (e.g. smtp.sendgrid.net)')
+param smtpHost string
+
+@description('SMTP port (default 587)')
+param smtpPort string = '587'
+
+@description('SMTP TLS (true for port 465, false for 587)')
+param smtpSecure string = 'false'
+
+@description('SMTP username / API key username')
+param smtpUser string
+
+@description('From address for system emails')
+param emailFromAddress string = 'noreply@servisite.co.uk'
+
+@description('From name for system emails')
+param emailFromName string = 'ServiSite'
+
+@description('VAPID subject (mailto: or URL)')
+param vapidSubject string = 'mailto:admin@servisite.co.uk'
+
+@description('Twilio Account SID')
+param twilioAccountSid string = ''
+
+@description('Twilio WhatsApp sender number')
+param twilioWhatsappFrom string = 'whatsapp:+14155238886'
+
+@description('Email address for superadmin platform alerts')
+param superadminAlertEmail string = 'admin@servisite.co.uk'
+
+@description('Stripe publishable key (pk_live_...) — baked into frontend Docker image')
+param nextPublicStripePublishableKey string
+
+@description('Google OAuth client ID for frontend — same value as googleClientId')
+param nextPublicGoogleClientId string
+
 @description('Azure Container Registry login server (e.g. servisite.azurecr.io)')
 param acrLoginServer string
 
@@ -75,6 +138,12 @@ module keyvault 'modules/keyvault.bicep' = {
     jwtSecret: jwtSecret
     revalidateSecret: revalidateSecret
     internalSecret: internalSecret
+    stripeSecretKey: stripeSecretKey
+    stripeWebhookSecret: stripeWebhookSecret
+    smtpPassword: smtpPassword
+    vapidPrivateKey: vapidPrivateKey
+    twilioAuthToken: twilioAuthToken
+    googleClientId: googleClientId
   }
 }
 
@@ -126,6 +195,19 @@ module appservice 'modules/appservice.bicep' = {
     storageAccountName: storage.outputs.accountName
     keyVaultUri: keyvault.outputs.uri
     appDomain: appDomain
+    smtpHost: smtpHost
+    smtpPort: smtpPort
+    smtpSecure: smtpSecure
+    smtpUser: smtpUser
+    emailFromAddress: emailFromAddress
+    emailFromName: emailFromName
+    vapidPublicKey: vapidPublicKey
+    vapidSubject: vapidSubject
+    twilioAccountSid: twilioAccountSid
+    twilioWhatsappFrom: twilioWhatsappFrom
+    superadminAlertEmail: superadminAlertEmail
+    nextPublicGoogleClientId: nextPublicGoogleClientId
+    nextPublicStripePublishableKey: nextPublicStripePublishableKey
   }
 }
 

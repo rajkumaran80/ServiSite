@@ -2,26 +2,31 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "env": {
-      "value": "prod"
-    },
-    "location": {
-      "value": "uksouth"
-    },
-    "acrLoginServer": {
-      "value": "servisite.azurecr.io"
-    },
-    "acrName": {
-      "value": "servisite"
-    },
-    "frontDoorId": {
-      "value": "98142934-547a-4459-b178-52858fcee774"
-    },
-    "backendImageTag": {
-      "value": "latest"
-    },
-    "frontendImageTag": {
-      "value": "latest"
-    }
+    "env": { "value": "prod" },
+    "location": { "value": "uksouth" },
+
+    "acrLoginServer": { "value": "servisite.azurecr.io" },
+    "acrName": { "value": "servisite" },
+    "frontDoorId": { "value": "98142934-547a-4459-b178-52858fcee774" },
+    "backendImageTag": { "value": "latest" },
+    "frontendImageTag": { "value": "latest" },
+
+    "smtpHost": { "value": "smtp.gmail.com" },
+    "smtpPort": { "value": "587" },
+    "smtpSecure": { "value": "false" },
+    "smtpUser": { "value": "aktaconsulting.digital@gmail.com" },
+    "emailFromAddress": { "value": "aktaconsulting.digital@gmail.com" },
+    "emailFromName": { "value": "ServiSite" },
+
+    "vapidPublicKey": { "value": "BHCAgMdKl-WoXOabHOZkD5KlGbZ7pueUpJ0JLw_GFvRv2TGqTt0K3IdWyAIT3h8FdrEEto8hbyD0D5LUFdrUMuI" },
+    "vapidSubject": { "value": "mailto:aktaconsulting.digital@gmail.com" },
+
+    "twilioAccountSid": { "value": "" },
+    "twilioWhatsappFrom": { "value": "whatsapp:+14155238886" },
+
+    "superadminAlertEmail": { "value": "aktaconsulting.digital@gmail.com" },
+
+    "nextPublicGoogleClientId": { "value": "246900947852-3u5s1s73hn8hjvditb1jes2irgtqkkoh.apps.googleusercontent.com" },
+    "nextPublicStripePublishableKey": { "value": "pk_test_51TGyN8Ru1yo6tsKszHr83x8tk7Za850PGGsxPnhShoeE6bD2d1fnLBJeBsoI4U1OLXY0ZO95N6MOqjVu4rQ9fhxv00z6Av16go" }
   }
 }

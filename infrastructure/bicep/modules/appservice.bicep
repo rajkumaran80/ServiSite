@@ -17,6 +17,24 @@ param storageAccountName string
 param keyVaultUri string
 param appDomain string
 
+// ── Non-secret config params ───────────────────────────────────────────────────
+param smtpHost string
+param smtpPort string = '587'
+param smtpSecure string = 'false'
+param smtpUser string
+param emailFromAddress string
+param emailFromName string = 'ServiSite'
+param vapidPublicKey string
+param vapidSubject string
+param twilioAccountSid string
+param twilioWhatsappFrom string = 'whatsapp:+14155238886'
+param superadminAlertEmail string
+param nextPublicGoogleClientId string
+param nextPublicStripePublishableKey string
+
+// Helper: extract Key Vault name from URI (e.g. https://servisiteprodkv.vault.azure.net/)
+var kvName = split(split(keyVaultUri, '/')[2], '.')[0]
+
 // ── App Service Plan (shared by both apps) ────────────────────────────────────
 
 resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
@@ -58,20 +76,50 @@ resource backend 'Microsoft.Web/sites@2023-01-01' = {
       ]
       ipSecurityRestrictionsDefaultAction: 'Deny'
       appSettings: [
+        // ── App ──────────────────────────────────────────────────────────────
         { name: 'NODE_ENV', value: 'production' }
         { name: 'PORT', value: '3001' }
         { name: 'API_PREFIX', value: 'api/v1' }
         { name: 'APP_DOMAIN', value: appDomain }
-        { name: 'DATABASE_URL', value: databaseUrl }
-        { name: 'REDIS_URL', value: redisUrl }
-        { name: 'AZURE_STORAGE_CONTAINER_NAME', value: 'servisite-media' }
-        { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
+        { name: 'APP_URL', value: 'https://${appDomain}' }
         { name: 'FRONTEND_URL', value: 'https://${appDomain}' }
         { name: 'ALLOWED_ORIGINS', value: 'https://${appDomain},https://www.${appDomain}' }
-        // Secrets via Key Vault references — no plaintext values in config
-        { name: 'JWT_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=jwt-secret)' }
-        { name: 'REVALIDATE_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=revalidate-secret)' }
-        { name: 'INTERNAL_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=internal-secret)' }
+        // ── Data ─────────────────────────────────────────────────────────────
+        { name: 'DATABASE_URL', value: databaseUrl }
+        { name: 'REDIS_URL', value: redisUrl }
+        // ── Azure Storage ─────────────────────────────────────────────────────
+        { name: 'AZURE_STORAGE_CONTAINER_NAME', value: 'servisite-media' }
+        { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
+        { name: 'AZURE_STORAGE_SAS_EXPIRY_HOURS', value: '24' }
+        // ── JWT ───────────────────────────────────────────────────────────────
+        { name: 'JWT_ACCESS_EXPIRY', value: '15m' }
+        { name: 'JWT_REFRESH_EXPIRY', value: '7d' }
+        // ── Email (SMTP) ──────────────────────────────────────────────────────
+        { name: 'SMTP_HOST', value: smtpHost }
+        { name: 'SMTP_PORT', value: smtpPort }
+        { name: 'SMTP_SECURE', value: smtpSecure }
+        { name: 'SMTP_USER', value: smtpUser }
+        { name: 'EMAIL_FROM_ADDRESS', value: emailFromAddress }
+        { name: 'EMAIL_FROM_NAME', value: emailFromName }
+        // ── Web Push (VAPID) ──────────────────────────────────────────────────
+        { name: 'VAPID_PUBLIC_KEY', value: vapidPublicKey }
+        { name: 'VAPID_SUBJECT', value: vapidSubject }
+        // ── Twilio WhatsApp ───────────────────────────────────────────────────
+        { name: 'TWILIO_ACCOUNT_SID', value: twilioAccountSid }
+        { name: 'TWILIO_WHATSAPP_FROM', value: twilioWhatsappFrom }
+        // ── Alerts ───────────────────────────────────────────────────────────
+        { name: 'SUPERADMIN_ALERT_EMAIL', value: superadminAlertEmail }
+        // ── Secrets via Key Vault (no plaintext) ──────────────────────────────
+        { name: 'JWT_SECRET',              value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=jwt-secret)' }
+        { name: 'REVALIDATE_SECRET',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=revalidate-secret)' }
+        { name: 'INTERNAL_SECRET',         value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=internal-secret)' }
+        { name: 'STRIPE_SECRET_KEY',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=stripe-secret-key)' }
+        { name: 'STRIPE_WEBHOOK_SECRET',   value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=stripe-webhook-secret)' }
+        { name: 'SMTP_PASS',               value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=smtp-password)' }
+        { name: 'VAPID_PRIVATE_KEY',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=vapid-private-key)' }
+        { name: 'TWILIO_AUTH_TOKEN',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=twilio-auth-token)' }
+        { name: 'GOOGLE_CLIENT_ID',        value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=google-client-id)' }
+        // ── Container ─────────────────────────────────────────────────────────
         { name: 'WEBSITES_PORT', value: '3001' }
         { name: 'DOCKER_REGISTRY_SERVER_URL', value: 'https://${acrLoginServer}' }
       ]
@@ -128,8 +176,10 @@ resource frontend 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'NODE_ENV', value: 'production' }
         { name: 'NEXT_PUBLIC_APP_DOMAIN', value: appDomain }
         { name: 'NEXT_PUBLIC_API_URL', value: 'http://${prefix}-backend:3001/api/v1' }  // Private VNet hostname
-        { name: 'INTERNAL_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=internal-secret)' }
-        { name: 'REVALIDATE_SECRET', value: '@Microsoft.KeyVault(VaultName=${split(split(keyVaultUri, '/')[2], '.')[0]};SecretName=revalidate-secret)' }
+        // NEXT_PUBLIC_GOOGLE_CLIENT_ID and NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY are
+        // baked into the Docker image as build args in frontend.yml — not set here.
+        { name: 'REVALIDATE_SECRET',     value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=revalidate-secret)' }
+        { name: 'INTERNAL_SECRET',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=internal-secret)' }
         { name: 'WEBSITES_PORT', value: '3000' }
         { name: 'DOCKER_REGISTRY_SERVER_URL', value: 'https://${acrLoginServer}' }
       ]

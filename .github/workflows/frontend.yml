@@ -45,6 +45,8 @@ jobs:
             --build-arg NEXT_PUBLIC_API_URL="https://www.servisite.co.uk/api/v1" \
             --build-arg NEXT_PUBLIC_APP_DOMAIN="servisite.co.uk" \
             --build-arg NEXT_PUBLIC_INTERNAL_SECRET="${{ secrets.NEXT_PUBLIC_INTERNAL_SECRET }}" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}" \
+            --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}" \
             -t "$IMAGE_TAG" -t "$IMAGE_LATEST" .
           docker push "$IMAGE_TAG"
           docker push "$IMAGE_LATEST"

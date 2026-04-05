@@ -56,3 +56,6 @@ docker-compose.override.yml
 
 # Local credentials (never commit)
 CREDENTIALS.md
+
+# Bicep secret parameters — use parameters.secrets.json.example as template
+infrastructure/bicep/parameters.secrets.json

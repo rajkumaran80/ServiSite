@@ -14,6 +14,18 @@ param jwtSecret string
 param revalidateSecret string
 @secure()
 param internalSecret string
+@secure()
+param stripeSecretKey string
+@secure()
+param stripeWebhookSecret string
+@secure()
+param smtpPassword string
+@secure()
+param vapidPrivateKey string
+@secure()
+param twilioAuthToken string
+@secure()
+param googleClientId string
 
 var kvName = replace('${prefix}-kv', '-', '')  // Key Vault names: alphanumeric only, max 24 chars
 
@@ -63,6 +75,42 @@ resource secretInternal 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kv
   name: 'internal-secret'
   properties: { value: internalSecret }
+}
+
+resource secretStripeKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'stripe-secret-key'
+  properties: { value: stripeSecretKey }
+}
+
+resource secretStripeWebhook 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'stripe-webhook-secret'
+  properties: { value: stripeWebhookSecret }
+}
+
+resource secretSmtpPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'smtp-password'
+  properties: { value: smtpPassword }
+}
+
+resource secretVapidPrivateKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'vapid-private-key'
+  properties: { value: vapidPrivateKey }
+}
+
+resource secretTwilioAuthToken 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'twilio-auth-token'
+  properties: { value: twilioAuthToken }
+}
+
+resource secretGoogleClientId 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'google-client-id'
+  properties: { value: googleClientId }
 }
 
 // ── Private Endpoint ──────────────────────────────────────────────────────────
