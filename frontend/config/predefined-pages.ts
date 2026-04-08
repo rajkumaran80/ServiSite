@@ -119,6 +119,21 @@ export const PREDEFINED_PAGES: PredefinedPage[] = [
     defaultEnabled: false,
   },
   {
+    key: 'reviews',
+    label: 'Customer Reviews',
+    slug: 'reviews',
+    icon: '⭐',
+    description: 'Google reviews and customer testimonials shown on your home page',
+    itemLabel: 'Review',
+    itemFields: [
+      { key: 'title', label: 'Customer Name', type: 'text', required: true, placeholder: 'e.g. Sarah Johnson' },
+      { key: 'rating', label: 'Rating (1–5 stars)', type: 'number', required: true, placeholder: '5' },
+      { key: 'comment', label: 'Review Comment', type: 'textarea', required: true, placeholder: 'What the customer said...' },
+      { key: 'imageUrl', label: 'Customer Photo (optional)', type: 'image' },
+    ],
+    defaultEnabled: false,
+  },
+  {
     key: 'gallery',
     label: 'Gallery',
     slug: 'gallery',

@@ -42,6 +42,18 @@ async function getMenuGroups(slug: string) {
   } catch { return []; }
 }
 
+async function getPageEntries(slug: string, pageKey: string) {
+  try {
+    const res = await fetch(`${API_URL}/page-entries?pageKey=${pageKey}`, {
+      next: { tags: [`tenant:${slug}:${pageKey}`], revalidate: 300 },
+      headers: { 'X-Tenant-ID': slug },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  } catch { return []; }
+}
+
 function formatPrice(price: number | string, currency: string): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency', currency, minimumFractionDigits: 2,
@@ -49,10 +61,12 @@ function formatPrice(price: number | string, currency: string): string {
 }
 
 export default async function TenantHomePage({ params }: { params: { tenant: string } }) {
-  const [tenant, featuredItems, menuGroups] = await Promise.all([
+  const [tenant, featuredItems, menuGroups, aboutEntries, reviewEntries] = await Promise.all([
     getTenant(params.tenant),
     getFeaturedItems(params.tenant),
     getMenuGroups(params.tenant),
+    getPageEntries(params.tenant, 'about'),
+    getPageEntries(params.tenant, 'reviews'),
   ]);
 
   if (!tenant) notFound();
@@ -67,6 +81,9 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   // Allow manual colour overrides to coexist with template defaults
   const primaryColor = theme.primaryColor || template.primaryColor;
   const fontFamily = theme.fontFamily || template.fontFamily;
+
+  const showAboutSection = theme.showAboutOnHome !== false && aboutEntries.length > 0;
+  const showReviewsSection = theme.showReviewsOnHome !== false && reviewEntries.length > 0;
 
   // Banner images: prefer themeSettings.bannerImages array, fall back to single banner field
   const bannerImages: string[] =
@@ -214,6 +231,102 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 style={{ backgroundColor: primaryColor }}>
                 View Full {isRestaurant ? 'Menu' : 'Services'}
               </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* About Us section */}
+      {showAboutSection && (() => {
+        const entry = aboutEntries[0];
+        const description: string = entry.data?.description || '';
+        const snippet = description.length > 300 ? description.slice(0, 300).trimEnd() + '…' : description;
+        return (
+          <section className="py-16 bg-white">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-10">
+                <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>About Us</p>
+                <h2 className="text-3xl font-black text-gray-900"
+                  style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+                  {entry.title || tenant.name}
+                </h2>
+              </div>
+              {entry.imageUrl ? (
+                <div className="grid lg:grid-cols-2 gap-10 items-center">
+                  <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100">
+                    <img src={entry.imageUrl} alt={entry.title || 'About us'} className="absolute inset-0 w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-gray-600 leading-relaxed text-base">{snippet}</p>
+                    <Link href="/about" className="inline-flex items-center gap-1.5 mt-6 text-sm font-bold" style={{ color: primaryColor }}>
+                      Read our full story →
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-3xl mx-auto text-center">
+                  <p className="text-gray-600 leading-relaxed text-base">{snippet}</p>
+                  <Link href="/about" className="inline-flex items-center gap-1.5 mt-6 text-sm font-bold" style={{ color: primaryColor }}>
+                    Read our full story →
+                  </Link>
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* Customer Reviews section */}
+      {showReviewsSection && (
+        <section className="py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>Reviews</p>
+              <h2 className="text-3xl font-black text-gray-900"
+                style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+                What Our Customers Say
+              </h2>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {reviewEntries.map((entry: any) => {
+                const rating = Math.min(5, Math.max(1, Number(entry.data?.rating) || 5));
+                const comment: string = entry.data?.comment || '';
+                return (
+                  <div key={entry.id} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col">
+                    {/* Stars */}
+                    <div className="flex gap-0.5 mb-3">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span key={i} className={`text-lg ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                      ))}
+                    </div>
+                    {/* Comment */}
+                    <p className="text-gray-600 text-sm leading-relaxed flex-1 mb-4">"{comment}"</p>
+                    {/* Author */}
+                    <div className="flex items-center gap-3 pt-4 border-t border-gray-50">
+                      {entry.imageUrl ? (
+                        <img src={entry.imageUrl} alt={entry.title} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                          style={{ backgroundColor: primaryColor }}>
+                          {(entry.title || '?')[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm truncate">{entry.title}</p>
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21.35 11.1h-9.18v2.93h5.34c-.23 1.24-.95 2.29-2.03 3l3.28 2.54c1.91-1.76 3.01-4.35 3.01-7.47 0-.58-.05-1.14-.14-1.7z" fill="#4285F4"/>
+                            <path d="M11.17 22c2.7 0 4.96-.9 6.62-2.43l-3.28-2.54c-.9.6-2.04.96-3.34.96-2.57 0-4.74-1.74-5.52-4.07H2.3v2.63A9.99 9.99 0 0011.17 22z" fill="#34A853"/>
+                            <path d="M5.65 13.92A5.97 5.97 0 015.35 12c0-.67.12-1.32.3-1.93V7.44H2.3A9.99 9.99 0 001.17 12c0 1.62.39 3.14 1.13 4.56l3.35-2.64z" fill="#FBBC05"/>
+                            <path d="M11.17 5.97c1.45 0 2.75.5 3.77 1.48l2.83-2.83C16.13 2.99 13.87 2 11.17 2A9.99 9.99 0 002.3 7.44l3.35 2.63c.78-2.33 2.95-4.1 5.52-4.1z" fill="#EA4335"/>
+                          </svg>
+                          Google Review
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
