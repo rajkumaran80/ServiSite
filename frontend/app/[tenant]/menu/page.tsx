@@ -32,6 +32,51 @@ async function getFullMenu(slug: string): Promise<FullMenu> {
   } catch { return { groups: [], uncategorized: [] }; }
 }
 
+async function getPublicBundles(slug: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_URL}/bundles`, {
+      cache: 'no-store',
+      headers: { 'X-Tenant-ID': slug },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  } catch { return []; }
+}
+
+function resolveSlotItems(sources: { sourceType: string; sourceId: string }[], menu: FullMenu): MenuItem[] {
+  const items: MenuItem[] = [];
+  const seen = new Set<string>();
+
+  const add = (item: MenuItem) => {
+    if (item.isAvailable && !seen.has(item.id)) {
+      items.push(item);
+      seen.add(item.id);
+    }
+  };
+
+  for (const src of sources) {
+    if (src.sourceType === 'ITEM') {
+      for (const g of menu.groups) for (const c of g.categories ?? []) for (const i of c.menuItems ?? []) if (i.id === src.sourceId) add(i);
+      for (const i of menu.uncategorized) if (i.id === src.sourceId) add(i);
+    } else if (src.sourceType === 'CATEGORY') {
+      for (const g of menu.groups) for (const c of g.categories ?? []) if (c.id === src.sourceId) for (const i of c.menuItems ?? []) add(i);
+    } else if (src.sourceType === 'MENU_GROUP') {
+      for (const g of menu.groups) if (g.id === src.sourceId) for (const c of g.categories ?? []) for (const i of c.menuItems ?? []) add(i);
+    }
+  }
+  return items;
+}
+
+function calculateBundlePrice(bundle: any, selections: Record<string, MenuItem[]>): number {
+  if (bundle.pricingType === 'FIXED') return parseFloat(bundle.basePrice) || 0;
+  const sum = Object.values(selections).flat().reduce((total, item) => {
+    return total + (typeof item.price === 'string' ? parseFloat(item.price) : (item.price as number));
+  }, 0);
+  if (bundle.pricingType === 'DISCOUNTED') return sum * (1 - (parseFloat(bundle.discountPct) || 0) / 100);
+  return sum;
+}
+
 function formatTime(time: string): string {
   const [h, m] = time.split(':');
   const hour = parseInt(h, 10);
@@ -670,6 +715,178 @@ function ItemCard({
   );
 }
 
+// ─── Bundle Card ──────────────────────────────────────────────────────────────
+
+function BundleCard({
+  bundle,
+  currency,
+  primaryColor,
+  onClick,
+}: {
+  bundle: any;
+  currency: string;
+  primaryColor: string;
+  onClick: () => void;
+}) {
+  const displayPrice =
+    bundle.pricingType === 'FIXED' && bundle.basePrice != null
+      ? formatPrice(parseFloat(bundle.basePrice), currency)
+      : bundle.pricingType === 'DISCOUNTED' && bundle.discountPct != null
+      ? `${bundle.discountPct}% off`
+      : null;
+
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer"
+    >
+      {bundle.imageUrl ? (
+        <img src={bundle.imageUrl} alt={bundle.name} className="w-full h-44 object-cover" />
+      ) : (
+        <div className="w-full h-44 bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center text-5xl">🎁</div>
+      )}
+      <div className="p-4 flex flex-col flex-1">
+        <h3 className="font-semibold text-gray-900 leading-snug">{bundle.name}</h3>
+        {bundle.description && (
+          <p className="text-sm text-gray-500 mt-1 line-clamp-2 flex-1">{bundle.description}</p>
+        )}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          {displayPrice && <span className="text-base font-bold text-blue-700">{displayPrice}</span>}
+          <span className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded-full">Deal</span>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onClick(); }}
+          className="mt-3 py-2 border border-blue-200 text-blue-700 hover:bg-blue-50 text-sm font-medium rounded-lg transition-colors"
+        >
+          Customise Deal
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Bundle Picker Modal ───────────────────────────────────────────────────────
+
+function BundlePickerModal({
+  bundle,
+  menu,
+  currency,
+  onClose,
+  onConfirm,
+}: {
+  bundle: any;
+  menu: FullMenu;
+  currency: string;
+  onClose: () => void;
+  onConfirm: (selections: Record<string, MenuItem[]>, price: number) => void;
+}) {
+  const [selections, setSelections] = useState<Record<string, MenuItem[]>>({});
+
+  const isValid = (bundle.slots ?? []).every((slot: any) => {
+    const selected = selections[slot.id] ?? [];
+    return selected.length >= (slot.minSelection ?? 1);
+  });
+
+  const price = calculateBundlePrice(bundle, selections);
+
+  const toggleItem = (slotId: string, item: MenuItem, maxSel: number) => {
+    setSelections((prev) => {
+      const current = prev[slotId] ?? [];
+      const exists = current.find((i) => i.id === item.id);
+      if (exists) return { ...prev, [slotId]: current.filter((i) => i.id !== item.id) };
+      if (maxSel === 1) return { ...prev, [slotId]: [item] };
+      if (current.length >= maxSel) return prev;
+      return { ...prev, [slotId]: [...current, item] };
+    });
+  };
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h2 className="font-bold text-gray-900">{bundle.name}</h2>
+            {bundle.description && <p className="text-sm text-gray-500 mt-0.5">{bundle.description}</p>}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl">&times;</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
+          {(bundle.slots ?? []).map((slot: any) => {
+            const slotItems = resolveSlotItems(slot.sources ?? [], menu);
+            const selected = selections[slot.id] ?? [];
+            const minSel = slot.minSelection ?? 1;
+            const maxSel = slot.maxSelection ?? 1;
+            return (
+              <div key={slot.id}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900 text-sm">{slot.name}</h3>
+                  <span className="text-xs text-gray-400">
+                    {minSel === maxSel ? `Choose ${minSel}` : `Choose ${minSel}–${maxSel}`}
+                  </span>
+                </div>
+                {slotItems.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">No items available for this slot</p>
+                ) : (
+                  <div className="space-y-2">
+                    {slotItems.map((item) => {
+                      const isSelected = selected.some((i) => i.id === item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => toggleItem(slot.id, item, maxSel)}
+                          className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
+                            isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-300'
+                          }`}
+                        >
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-2xl flex-shrink-0">🍽️</div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 text-sm">{item.name}</p>
+                            {item.description && <p className="text-xs text-gray-500 truncate">{item.description}</p>}
+                          </div>
+                          {bundle.pricingType !== 'FIXED' && (
+                            <span className="text-sm font-semibold text-gray-700 flex-shrink-0">
+                              {formatPrice(typeof item.price === 'string' ? parseFloat(item.price) : item.price, currency)}
+                            </span>
+                          )}
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                          }`}>
+                            {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="border-t border-gray-100 px-5 py-4 flex-shrink-0 bg-gray-50">
+          <button
+            disabled={!isValid}
+            onClick={() => onConfirm(selections, price)}
+            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-semibold rounded-xl transition-colors"
+          >
+            {isValid ? `Add Deal · ${formatPrice(price, currency)}` : 'Make your selections'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Floating Cart Button ──────────────────────────────────────────────────────
 
 function FloatingCartButton({ count, total, currency, onClick }: { count: number; total: number; currency: string; onClick: () => void }) {
@@ -709,15 +926,18 @@ export default function MenuPage() {
   const [modifierItem, setModifierItem] = useState<MenuItem | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
+  const [bundles, setBundles] = useState<any[]>([]);
+  const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
 
   const cart = useCartStore();
 
   useEffect(() => {
     if (!tenantSlug) return;
     cart.setTenant(tenantSlug);
-    Promise.all([getTenant(tenantSlug), getFullMenu(tenantSlug)]).then(([t, m]) => {
+    Promise.all([getTenant(tenantSlug), getFullMenu(tenantSlug), getPublicBundles(tenantSlug)]).then(([t, m, b]) => {
       setTenant(t);
       setMenu(m);
+      setBundles(b);
       const groupParam = searchParams.get('group');
       const validGroup = groupParam && m.groups.some((g: any) => g.id === groupParam);
       setActiveTab(validGroup ? groupParam : (m.groups[0]?.id ?? ''));
@@ -782,6 +1002,25 @@ export default function MenuPage() {
     setModifierItem(null);
     cart.openCart();
     toast.success(`${item.name} added`, { duration: 1500, position: 'bottom-center' });
+  }, [cart]);
+
+  const handleAddBundle = useCallback((bundle: any, selections: Record<string, MenuItem[]>, price: number) => {
+    const selectionSummary = Object.values(selections).flat().map((i) => i.name).join(', ');
+    cart.addItem({
+      cartKey: `bundle-${bundle.id}`,
+      menuItemId: bundle.id,
+      type: 'bundle',
+      name: bundle.name,
+      basePrice: price,
+      modifierAdjustment: 0,
+      unitPrice: price,
+      imageUrl: bundle.imageUrl,
+      selectedModifiers: [],
+      modifierSummary: selectionSummary,
+    });
+    setSelectedBundle(null);
+    cart.openCart();
+    toast.success(`${bundle.name} added`, { duration: 1500, position: 'bottom-center' });
   }, [cart]);
 
   if (loading) {
@@ -874,6 +1113,22 @@ export default function MenuPage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {bundles.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide mb-5">Deals</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {bundles.map((bundle) => (
+                <BundleCard
+                  key={bundle.id}
+                  bundle={bundle}
+                  currency={currency}
+                  primaryColor={primaryColor}
+                  onClick={() => setSelectedBundle(bundle)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         {!hasContent ? (
           <div className="text-center py-24">
             <div className="text-6xl mb-4">{isRestaurant ? '🍽️' : '🛠️'}</div>
@@ -967,6 +1222,16 @@ export default function MenuPage() {
           currency={currency}
           onClose={closeItem}
           onAddToCart={handleAddToCart}
+        />
+      )}
+
+      {selectedBundle && (
+        <BundlePickerModal
+          bundle={selectedBundle}
+          menu={menu}
+          currency={currency}
+          onClose={() => setSelectedBundle(null)}
+          onConfirm={(selections, price) => handleAddBundle(selectedBundle, selections, price)}
         />
       )}
 
