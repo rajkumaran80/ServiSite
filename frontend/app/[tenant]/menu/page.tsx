@@ -658,11 +658,13 @@ function ItemCard({
   currency,
   onClick,
   onAdd,
+  orderingEnabled,
 }: {
   item: MenuItem;
   currency: string;
   onClick: () => void;
   onAdd: (e: React.MouseEvent) => void;
+  orderingEnabled: boolean;
 }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all">
@@ -702,8 +704,8 @@ function ItemCard({
         </div>
       </button>
 
-      {/* Add to cart button */}
-      {item.isAvailable && (
+      {/* Add to cart button — only shown for plans with ordering */}
+      {orderingEnabled && item.isAvailable && (
         <button
           onClick={onAdd}
           className="mx-4 mb-4 py-2 border border-blue-200 text-blue-700 hover:bg-blue-50 text-sm font-medium rounded-lg transition-colors"
@@ -1053,6 +1055,7 @@ export default function MenuPage() {
   const currency = tenant.currency || 'GBP';
   const isRestaurant = tenant.type === 'RESTAURANT';
   const primaryColor = (tenant.themeSettings as any)?.primaryColor || '#3B82F6';
+  const orderingEnabled = tenant.plan !== 'BASIC';
   const activeSection = menu.groups.find((s) => s.id === activeTab);
   const hasContent =
     menu.groups.some((s) => s.categories?.some((c) => c.menuItems && c.menuItems.length > 0)) ||
@@ -1113,7 +1116,7 @@ export default function MenuPage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {bundles.length > 0 && (
+        {orderingEnabled && bundles.length > 0 && (
           <div className="mb-10">
             <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide mb-5">Deals</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1175,6 +1178,7 @@ export default function MenuPage() {
                               currency={currency}
                               onClick={() => openItem(item)}
                               onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
+                              orderingEnabled={orderingEnabled}
                             />
                           ))}
                         </div>
@@ -1198,6 +1202,7 @@ export default function MenuPage() {
                       currency={currency}
                       onClick={() => openItem(item)}
                       onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
+                      orderingEnabled={orderingEnabled}
                     />
                   ))}
                 </div>
