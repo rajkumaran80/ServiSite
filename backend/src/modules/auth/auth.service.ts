@@ -62,7 +62,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    if (!user.emailVerified) {
+    if (!user.emailVerified && user.role !== 'SUPER_ADMIN') {
       throw new UnauthorizedException('EMAIL_NOT_VERIFIED');
     }
 
