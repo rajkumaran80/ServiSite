@@ -565,11 +565,13 @@ function ItemModal({
   currency,
   onClose,
   onAddToCart,
+  orderingEnabled,
 }: {
   item: MenuItem;
   currency: string;
   onClose: () => void;
   onAddToCart: (item: MenuItem) => void;
+  orderingEnabled: boolean;
 }) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -637,7 +639,7 @@ function ItemModal({
             <p className="text-xs text-red-500 font-medium">Currently unavailable</p>
           )}
 
-          {item.isAvailable && (
+          {orderingEnabled && item.isAvailable && (
             <button
               onClick={() => { onAddToCart(item); onClose(); }}
               className="w-full mt-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
@@ -1227,6 +1229,7 @@ export default function MenuPage() {
           currency={currency}
           onClose={closeItem}
           onAddToCart={handleAddToCart}
+          orderingEnabled={orderingEnabled}
         />
       )}
 
