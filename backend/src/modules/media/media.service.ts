@@ -67,15 +67,13 @@ export class MediaService implements OnModuleInit {
   }
 
   private async configureCors(): Promise<void> {
-    const allowedOrigins = this.configService.get<string>(
-      'ALLOWED_ORIGINS',
-      'http://localhost:3000',
-    );
-
+    // Use * — upload security is enforced by the short-lived SAS token,
+    // not by CORS origin restrictions. Restricting origins here blocks
+    // uploads from tenant custom domains and any unlisted frontend URL.
     await this.blobServiceClient.setProperties({
       cors: [
         {
-          allowedOrigins,
+          allowedOrigins: '*',
           allowedMethods: 'PUT,GET,OPTIONS',
           allowedHeaders: 'content-type,x-ms-blob-type,x-ms-version,x-ms-date',
           exposedHeaders: 'etag',
@@ -83,7 +81,7 @@ export class MediaService implements OnModuleInit {
         },
       ],
     });
-    this.logger.log(`Azure CORS configured for origins: ${allowedOrigins}`);
+    this.logger.log('Azure CORS configured (allowedOrigins: *)');
   }
 
   private getContainerClient(): ContainerClient {
