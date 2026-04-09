@@ -1084,7 +1084,8 @@ export default function MenuPage() {
       {menu.groups.length > 0 && (
         <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-center gap-1 overflow-x-auto py-2 scrollbar-none">
+            <div className="overflow-x-auto py-2 scrollbar-none">
+            <div className="flex justify-start sm:justify-center gap-1 min-w-max sm:min-w-0 w-max sm:w-full">
               {menu.groups.map((group) => {
                 const isActive = activeTab === group.id;
                 return (
@@ -1112,6 +1113,7 @@ export default function MenuPage() {
                   Other
                 </button>
               )}
+            </div>
             </div>
           </div>
         </div>
