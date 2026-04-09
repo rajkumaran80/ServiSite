@@ -54,6 +54,18 @@ async function getPageEntries(slug: string, pageKey: string) {
   } catch { return []; }
 }
 
+async function getGoogleReviews(slug: string) {
+  try {
+    const res = await fetch(`${API_URL}/google-reviews`, {
+      next: { tags: [`tenant:${slug}:google-reviews`], revalidate: 86400 }, // 24h
+      headers: { 'X-Tenant-ID': slug },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  } catch { return []; }
+}
+
 function formatPrice(price: number | string, currency: string): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency', currency, minimumFractionDigits: 2,
@@ -61,11 +73,12 @@ function formatPrice(price: number | string, currency: string): string {
 }
 
 export default async function TenantHomePage({ params }: { params: { tenant: string } }) {
-  const [tenant, featuredItems, menuGroups, aboutEntries, reviewEntries] = await Promise.all([
+  const [tenant, featuredItems, menuGroups, aboutEntries, googleReviews, manualReviewEntries] = await Promise.all([
     getTenant(params.tenant),
     getFeaturedItems(params.tenant),
     getMenuGroups(params.tenant),
     getPageEntries(params.tenant, 'about'),
+    getGoogleReviews(params.tenant),
     getPageEntries(params.tenant, 'reviews'),
   ]);
 
@@ -83,6 +96,9 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   const fontFamily = theme.fontFamily || template.fontFamily;
 
   const showAboutSection = theme.showAboutOnHome !== false && aboutEntries.length > 0;
+  // Google reviews take priority; fall back to manually added entries
+  const reviewEntries = googleReviews.length > 0 ? googleReviews : manualReviewEntries;
+  const reviewsSource: 'google' | 'manual' = googleReviews.length > 0 ? 'google' : 'manual';
   const showReviewsSection = theme.showReviewsOnHome !== false && reviewEntries.length > 0;
 
   // Banner images: prefer themeSettings.bannerImages array, fall back to single banner field
@@ -288,11 +304,15 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               </h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {reviewEntries.map((entry: any) => {
-                const rating = Math.min(5, Math.max(1, Number(entry.data?.rating) || 5));
-                const comment: string = entry.data?.comment || '';
+              {reviewEntries.map((entry: any, idx: number) => {
+                const isGoogle = reviewsSource === 'google';
+                const authorName: string = isGoogle ? entry.authorName : entry.title;
+                const photoUrl: string | null = isGoogle ? entry.authorPhotoUrl : entry.imageUrl;
+                const rating: number = Math.min(5, Math.max(1, Number(isGoogle ? entry.rating : entry.data?.rating) || 5));
+                const comment: string = isGoogle ? entry.text : (entry.data?.comment || '');
+                const relativeTime: string | null = isGoogle ? entry.relativeTime : null;
                 return (
-                  <div key={entry.id} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col">
+                  <div key={isGoogle ? idx : entry.id} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col">
                     {/* Stars */}
                     <div className="flex gap-0.5 mb-3">
                       {Array.from({ length: 5 }).map((_, i) => (
@@ -303,24 +323,30 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                     <p className="text-gray-600 text-sm leading-relaxed flex-1 mb-4">"{comment}"</p>
                     {/* Author */}
                     <div className="flex items-center gap-3 pt-4 border-t border-gray-50">
-                      {entry.imageUrl ? (
-                        <img src={entry.imageUrl} alt={entry.title} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                      {photoUrl ? (
+                        <img src={photoUrl} alt={authorName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                       ) : (
                         <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
                           style={{ backgroundColor: primaryColor }}>
-                          {(entry.title || '?')[0].toUpperCase()}
+                          {(authorName || '?')[0].toUpperCase()}
                         </div>
                       )}
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 text-sm truncate">{entry.title}</p>
+                        <p className="font-semibold text-gray-900 text-sm truncate">{authorName}</p>
                         <div className="flex items-center gap-1 text-xs text-gray-400">
-                          <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M21.35 11.1h-9.18v2.93h5.34c-.23 1.24-.95 2.29-2.03 3l3.28 2.54c1.91-1.76 3.01-4.35 3.01-7.47 0-.58-.05-1.14-.14-1.7z" fill="#4285F4"/>
-                            <path d="M11.17 22c2.7 0 4.96-.9 6.62-2.43l-3.28-2.54c-.9.6-2.04.96-3.34.96-2.57 0-4.74-1.74-5.52-4.07H2.3v2.63A9.99 9.99 0 0011.17 22z" fill="#34A853"/>
-                            <path d="M5.65 13.92A5.97 5.97 0 015.35 12c0-.67.12-1.32.3-1.93V7.44H2.3A9.99 9.99 0 001.17 12c0 1.62.39 3.14 1.13 4.56l3.35-2.64z" fill="#FBBC05"/>
-                            <path d="M11.17 5.97c1.45 0 2.75.5 3.77 1.48l2.83-2.83C16.13 2.99 13.87 2 11.17 2A9.99 9.99 0 002.3 7.44l3.35 2.63c.78-2.33 2.95-4.1 5.52-4.1z" fill="#EA4335"/>
-                          </svg>
-                          Google Review
+                          {isGoogle ? (
+                            <>
+                              <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M21.35 11.1h-9.18v2.93h5.34c-.23 1.24-.95 2.29-2.03 3l3.28 2.54c1.91-1.76 3.01-4.35 3.01-7.47 0-.58-.05-1.14-.14-1.7z" fill="#4285F4"/>
+                                <path d="M11.17 22c2.7 0 4.96-.9 6.62-2.43l-3.28-2.54c-.9.6-2.04.96-3.34.96-2.57 0-4.74-1.74-5.52-4.07H2.3v2.63A9.99 9.99 0 0011.17 22z" fill="#34A853"/>
+                                <path d="M5.65 13.92A5.97 5.97 0 015.35 12c0-.67.12-1.32.3-1.93V7.44H2.3A9.99 9.99 0 001.17 12c0 1.62.39 3.14 1.13 4.56l3.35-2.64z" fill="#FBBC05"/>
+                                <path d="M11.17 5.97c1.45 0 2.75.5 3.77 1.48l2.83-2.83C16.13 2.99 13.87 2 11.17 2A9.99 9.99 0 002.3 7.44l3.35 2.63c.78-2.33 2.95-4.1 5.52-4.1z" fill="#EA4335"/>
+                              </svg>
+                              Google · {relativeTime}
+                            </>
+                          ) : (
+                            <span>Verified customer</span>
+                          )}
                         </div>
                       </div>
                     </div>

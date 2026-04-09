@@ -69,6 +69,7 @@ export default function SettingsPage() {
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
   const [nsRecords, setNsRecords] = useState<string[]>([]);
+  const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isSavingDomain, setIsSavingDomain] = useState(false);
   const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
 
@@ -122,6 +123,7 @@ export default function SettingsPage() {
               surfaceColor: ts.surfaceColor || '#f4f4f5',
             });
           }
+          setGooglePlaceId((currentTenant.themeSettings as any)?.googlePlaceId || '');
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
@@ -235,6 +237,7 @@ export default function SettingsPage() {
           promoImageUrl: promoImageUrl || undefined,
           pageTemplate: selectedTemplate,
           bannerImages: bannerUrls.length > 0 ? bannerUrls : undefined,
+          googlePlaceId: googlePlaceId.trim() || undefined,
         },
       });
       setTenant(updated);
@@ -403,6 +406,38 @@ export default function SettingsPage() {
                   <option value="es">Spanish</option>
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* Google Reviews */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Google Reviews</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Automatically display your Google reviews on your home page.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Google Place ID
+              </label>
+              <input
+                value={googlePlaceId}
+                onChange={(e) => setGooglePlaceId(e.target.value)}
+                placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">
+                Find your Place ID at{' '}
+                <a
+                  href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  developers.google.com/maps/documentation/javascript/examples/places-placeid-finder
+                </a>
+              </p>
             </div>
           </div>
 

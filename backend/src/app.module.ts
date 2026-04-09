@@ -19,6 +19,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { ModifiersModule } from './modules/modifiers/modifiers.module';
 import { BundlesModule } from './modules/bundles/bundles.module';
 import { PricingModule } from './modules/pricing/pricing.module';
+import { GoogleReviewsModule } from './modules/google-reviews/google-reviews.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { InternalSecretMiddleware } from './common/middleware/internal-secret.middleware';
 import { CacheModule } from './common/cache/cache.module';
@@ -52,6 +53,7 @@ import { NotifyModule } from './common/notify/notify.module';
     ModifiersModule,
     BundlesModule,
     PricingModule,
+    GoogleReviewsModule,
   ],
   controllers: [AppController],
   providers: [
