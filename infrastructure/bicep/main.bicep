@@ -95,6 +95,10 @@ param superadminAlertEmail string = 'admin@servisite.co.uk'
 @description('Stripe publishable key (pk_live_...) — baked into frontend Docker image')
 param nextPublicStripePublishableKey string
 
+@description('Google Places API key — for fetching Google Reviews on tenant home pages')
+@secure()
+param googlePlacesApiKey string
+
 @description('Google OAuth client ID for frontend — same value as googleClientId')
 param nextPublicGoogleClientId string
 
@@ -144,6 +148,7 @@ module keyvault 'modules/keyvault.bicep' = {
     vapidPrivateKey: vapidPrivateKey
     twilioAuthToken: twilioAuthToken
     googleClientId: googleClientId
+    googlePlacesApiKey: googlePlacesApiKey
   }
 }
 

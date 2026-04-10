@@ -53,7 +53,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               style={{ backgroundColor: `${primaryColor}bb` }}>
               {typeLabel[tenant.type] || 'Business'}
             </span>
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.05] mb-4 tracking-tight">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.05] mb-4 tracking-tight"
+              style={fontFamily === 'Playfair Display' ? { fontFamily: `'Playfair Display', Georgia, serif` } : undefined}>
               {tenant.name}
             </h1>
             <div className="w-20 h-1 rounded-full mb-6" style={{ backgroundColor: primaryColor }} />

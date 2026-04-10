@@ -7,6 +7,7 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../../store/auth.store';
 import tenantService from '../../../services/tenant.service';
+import { api } from '../../../services/api';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import MultiImageUpload from '../../../components/ui/MultiImageUpload';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
@@ -76,7 +77,7 @@ export default function SettingsPage() {
   const tenantForm = useForm<TenantForm>({
     resolver: zodResolver(tenantSchema),
     defaultValues: {
-      name: '',
+      name: user?.tenant?.name ?? '',
       type: 'RESTAURANT',
       currency: 'USD',
       timezone: 'UTC',
@@ -96,12 +97,12 @@ export default function SettingsPage() {
 
     const loadData = async () => {
       try {
-        const [allTenants, contactData] = await Promise.all([
-          tenantService.getAll(),
+        const [tenantRes, contactData] = await Promise.all([
+          api.get<{ data: Tenant }>('/tenant/current'),
           tenantService.getContact(),
         ]);
 
-        const currentTenant = allTenants.find((t) => t.id === user.tenantId);
+        const currentTenant = tenantRes.data.data;
         if (currentTenant) {
           setTenant(currentTenant);
           setLogoUrl(currentTenant.logo || '');
@@ -257,14 +258,12 @@ export default function SettingsPage() {
       const tmpl = getPageTemplate(templateId);
       const updated = await tenantService.update(tenant.id, {
         themeSettings: {
-          ...(tenant.themeSettings as any || {}),
           pageTemplate: templateId,
           primaryColor: customColors?.primaryColor ?? tmpl.primaryColor,
           secondaryColor: customColors?.secondaryColor ?? tmpl.secondaryColor,
           accentColor: customColors?.accentColor ?? tmpl.primaryColor,
-          surfaceColor: customColors?.surfaceColor,
+          surfaceColor: customColors?.surfaceColor ?? (tmpl as any).surfaceColor ?? '#f4f4f5',
           fontFamily: tmpl.fontFamily,
-          promoImageUrl: promoImageUrl || undefined,
         },
       });
       setTenant(updated);

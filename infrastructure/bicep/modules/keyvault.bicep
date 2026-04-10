@@ -26,6 +26,8 @@ param vapidPrivateKey string
 param twilioAuthToken string
 @secure()
 param googleClientId string
+@secure()
+param googlePlacesApiKey string
 
 var kvName = replace('${prefix}-kv', '-', '')  // Key Vault names: alphanumeric only, max 24 chars
 
@@ -111,6 +113,12 @@ resource secretGoogleClientId 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kv
   name: 'google-client-id'
   properties: { value: googleClientId }
+}
+
+resource secretGooglePlacesApiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'google-places-api-key'
+  properties: { value: googlePlacesApiKey }
 }
 
 // ── Private Endpoint ──────────────────────────────────────────────────────────

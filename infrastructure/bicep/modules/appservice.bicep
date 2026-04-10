@@ -119,6 +119,7 @@ resource backend 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'VAPID_PRIVATE_KEY',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=vapid-private-key)' }
         { name: 'TWILIO_AUTH_TOKEN',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=twilio-auth-token)' }
         { name: 'GOOGLE_CLIENT_ID',        value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=google-client-id)' }
+        { name: 'GOOGLE_PLACES_API_KEY',   value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=google-places-api-key)' }
         // ── Container ─────────────────────────────────────────────────────────
         { name: 'WEBSITES_PORT', value: '3001' }
         { name: 'DOCKER_REGISTRY_SERVER_URL', value: 'https://${acrLoginServer}' }

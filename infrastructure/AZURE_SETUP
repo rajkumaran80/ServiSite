@@ -51,6 +51,7 @@ Current values in parameters.secrets.json:
   vapidPrivateKey        (set — generated keypair)
   twilioAuthToken        (set — Twilio console)
   googleClientId         246900947852-... (Google OAuth)
+  googlePlacesApiKey     AIzaSyAI... (Google Places API — for Google Reviews on tenant pages)
 
 Non-secret config (in parameters.json — already set):
   smtpHost               smtp.gmail.com

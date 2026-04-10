@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '../../store/auth.store';
 import tenantService from '../../services/tenant.service';
+import { api } from '../../services/api';
 import type { TenantStats, Tenant } from '../../types/tenant.types';
 
 export default function DashboardPage() {
@@ -13,19 +14,22 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
+  const isLocalDev = APP_DOMAIN === 'localhost';
+  const tenantUrl = (slug: string) =>
+    isLocalDev
+      ? `http://${slug}.localhost:3000`
+      : `https://${slug}.${APP_DOMAIN}`;
 
   useEffect(() => {
     if (!user?.tenantId) return;
 
     const loadData = async () => {
       try {
-        const [tenantData, statsData] = await Promise.all([
-          tenantService.getAll().then((tenants) =>
-            tenants.find((t) => t.id === user.tenantId) || null
-          ),
+        const [tenantRes, statsData] = await Promise.all([
+          api.get<{ data: Tenant }>('/tenant/current'),
           tenantService.getStats(user.tenantId),
         ]);
-        setTenant(tenantData);
+        setTenant(tenantRes.data.data);
         setStats(statsData);
       } catch (error) {
         console.error('Failed to load dashboard data', error);
@@ -67,7 +71,7 @@ export default function DashboardPage() {
     { label: 'Update Settings', href: '/dashboard/settings', icon: '⚙️', desc: 'Customize your page' },
     {
       label: 'View Your Page',
-      href: tenant ? `https://${tenant.slug}.${APP_DOMAIN}` : '#',
+      href: tenant ? tenantUrl(tenant.slug) : '#',
       icon: '🌐',
       desc: 'See your public page',
       external: true,
@@ -107,12 +111,12 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm font-medium text-blue-900">Your public page</p>
               <p className="text-blue-600 text-sm font-mono">
-                {tenant.slug}.{APP_DOMAIN}
+                {isLocalDev ? `${tenant.slug}.localhost:3000` : `${tenant.slug}.${APP_DOMAIN}`}
               </p>
             </div>
           </div>
           <a
-            href={`https://${tenant.slug}.${APP_DOMAIN}`}
+            href={tenantUrl(tenant.slug)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-shrink-0 bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"

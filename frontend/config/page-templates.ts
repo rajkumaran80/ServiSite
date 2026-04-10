@@ -12,6 +12,8 @@ export interface PageTemplate {
   previewTextColor: string;
   /** When false, hide the letter-avatar in the navbar (text-only branding) */
   showLogo?: boolean;
+  /** Show menu groups as full-bleed image category cards (Ravensbury-style) */
+  showCategoryGrid?: boolean;
 }
 
 // ── RESTAURANT ────────────────────────────────────────────────────────────────
@@ -164,6 +166,19 @@ const RESTAURANT_TEMPLATES: PageTemplate[] = [
     cardStyle: 'grid',
     previewGradient: 'from-violet-600 via-violet-700 to-violet-900',
     previewTextColor: 'text-white',
+  },
+  {
+    id: 'grand',
+    name: 'Grand',
+    tagline: 'Dark & Gold · Upscale dining · Category showcase',
+    primaryColor: '#C4A35A',
+    secondaryColor: '#A0843E',
+    fontFamily: 'Playfair Display',
+    heroStyle: 'dark',
+    cardStyle: 'large',
+    showCategoryGrid: true,
+    previewGradient: 'from-stone-950 via-gray-900 to-black',
+    previewTextColor: 'text-amber-300',
   },
 ];
 

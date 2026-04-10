@@ -132,43 +132,93 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
         fontFamily={fontFamily}
       />
 
-      {/* Menu Groups quick nav */}
+      {/* Menu Groups — category showcase grid (Grand template) or pill nav */}
       {menuGroups.length > 0 && (
-        <section className="py-10 bg-gray-50 border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-wrap justify-center gap-3">
-              {menuGroups.map((group: any) => (
+        template.showCategoryGrid ? (
+          <section className="grid grid-cols-2 lg:grid-cols-4" style={{ backgroundColor: '#0a0a0a' }}>
+            {menuGroups.slice(0, 4).map((group: any, idx: number) => {
+              const darkBgs = [
+                'linear-gradient(135deg, #1a1209 0%, #2d1f08 100%)',
+                'linear-gradient(135deg, #0a0f1a 0%, #131f35 100%)',
+                'linear-gradient(135deg, #0f0a14 0%, #1e1028 100%)',
+                'linear-gradient(135deg, #0a1208 0%, #142010 100%)',
+              ];
+              return (
                 <Link
                   key={group.id}
                   href={`/menu?group=${group.id}`}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all text-sm font-semibold text-gray-700"
+                  className="relative flex items-end overflow-hidden group"
+                  style={{ minHeight: 280 }}
                 >
-                  {group.icon && <span className="text-lg">{group.icon}</span>}
-                  <span>{group.name}</span>
+                  {group.imageUrl ? (
+                    <img
+                      src={group.imageUrl}
+                      alt={group.name}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                  ) : (
+                    <div className="absolute inset-0" style={{ background: darkBgs[idx % darkBgs.length] }} />
+                  )}
+                  {/* Gold border accent top */}
+                  <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: primaryColor, opacity: 0.6 }} />
+                  {/* Dark gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent group-hover:from-black/90 transition-all duration-300" />
+                  <div className="relative z-10 p-6 w-full">
+                    {group.icon && (
+                      <span className="text-3xl mb-2 block">{group.icon}</span>
+                    )}
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] mb-1" style={{ color: primaryColor }}>
+                      Explore
+                    </p>
+                    <h3
+                      className="text-xl font-black text-white leading-tight group-hover:text-amber-100 transition-colors"
+                      style={{ fontFamily: `'Playfair Display', Georgia, serif` }}
+                    >
+                      {group.name}
+                    </h3>
+                    <div className="w-8 h-px mt-3 group-hover:w-16 transition-all duration-300" style={{ backgroundColor: primaryColor }} />
+                  </div>
                 </Link>
-              ))}
-              <Link
-                href={`/menu`}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white shadow hover:shadow-lg hover:-translate-y-0.5 transition-all"
-                style={{ backgroundColor: primaryColor }}
-              >
-                View All →
-              </Link>
+              );
+            })}
+          </section>
+        ) : (
+          <section className="py-10 bg-gray-50 border-b border-gray-100">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex flex-wrap justify-center gap-3">
+                {menuGroups.map((group: any) => (
+                  <Link
+                    key={group.id}
+                    href={`/menu?group=${group.id}`}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all text-sm font-semibold text-gray-700"
+                  >
+                    {group.icon && <span className="text-lg">{group.icon}</span>}
+                    <span>{group.name}</span>
+                  </Link>
+                ))}
+                <Link
+                  href={`/menu`}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white shadow hover:shadow-lg hover:-translate-y-0.5 transition-all"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  View All →
+                </Link>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )
       )}
 
       {/* Featured Items */}
       {featuredItems.length > 0 && (
-        <section className="py-16 bg-white">
+        <section className={`py-16 ${template.showCategoryGrid ? 'bg-[#0f0f0f]' : 'bg-white'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-end justify-between mb-10">
               <div>
                 <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>
                   {isRestaurant ? 'From the Kitchen' : 'Top Picks'}
                 </p>
-                <h2 className="text-3xl md:text-4xl font-black text-gray-900 leading-tight"
+                <h2 className={`text-3xl md:text-4xl font-black leading-tight ${template.showCategoryGrid ? 'text-white' : 'text-gray-900'}`}
                   style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
                   {isRestaurant ? 'Featured Dishes' : 'Popular Services'}
                 </h2>
