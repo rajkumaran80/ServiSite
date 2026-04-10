@@ -60,6 +60,8 @@ export default function SettingsPage() {
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [bannerUrls, setBannerUrls] = useState<string[]>([]);
   const [promoImageUrl, setPromoImageUrl] = useState<string>('');
+  const [menuVideoUrl, setMenuVideoUrl] = useState<string>('');
+  const [socialLinks, setSocialLinks] = useState({ instagram: '', facebook: '', tiktok: '', twitter: '', youtube: '' });
   const [selectedTemplate, setSelectedTemplate] = useState<string>('classic');
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -71,6 +73,7 @@ export default function SettingsPage() {
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
   const [nsRecords, setNsRecords] = useState<string[]>([]);
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
+  const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
   const [isSavingDomain, setIsSavingDomain] = useState(false);
   const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
 
@@ -114,6 +117,9 @@ export default function SettingsPage() {
               : currentTenant.banner ? [currentTenant.banner] : []
           );
           setPromoImageUrl((currentTenant.themeSettings as any)?.promoImageUrl || '');
+          setMenuVideoUrl((currentTenant.themeSettings as any)?.menuVideoUrl || '');
+          const sl = (currentTenant.themeSettings as any)?.socialLinks || {};
+          setSocialLinks({ instagram: sl.instagram || '', facebook: sl.facebook || '', tiktok: sl.tiktok || '', twitter: sl.twitter || '', youtube: sl.youtube || '' });
           setSelectedTemplate((currentTenant.themeSettings as any)?.pageTemplate || 'classic');
           const ts = currentTenant.themeSettings as any;
           if (ts?.primaryColor) {
@@ -222,6 +228,9 @@ export default function SettingsPage() {
     if (!tenant) return;
     setIsSavingTenant(true);
     try {
+      const cleanSocialLinks = Object.fromEntries(
+        Object.entries(socialLinks).filter(([, v]) => v.trim())
+      );
       const updated = await tenantService.update(tenant.id, {
         name: data.name,
         type: data.type,
@@ -236,9 +245,11 @@ export default function SettingsPage() {
           secondaryColor: data.secondaryColor,
           fontFamily: data.fontFamily,
           promoImageUrl: promoImageUrl || undefined,
+          menuVideoUrl: menuVideoUrl.trim() || undefined,
           pageTemplate: selectedTemplate,
           bannerImages: bannerUrls.length > 0 ? bannerUrls : undefined,
           googlePlaceId: googlePlaceId.trim() || undefined,
+          socialLinks: Object.keys(cleanSocialLinks).length > 0 ? cleanSocialLinks : undefined,
         },
       });
       setTenant(updated);
@@ -287,12 +298,38 @@ export default function SettingsPage() {
     }
   };
 
+  const lookupPlaceId = async (businessName: string, address: string, city: string) => {
+    const query = [businessName, address, city].filter(Boolean).join(' ');
+    if (!query.trim()) return;
+    setIsLookingUpPlace(true);
+    try {
+      const res = await api.get<{ data: { placeId: string; name: string; address: string } | null }>(
+        `/google-reviews/find-place?q=${encodeURIComponent(query)}`
+      );
+      const result = res.data.data;
+      if (result?.placeId) {
+        setGooglePlaceId(result.placeId);
+        toast.success(`Found: ${result.name} — Place ID set`);
+      } else {
+        toast.error('No matching place found — enter the Place ID manually');
+      }
+    } catch {
+      // silently fail — user can enter manually
+    } finally {
+      setIsLookingUpPlace(false);
+    }
+  };
+
   const handleSaveContact = async (data: ContactForm) => {
     setIsSavingContact(true);
     try {
       const updated = await tenantService.updateContact(data);
       setContact(updated);
       toast.success('Contact information saved');
+      // Auto-lookup Place ID if not already set
+      if (!googlePlaceId && (data.address || data.city)) {
+        await lookupPlaceId(tenant?.name || '', data.address || '', data.city || '');
+      }
     } catch {
       toast.error('Failed to save contact info');
     } finally {
@@ -420,21 +457,42 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Google Place ID
               </label>
-              <input
-                value={googlePlaceId}
-                onChange={(e) => setGooglePlaceId(e.target.value)}
-                placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    value={isLookingUpPlace ? '' : googlePlaceId}
+                    onChange={(e) => setGooglePlaceId(e.target.value)}
+                    placeholder={isLookingUpPlace ? 'Looking up…' : 'Auto-filled from address, or enter manually'}
+                    disabled={isLookingUpPlace}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  />
+                  {isLookingUpPlace && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin block" />
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={isLookingUpPlace}
+                  onClick={() => {
+                    const data = contactForm.getValues();
+                    lookupPlaceId(tenant?.name || '', data.address || '', data.city || '');
+                  }}
+                  className="px-3 py-2.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                >
+                  Auto-find
+                </button>
+              </div>
               <p className="text-xs text-gray-400 mt-1.5">
-                Find your Place ID at{' '}
+                Filled automatically when you save your address. Or{' '}
                 <a
                   href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-500 hover:underline"
                 >
-                  developers.google.com/maps/documentation/javascript/examples/places-placeid-finder
+                  find it manually
                 </a>
               </p>
             </div>
@@ -651,6 +709,44 @@ export default function SettingsPage() {
                 aspectRatio="banner"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Menu Banner Video URL</label>
+              <p className="text-xs text-gray-400 mb-2">Autoplay muted video shown at the top of your menu/services page. Overrides the banner image.</p>
+              <input
+                type="url"
+                value={menuVideoUrl}
+                onChange={(e) => setMenuVideoUrl(e.target.value)}
+                placeholder="https://example.com/video.mp4"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Social Media Links */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Social Media Links</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Shown on your home page hero and footer. Leave blank to hide.</p>
+            </div>
+            {([
+              { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
+              { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourbusiness' },
+              { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@yourbusiness' },
+              { key: 'twitter', label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
+              { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourbusiness' },
+            ] as const).map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+                <input
+                  type="url"
+                  value={socialLinks[key]}
+                  onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            ))}
           </div>
 
           <button

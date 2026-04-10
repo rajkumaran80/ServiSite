@@ -27,9 +27,12 @@ const ALLOWED_MIME_TYPES = [
   'image/webp',
   'image/gif',
   'image/svg+xml',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
 ];
 
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB (videos need more)
 
 @Injectable()
 export class MediaService implements OnModuleInit {
@@ -286,6 +289,9 @@ export class MediaService implements OnModuleInit {
       'image/webp': '.webp',
       'image/gif': '.gif',
       'image/svg+xml': '.svg',
+      'video/mp4': '.mp4',
+      'video/webm': '.webm',
+      'video/quicktime': '.mov',
     };
     return map[mimeType] || '.bin';
   }

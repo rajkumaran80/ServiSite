@@ -9,6 +9,7 @@ export interface GoogleReview {
   rating: number;
   text: string;
   relativeTime: string;
+  googleMapsUri: string | null;
 }
 
 const CACHE_TTL = 60 * 60 * 24; // 24 hours
@@ -24,6 +25,40 @@ export class GoogleReviewsService {
     private readonly tenantCache: TenantCacheService,
   ) {
     this.apiKey = config.get<string>('GOOGLE_PLACES_API_KEY', '');
+  }
+
+  async findPlaceId(query: string): Promise<{ placeId: string; name: string; address: string } | null> {
+    if (!this.apiKey) {
+      this.logger.warn('GOOGLE_PLACES_API_KEY not configured — cannot find place ID');
+      return null;
+    }
+
+    try {
+      // Places API (New) — Text Search v1
+      const url = `https://places.googleapis.com/v1/places:searchText?key=${this.apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress',
+        },
+        body: JSON.stringify({ textQuery: query, maxResultCount: 1 }),
+      });
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      if (!data.places?.length) return null;
+
+      const p = data.places[0];
+      return {
+        placeId: p.id,
+        name: p.displayName?.text ?? p.id,
+        address: p.formattedAddress ?? '',
+      };
+    } catch (err) {
+      this.logger.error(`findPlaceId failed: ${err.message}`);
+      return null;
+    }
   }
 
   async getReviews(tenantId: string, slug: string): Promise<GoogleReview[]> {
@@ -47,14 +82,12 @@ export class GoogleReviewsService {
     }
 
     try {
-      const url =
-        `https://maps.googleapis.com/maps/api/place/details/json` +
-        `?place_id=${encodeURIComponent(placeId)}` +
-        `&fields=reviews` +
-        `&reviews_sort=newest` +
-        `&key=${this.apiKey}`;
+      // Places API (New) — v1 endpoint
+      const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?fields=reviews&key=${this.apiKey}`;
 
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: { 'X-Goog-FieldMask': 'reviews.rating,reviews.text,reviews.authorAttribution,reviews.relativePublishTimeDescription,reviews.googleMapsUri' },
+      });
       if (!res.ok) {
         this.logger.warn(`Places API HTTP ${res.status} for place ${placeId}`);
         return [];
@@ -62,19 +95,22 @@ export class GoogleReviewsService {
 
       const data = await res.json();
 
-      if (data.status !== 'OK') {
-        this.logger.warn(`Places API status: ${data.status} for place ${placeId}`);
+      if (data.error) {
+        this.logger.warn(`Places API error for place ${placeId}: ${data.error?.message}`);
         return [];
       }
 
-      const reviews: GoogleReview[] = (data.result?.reviews ?? [])
-        .filter((r: any) => r.text?.trim())
+      const reviews: GoogleReview[] = (data.reviews ?? [])
+        .filter((r: any) => r.text?.text?.trim() && r.rating >= 3)
+        .sort((a: any, b: any) => b.rating - a.rating)
+        .slice(0, 6)
         .map((r: any) => ({
-          authorName: r.author_name,
-          authorPhotoUrl: r.profile_photo_url || null,
+          authorName: r.authorAttribution?.displayName ?? 'Anonymous',
+          authorPhotoUrl: r.authorAttribution?.photoUri ?? null,
           rating: r.rating,
-          text: r.text,
-          relativeTime: r.relative_time_description,
+          text: (r.text?.text ?? '').slice(0, 300).trimEnd() + ((r.text?.text?.length ?? 0) > 300 ? '…' : ''),
+          relativeTime: r.relativePublishTimeDescription ?? '',
+          googleMapsUri: r.googleMapsUri ?? null,
         }));
 
       await this.tenantCache.set(slug, cacheKey, reviews, CACHE_TTL);

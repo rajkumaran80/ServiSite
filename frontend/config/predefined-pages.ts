@@ -139,6 +139,22 @@ export const PREDEFINED_PAGES: PredefinedPage[] = [
     builtIn: true,
     defaultEnabled: true,
   },
+  {
+    key: 'home-blocks',
+    label: 'Home Page Sections',
+    slug: 'home-blocks',
+    icon: '📋',
+    description: 'Custom sections on your home page (About Menu, Chefs, Opening Times, etc.)',
+    itemLabel: 'Section',
+    itemFields: [
+      { key: 'title', label: 'Section Title', type: 'text', required: true, placeholder: 'e.g. About Our Menu' },
+      { key: 'subtitle', label: 'Subtitle', type: 'text', placeholder: 'e.g. Fresh ingredients every day' },
+      { key: 'description', label: 'Body Text', type: 'textarea', required: true },
+      { key: 'imageUrl', label: 'Image', type: 'image' },
+      { key: 'imagePosition', label: 'Image Position (left/right)', type: 'text', placeholder: 'left' },
+    ],
+    defaultEnabled: false,
+  },
 ];
 
 export function getPredefinedPage(key: string): PredefinedPage | undefined {

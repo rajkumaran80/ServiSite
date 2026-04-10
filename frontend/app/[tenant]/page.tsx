@@ -3,6 +3,7 @@ import Link from 'next/link';
 import HeroSection from '../../components/tenant/HeroSection';
 import QRCodeDisplay from '../../components/tenant/QRCodeDisplay';
 import { getPageTemplate } from '../../config/page-templates';
+import ScrollReveal from '../../components/ui/ScrollReveal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
@@ -73,13 +74,14 @@ function formatPrice(price: number | string, currency: string): string {
 }
 
 export default async function TenantHomePage({ params }: { params: { tenant: string } }) {
-  const [tenant, featuredItems, menuGroups, aboutEntries, googleReviews, manualReviewEntries] = await Promise.all([
+  const [tenant, featuredItems, menuGroups, aboutEntries, googleReviews, manualReviewEntries, homeBlockEntries] = await Promise.all([
     getTenant(params.tenant),
     getFeaturedItems(params.tenant),
     getMenuGroups(params.tenant),
     getPageEntries(params.tenant, 'about'),
     getGoogleReviews(params.tenant),
     getPageEntries(params.tenant, 'reviews'),
+    getPageEntries(params.tenant, 'home-blocks'),
   ]);
 
   if (!tenant) notFound();
@@ -96,6 +98,8 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   const fontFamily = theme.fontFamily || template.fontFamily;
 
   const showAboutSection = theme.showAboutOnHome !== false && aboutEntries.length > 0;
+  const showHomeBlocks = theme.navPages?.['home-blocks'] === true && homeBlockEntries.length > 0;
+  const socialLinks = theme.socialLinks as { instagram?: string; facebook?: string; tiktok?: string; twitter?: string; youtube?: string } | undefined;
   // Google reviews take priority; fall back to manually added entries
   const reviewEntries = googleReviews.length > 0 ? googleReviews : manualReviewEntries;
   const reviewsSource: 'google' | 'manual' = googleReviews.length > 0 ? 'google' : 'manual';
@@ -130,6 +134,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
         heroStyle={template.heroStyle}
         primaryColor={primaryColor}
         fontFamily={fontFamily}
+        socialLinks={socialLinks}
       />
 
       {/* Menu Groups — category showcase grid (Grand template) or pill nav */}
@@ -236,9 +241,10 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             {template.cardStyle === 'large' ? (
               /* Elegant: 2-col large cards */
               <div className="grid sm:grid-cols-2 gap-8">
-                {featuredItems.slice(0, 4).map((item: any) => (
-                  <Link key={item.id} href={`/menu`}
-                    className="group relative overflow-hidden rounded-2xl bg-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+                {featuredItems.slice(0, 4).map((item: any, idx: number) => (
+                  <ScrollReveal key={item.id} delay={idx * 80}>
+                  <Link href={`/menu#item-${item.id}`}
+                    className="group relative overflow-hidden rounded-2xl bg-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 block"
                     style={{ minHeight: '320px' }}
                   >
                     {item.imageUrl ? (
@@ -259,14 +265,16 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                       </p>
                     </div>
                   </Link>
+                  </ScrollReveal>
                 ))}
               </div>
             ) : (
               /* Classic / Modern / Fresh: 3-col card grid */
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {featuredItems.map((item: any) => (
-                  <Link key={item.id} href={`/menu`}
-                    className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                {featuredItems.map((item: any, idx: number) => (
+                  <ScrollReveal key={item.id} delay={idx * 70}>
+                  <Link href={`/menu#item-${item.id}`}
+                    className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 block"
                   >
                     <div className="relative h-52 bg-gray-100 overflow-hidden">
                       {item.imageUrl ? (
@@ -287,6 +295,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                       {item.description && <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>}
                     </div>
                   </Link>
+                  </ScrollReveal>
                 ))}
               </div>
             )}
@@ -361,8 +370,11 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 const rating: number = Math.min(5, Math.max(1, Number(isGoogle ? entry.rating : entry.data?.rating) || 5));
                 const comment: string = isGoogle ? entry.text : (entry.data?.comment || '');
                 const relativeTime: string | null = isGoogle ? entry.relativeTime : null;
+                const mapsUrl: string | null = isGoogle ? entry.googleMapsUri : null;
+                const Wrapper = mapsUrl ? 'a' : 'div';
+                const wrapperProps = mapsUrl ? { href: mapsUrl, target: '_blank', rel: 'noopener noreferrer' } : {};
                 return (
-                  <div key={isGoogle ? idx : entry.id} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col">
+                  <Wrapper key={isGoogle ? idx : entry.id} {...wrapperProps} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col hover:shadow-md transition-shadow cursor-pointer">
                     {/* Stars */}
                     <div className="flex gap-0.5 mb-3">
                       {Array.from({ length: 5 }).map((_, i) => (
@@ -400,12 +412,64 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </Wrapper>
                 );
               })}
             </div>
           </div>
         </section>
+      )}
+
+      {/* Home Blocks — custom content sections */}
+      {showHomeBlocks && (
+        <div>
+          {homeBlockEntries.map((entry: any, idx: number) => {
+            const imagePos = entry.data?.imagePosition || (idx % 2 === 0 ? 'left' : 'right');
+            const hasImage = !!entry.imageUrl;
+            return (
+              <section key={entry.id} className={`py-16 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                  {hasImage ? (
+                    <div className="grid lg:grid-cols-2 gap-12 items-center">
+                      <ScrollReveal delay={0} className={imagePos === 'left' ? 'lg:order-2' : 'lg:order-1'}>
+                        <div>
+                          {entry.data?.subtitle && (
+                            <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
+                          )}
+                          <h2 className="text-3xl font-black text-gray-900 mb-4 leading-tight"
+                            style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+                            {entry.title}
+                          </h2>
+                          <div className="w-12 h-1 rounded-full mb-5" style={{ backgroundColor: primaryColor }} />
+                          <p className="text-gray-600 leading-relaxed whitespace-pre-line">{entry.data?.description}</p>
+                        </div>
+                      </ScrollReveal>
+                      <ScrollReveal delay={80} className={imagePos === 'left' ? 'lg:order-1' : 'lg:order-2'}>
+                        <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100">
+                          <img src={entry.imageUrl} alt={entry.title || ''} className="absolute inset-0 w-full h-full object-cover" />
+                        </div>
+                      </ScrollReveal>
+                    </div>
+                  ) : (
+                    <ScrollReveal delay={0}>
+                      <div className="max-w-3xl mx-auto text-center">
+                        {entry.data?.subtitle && (
+                          <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
+                        )}
+                        <h2 className="text-3xl font-black text-gray-900 mb-4"
+                          style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+                          {entry.title}
+                        </h2>
+                        <div className="w-12 h-1 rounded-full mb-6 mx-auto" style={{ backgroundColor: primaryColor }} />
+                        <p className="text-gray-600 leading-relaxed whitespace-pre-line">{entry.data?.description}</p>
+                      </div>
+                    </ScrollReveal>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       )}
 
       {/* About / Promo section */}
@@ -511,6 +575,56 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                     </svg>
                     Chat on WhatsApp
                   </a>
+                )}
+                {/* Social links in footer/contact */}
+                {socialLinks && Object.values(socialLinks).some(Boolean) && (
+                  <div className="flex items-center gap-3 mt-6">
+                    {socialLinks.instagram && (
+                      <a href={socialLinks.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                        style={{ backgroundColor: `${primaryColor}33` }}>
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                        </svg>
+                      </a>
+                    )}
+                    {socialLinks.facebook && (
+                      <a href={socialLinks.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                        style={{ backgroundColor: `${primaryColor}33` }}>
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                      </a>
+                    )}
+                    {socialLinks.tiktok && (
+                      <a href={socialLinks.tiktok} target="_blank" rel="noopener noreferrer" aria-label="TikTok"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                        style={{ backgroundColor: `${primaryColor}33` }}>
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+                        </svg>
+                      </a>
+                    )}
+                    {socialLinks.twitter && (
+                      <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" aria-label="X / Twitter"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                        style={{ backgroundColor: `${primaryColor}33` }}>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                      </a>
+                    )}
+                    {socialLinks.youtube && (
+                      <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" aria-label="YouTube"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                        style={{ backgroundColor: `${primaryColor}33` }}>
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="flex flex-col items-center text-center">

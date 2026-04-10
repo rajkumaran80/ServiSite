@@ -126,3 +126,33 @@ html {
     display: none !important;
   }
 }
+
+/* ── Scroll Reveal animations ─────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sr-hidden {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.sr-visible {
+  animation: fadeInUp 0.55s ease forwards;
+}
+
+/* Scrollbar hide utility */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

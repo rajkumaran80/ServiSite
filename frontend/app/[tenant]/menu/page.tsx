@@ -661,19 +661,26 @@ function ItemCard({
   onClick,
   onAdd,
   orderingEnabled,
+  highlight,
 }: {
   item: MenuItem;
   currency: string;
   onClick: () => void;
   onAdd: (e: React.MouseEvent) => void;
   orderingEnabled: boolean;
+  highlight?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all">
+    <div
+      id={`item-${item.id}`}
+      className={`group bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all ${
+        highlight ? 'border-amber-400 ring-2 ring-amber-400 ring-offset-1' : 'border-gray-100'
+      }`}
+    >
       <button type="button" onClick={onClick} className="text-left flex-1 flex flex-col">
         {item.imageUrl ? (
-          <div className="relative">
-            <img src={item.imageUrl} alt={item.name} className="w-full h-44 object-cover" />
+          <div className="relative overflow-hidden">
+            <img src={item.imageUrl} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
             {item.isPopular && (
               <span className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-xs font-semibold px-2 py-0.5 rounded-full">
                 Popular
@@ -932,6 +939,8 @@ export default function MenuPage() {
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const [bundles, setBundles] = useState<any[]>([]);
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
 
   const cart = useCartStore();
 
@@ -955,6 +964,29 @@ export default function MenuPage() {
       setActiveTab(groupParam);
     }
   }, [searchParams]);
+
+  // Handle highlight from URL hash (e.g. /menu#item-{id})
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash;
+    if (hash.startsWith('#item-')) {
+      const id = hash.replace('#item-', '');
+      setHighlightItemId(id);
+      setTimeout(() => {
+        const el = document.getElementById(`item-${id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 600);
+      // Remove highlight after 3s
+      setTimeout(() => setHighlightItemId(null), 3500);
+    }
+  }, [loading]);
+
+  const handleTabChange = useCallback((tabId: string) => {
+    setActiveTab(tabId);
+    setSearchQuery('');
+  }, []);
 
   const openItem = useCallback((item: MenuItem) => setSelectedItem(item), []);
   const closeItem = useCallback(() => setSelectedItem(null), []);
@@ -1068,58 +1100,156 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Page Header */}
-      <div
-        className="py-16 px-6 text-center"
-        style={{ background: `linear-gradient(135deg, ${primaryColor}ee, ${primaryColor}99)` }}
-      >
-        <div className="text-5xl mb-4">{isRestaurant ? '🍽️' : '🛠️'}</div>
-        <h1 className="text-4xl font-bold text-white mb-2">
-          {isRestaurant ? 'Our Menu' : 'Our Services'}
-        </h1>
-        <p className="text-white/75 text-lg">{tenant.name}</p>
-      </div>
+      {/* Banner / Video Header */}
+      {(() => {
+        const themeSettings = (tenant.themeSettings as any) || {};
+        const menuVideoUrl: string | null = themeSettings.menuVideoUrl || null;
+        const bannerImages: string[] = Array.isArray(themeSettings.bannerImages) && themeSettings.bannerImages.length > 0
+          ? themeSettings.bannerImages
+          : tenant.banner ? [tenant.banner] : [];
+        const heroBgImage = bannerImages[0] || null;
 
-      {/* Group Tab Bar */}
+        if (menuVideoUrl) {
+          return (
+            <div className="relative overflow-hidden" style={{ height: 300 }}>
+              <video
+                src={menuVideoUrl}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/55" />
+              <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
+                <h1 className="text-4xl font-black text-white mb-2">
+                  {isRestaurant ? 'Our Menu' : 'Our Services'}
+                </h1>
+                <p className="text-white/75 text-lg">{tenant.name}</p>
+              </div>
+            </div>
+          );
+        }
+
+        if (heroBgImage) {
+          return (
+            <div className="relative overflow-hidden" style={{ height: 300 }}>
+              <img src={heroBgImage} alt={tenant.name} className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/55" />
+              <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
+                <h1 className="text-4xl font-black text-white mb-2">
+                  {isRestaurant ? 'Our Menu' : 'Our Services'}
+                </h1>
+                <p className="text-white/75 text-lg">{tenant.name}</p>
+              </div>
+            </div>
+          );
+        }
+
+        // Fallback gradient header
+        return (
+          <div
+            className="py-16 px-6 text-center"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}ee, ${primaryColor}99)` }}
+          >
+            <div className="text-5xl mb-4">{isRestaurant ? '🍽️' : '🛠️'}</div>
+            <h1 className="text-4xl font-bold text-white mb-2">
+              {isRestaurant ? 'Our Menu' : 'Our Services'}
+            </h1>
+            <p className="text-white/75 text-lg">{tenant.name}</p>
+          </div>
+        );
+      })()}
+
+      {/* Group Tab Bar + Search */}
       {menu.groups.length > 0 && (
         <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="overflow-x-auto py-2 scrollbar-none">
-            <div className="flex justify-start sm:justify-center gap-1 min-w-max sm:min-w-0 w-max sm:w-full">
-              {menu.groups.map((group) => {
-                const isActive = activeTab === group.id;
-                return (
+            <div className="flex items-center gap-3 py-2">
+              <div className="overflow-x-auto flex-1 scrollbar-none">
+                <div className="flex justify-start sm:justify-center gap-1 min-w-max sm:min-w-0 w-max sm:w-full">
+                  {menu.groups.map((group) => {
+                    const isActive = activeTab === group.id;
+                    return (
+                      <button
+                        key={group.id}
+                        onClick={() => handleTabChange(group.id)}
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                          isActive ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        style={isActive ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}}
+                      >
+                        {group.icon && <span className="text-base leading-none">{group.icon}</span>}
+                        {group.name}
+                      </button>
+                    );
+                  })}
+                  {menu.uncategorized.length > 0 && (
+                    <button
+                      onClick={() => handleTabChange('uncategorized')}
+                      className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        activeTab === 'uncategorized' ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      style={activeTab === 'uncategorized' ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}}
+                    >
+                      Other
+                    </button>
+                  )}
+                </div>
+              </div>
+              {/* Search input */}
+              <div className="flex-shrink-0 relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="pl-8 pr-3 py-1.5 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:border-transparent w-36 sm:w-48"
+                  style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                />
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {searchQuery && (
                   <button
-                    key={group.id}
-                    onClick={() => setActiveTab(group.id)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      isActive ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                    style={isActive ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}}
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    {group.icon && <span className="text-base leading-none">{group.icon}</span>}
-                    {group.name}
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
-                );
-              })}
-              {menu.uncategorized.length > 0 && (
-                <button
-                  onClick={() => setActiveTab('uncategorized')}
-                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    activeTab === 'uncategorized' ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  style={activeTab === 'uncategorized' ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}}
-                >
-                  Other
-                </button>
-              )}
-            </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Search when no group tab bar */}
+        {menu.groups.length === 0 && menu.uncategorized.length > 0 && (
+          <div className="mb-6 relative max-w-xs">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search items…"
+              className="pl-9 pr-3 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 w-full"
+              style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
         {orderingEnabled && bundles.length > 0 && (
           <div className="mb-10">
             <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide mb-5">Deals</h2>
@@ -1144,74 +1274,128 @@ export default function MenuPage() {
           </div>
         ) : (
           <div>
-            {activeSection && (
-              <div>
-                <div className="mb-8">
-                  <div className="flex items-center gap-3 mb-1">
-                    {activeSection.icon && <span className="text-3xl">{activeSection.icon}</span>}
-                    <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide">
-                      {activeSection.name}
-                    </h2>
+            {activeSection && (() => {
+              const q = searchQuery.trim().toLowerCase();
+              const filterItems = (items: MenuItem[]) =>
+                q
+                  ? items.filter(
+                      (i) =>
+                        i.name.toLowerCase().includes(q) ||
+                        (i.description || '').toLowerCase().includes(q)
+                    )
+                  : items;
+
+              // Build filtered categories
+              const filteredCats = (activeSection.categories ?? [])
+                .map((cat) => ({ ...cat, menuItems: filterItems(cat.menuItems ?? []) }))
+                .filter((cat) => cat.menuItems.length > 0);
+
+              const noResults = q && filteredCats.length === 0;
+
+              return (
+                <div>
+                  <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-1">
+                      {activeSection.icon && <span className="text-3xl">{activeSection.icon}</span>}
+                      <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide">
+                        {activeSection.name}
+                      </h2>
+                    </div>
+                    {activeSection.servedFrom && activeSection.servedUntil && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Served {formatTime(activeSection.servedFrom)} – {formatTime(activeSection.servedUntil)}
+                      </p>
+                    )}
+                    {activeSection.description && (
+                      <p className="text-gray-600 mt-2">{activeSection.description}</p>
+                    )}
                   </div>
-                  {activeSection.servedFrom && activeSection.servedUntil && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      Served {formatTime(activeSection.servedFrom)} – {formatTime(activeSection.servedUntil)}
-                    </p>
-                  )}
-                  {activeSection.description && (
-                    <p className="text-gray-600 mt-2">{activeSection.description}</p>
-                  )}
-                </div>
 
-                <div className="space-y-12">
-                  {activeSection.categories?.map((category) => {
-                    if (!category.menuItems?.length) return null;
-                    return (
-                      <section key={category.id}>
-                        <div className="mb-5">
-                          <h3 className="text-lg font-semibold text-gray-800">{category.name}</h3>
-                          {category.description && (
-                            <p className="text-sm text-gray-500 mt-0.5">{category.description}</p>
-                          )}
-                        </div>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                          {category.menuItems.map((item) => (
-                            <ItemCard
-                              key={item.id}
-                              item={item}
-                              currency={currency}
-                              onClick={() => openItem(item)}
-                              onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
-                              orderingEnabled={orderingEnabled}
-                            />
-                          ))}
-                        </div>
-                      </section>
-                    );
-                  })}
+                  {noResults ? (
+                    <div className="text-center py-16">
+                      <div className="text-4xl mb-3">🔍</div>
+                      <p className="text-gray-500">No items match &ldquo;{searchQuery}&rdquo;</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-12">
+                      {filteredCats.map((category) => (
+                        <section key={category.id}>
+                          <div className="mb-5">
+                            <h3 className="text-lg font-semibold text-gray-800">{category.name}</h3>
+                            {category.description && (
+                              <p className="text-sm text-gray-500 mt-0.5">{category.description}</p>
+                            )}
+                          </div>
+                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {category.menuItems.map((item, idx) => (
+                              <div key={item.id} className="sr-hidden" style={{ animationDelay: `${idx * 60}ms` }}
+                                ref={(el) => {
+                                  if (!el) return;
+                                  const obs = new IntersectionObserver(([e]) => {
+                                    if (e.isIntersecting) { setTimeout(() => el.classList.add('sr-visible'), idx * 60); obs.unobserve(el); }
+                                  }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+                                  obs.observe(el);
+                                }}
+                              >
+                                <ItemCard
+                                  item={item}
+                                  currency={currency}
+                                  onClick={() => openItem(item)}
+                                  onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
+                                  orderingEnabled={orderingEnabled}
+                                  highlight={item.id === highlightItemId}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
-            {activeTab === 'uncategorized' && menu.uncategorized.length > 0 && (
-              <div>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide">Other Items</h2>
+            {activeTab === 'uncategorized' && (() => {
+              const q = searchQuery.trim().toLowerCase();
+              const filtered = q
+                ? menu.uncategorized.filter(
+                    (i) =>
+                      i.name.toLowerCase().includes(q) ||
+                      (i.description || '').toLowerCase().includes(q)
+                  )
+                : menu.uncategorized;
+              if (filtered.length === 0) return null;
+              return (
+                <div>
+                  <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide">Other Items</h2>
+                  </div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {filtered.map((item, idx) => (
+                      <div key={item.id} className="sr-hidden"
+                        ref={(el) => {
+                          if (!el) return;
+                          const obs = new IntersectionObserver(([e]) => {
+                            if (e.isIntersecting) { setTimeout(() => el.classList.add('sr-visible'), idx * 60); obs.unobserve(el); }
+                          }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+                          obs.observe(el);
+                        }}
+                      >
+                        <ItemCard
+                          item={item}
+                          currency={currency}
+                          onClick={() => openItem(item)}
+                          onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
+                          orderingEnabled={orderingEnabled}
+                          highlight={item.id === highlightItemId}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {menu.uncategorized.map((item) => (
-                    <ItemCard
-                      key={item.id}
-                      item={item}
-                      currency={currency}
-                      onClick={() => openItem(item)}
-                      onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
-                      orderingEnabled={orderingEnabled}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
       </div>
