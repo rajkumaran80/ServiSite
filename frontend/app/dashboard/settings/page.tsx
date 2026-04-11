@@ -10,6 +10,7 @@ import tenantService from '../../../services/tenant.service';
 import { api } from '../../../services/api';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import MultiImageUpload from '../../../components/ui/MultiImageUpload';
+import VideoUpload from '../../../components/ui/VideoUpload';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
 import { getTemplatesForType, getPageTemplate } from '../../../config/page-templates';
 import TemplatePreviewModal, { type TemplateColorScheme } from '../../../components/ui/TemplatePreviewModal';
@@ -711,14 +712,12 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Menu Banner Video URL</label>
-              <p className="text-xs text-gray-400 mb-2">Autoplay muted video shown at the top of your menu/services page. Overrides the banner image.</p>
-              <input
-                type="url"
-                value={menuVideoUrl}
-                onChange={(e) => setMenuVideoUrl(e.target.value)}
-                placeholder="https://example.com/video.mp4"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Menu Banner Video</label>
+              <p className="text-xs text-gray-400 mb-2">Autoplay muted video at the top of your menu page. Overrides the banner image if set.</p>
+              <VideoUpload
+                currentUrl={menuVideoUrl}
+                onUpload={(url) => setMenuVideoUrl(url)}
+                onClear={() => setMenuVideoUrl('')}
               />
             </div>
           </div>
