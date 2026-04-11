@@ -61,6 +61,14 @@ export class MenuService {
     await this.invalidateMenu(slug);
   }
 
+  async deleteAllMenuData(tenantId: string, slug: string): Promise<void> {
+    // Delete in dependency order: items → categories → groups
+    await this.prisma.menuItem.deleteMany({ where: { tenantId } });
+    await this.prisma.category.deleteMany({ where: { tenantId } });
+    await this.prisma.menuGroup.deleteMany({ where: { tenantId } });
+    await this.invalidateMenu(slug);
+  }
+
   async reorderGroups(tenantId: string, groups: Array<{ id: string; sortOrder: number }>, slug: string): Promise<void> {
     await Promise.all(
       groups.map(({ id, sortOrder }) =>

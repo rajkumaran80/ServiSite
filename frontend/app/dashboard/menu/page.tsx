@@ -565,6 +565,238 @@ function VariantsModal({
   );
 }
 
+// ─── CSV Import Modal ────────────────────────────────────────────────────────
+
+interface CsvRow { group: string; category: string; item: string; description: string; price: string; }
+interface ParsedMenu {
+  groups: string[];
+  // groupName → categoryName[]
+  categories: Map<string, string[]>;
+  // categoryName → CsvRow[]
+  items: Map<string, CsvRow[]>;
+  totalItems: number;
+}
+
+function parseCsv(raw: string): { data: ParsedMenu | null; error: string | null } {
+  const lines = raw.trim().split('\n').filter(Boolean);
+  if (lines.length < 2) return { data: null, error: 'CSV must have a header row and at least one data row' };
+
+  // Normalise header
+  const header = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/"/g, ''));
+  const required = ['group', 'category', 'item'];
+  for (const col of required) {
+    if (!header.includes(col)) return { data: null, error: `Missing required column: "${col}"` };
+  }
+
+  const idx = {
+    group: header.indexOf('group'),
+    category: header.indexOf('category'),
+    item: header.indexOf('item'),
+    description: header.indexOf('description'),
+    price: header.indexOf('price'),
+  };
+
+  const result: ParsedMenu = { groups: [], categories: new Map(), items: new Map(), totalItems: 0 };
+  const groupOrder: string[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    // RFC-4180 CSV parser
+    const cols: string[] = [];
+    let cur = '';
+    let inQuote = false;
+    const line = lines[i];
+    for (let j = 0; j < line.length; j++) {
+      const ch = line[j];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { cols.push(cur); cur = ''; }
+      else { cur += ch; }
+    }
+    cols.push(cur);
+    const clean = (n: number) => (cols[n] ?? '').trim();
+
+    const group = clean(idx.group);
+    const category = clean(idx.category);
+    const item = clean(idx.item);
+    if (!group || !item) continue;
+
+    if (!groupOrder.includes(group)) groupOrder.push(group);
+    const cats = result.categories.get(group) ?? [];
+    if (category && !cats.includes(category)) cats.push(category);
+    result.categories.set(group, cats);
+
+    const key = `${group}|||${category}`;
+    const existing = result.items.get(key) ?? [];
+    existing.push({
+      group,
+      category,
+      item,
+      description: idx.description >= 0 ? clean(idx.description) : '',
+      price: idx.price >= 0 ? clean(idx.price) : '',
+    });
+    result.items.set(key, existing);
+    result.totalItems++;
+  }
+
+  result.groups = groupOrder;
+  return { data: result, error: null };
+}
+
+function ImportMenuModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [csv, setCsv] = useState('');
+  const [step, setStep] = useState<'paste' | 'confirm'>('paste');
+  const [parsed, setParsed] = useState<ParsedMenu | null>(null);
+  const [parseError, setParseError] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState('');
+
+  const handleParse = () => {
+    const { data, error } = parseCsv(csv);
+    if (error) { setParseError(error); return; }
+    setParsed(data!);
+    setParseError('');
+    setStep('confirm');
+  };
+
+  const handleImport = async () => {
+    if (!parsed) return;
+    setImporting(true);
+    try {
+      setProgress('Deleting existing menu data…');
+      await menuService.deleteAll();
+
+      // Create groups
+      const groupMap = new Map<string, string>(); // groupName → id
+      for (let i = 0; i < parsed.groups.length; i++) {
+        const name = parsed.groups[i];
+        setProgress(`Creating group ${i + 1}/${parsed.groups.length}: ${name}`);
+        const g = await menuService.createGroup({ name, sortOrder: i, isActive: true });
+        groupMap.set(name, g.id);
+      }
+
+      // Create categories
+      const catMap = new Map<string, string>(); // `groupName|||catName` → id
+      let catIdx = 0;
+      for (const [groupName, cats] of Array.from(parsed.categories.entries())) {
+        const menuGroupId = groupMap.get(groupName);
+        for (let j = 0; j < cats.length; j++) {
+          const catName = cats[j];
+          setProgress(`Creating category: ${catName}`);
+          const c = await menuService.createCategory({ name: catName, menuGroupId, sortOrder: catIdx++ });
+          catMap.set(`${groupName}|||${catName}`, c.id);
+        }
+      }
+
+      // Create items
+      let itemIdx = 0;
+      for (const [key, rows] of Array.from(parsed.items.entries())) {
+        for (const row of rows) {
+          setProgress(`Creating item ${++itemIdx}/${parsed.totalItems}: ${row.item}`);
+          const price = parseFloat(row.price);
+          const catId = catMap.get(key);
+          await menuService.createItem({
+            name: row.item,
+            description: row.description || undefined,
+            price: isNaN(price) ? 0 : price,
+            categoryIds: catId ? [catId] : [],
+            isAvailable: true,
+            sortOrder: itemIdx,
+          });
+        }
+      }
+
+      toast.success(`Imported ${parsed.groups.length} groups, ${catMap.size} categories, ${parsed.totalItems} items`);
+      onDone();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Import failed — please try again');
+    } finally {
+      setImporting(false);
+      setProgress('');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">Import Menu from CSV</h2>
+          {!importing && <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>}
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          {step === 'paste' && (
+            <>
+              <p className="text-sm text-gray-600">
+                Paste a CSV with columns: <code className="bg-gray-100 px-1 rounded text-xs">group, category, item, description, price</code>
+              </p>
+              <p className="text-xs text-gray-400">The first row must be the header. All existing groups, categories, and items will be deleted before importing.</p>
+              <textarea
+                rows={12}
+                className={inputClass + ' font-mono text-xs'}
+                placeholder={"group,category,item,description,price\nBreakfast,Eggs,Full English,Two eggs bacon and toast,9.95"}
+                value={csv}
+                onChange={(e) => { setCsv(e.target.value); setParseError(''); }}
+              />
+              {parseError && <p className="text-sm text-red-600">{parseError}</p>}
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+                <button type="button" onClick={handleParse} disabled={!csv.trim()} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50">Preview Import</button>
+              </div>
+            </>
+          )}
+
+          {step === 'confirm' && parsed && (
+            <>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm font-semibold text-amber-800">⚠️ This will permanently delete all existing menu data</p>
+                <p className="text-xs text-amber-700 mt-1">All groups, categories, and items will be erased and replaced with the imported data. This cannot be undone.</p>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                <p className="text-sm font-semibold text-gray-800">Import summary</p>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-white rounded-lg p-3 border border-gray-100">
+                    <p className="text-2xl font-bold text-blue-600">{parsed.groups.length}</p>
+                    <p className="text-xs text-gray-500">Groups</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-gray-100">
+                    <p className="text-2xl font-bold text-blue-600">{Array.from(parsed.categories.values()).reduce((a, b) => a + b.length, 0)}</p>
+                    <p className="text-xs text-gray-500">Categories</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-gray-100">
+                    <p className="text-2xl font-bold text-blue-600">{parsed.totalItems}</p>
+                    <p className="text-xs text-gray-500">Items</p>
+                  </div>
+                </div>
+                <div className="space-y-1 max-h-48 overflow-y-auto mt-2">
+                  {parsed.groups.map((g) => (
+                    <div key={g}>
+                      <p className="text-xs font-medium text-gray-700">{g}</p>
+                      {(parsed.categories.get(g) ?? []).map((c) => (
+                        <p key={c} className="text-xs text-gray-500 pl-3">└ {c} ({(parsed.items.get(`${g}|||${c}`) ?? []).length} items)</p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {importing ? (
+                <div className="flex flex-col items-center gap-2 py-4">
+                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm text-blue-600 font-medium text-center">{progress}</p>
+                </div>
+              ) : (
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setStep('paste')} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Back</button>
+                  <button type="button" onClick={handleImport} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors">Delete All & Import</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard Menu Page ────────────────────────────────────────────────
 
 export default function DashboardMenuPage() {
@@ -588,6 +820,7 @@ export default function DashboardMenuPage() {
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [variantItem, setVariantItem] = useState<MenuItem | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const loadData = async () => {
     try {
@@ -726,6 +959,12 @@ export default function DashboardMenuPage() {
               ✨ Load Template
             </button>
           )}
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1.5 border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            ↑ Import CSV
+          </button>
           <Link href="/dashboard/menu/modifiers" className="flex items-center gap-1.5 border border-gray-300 hover:border-blue-400 text-gray-600 hover:text-blue-600 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
             Modifiers
           </Link>
@@ -1099,6 +1338,16 @@ export default function DashboardMenuPage() {
           item={variantItem}
           currency={currency}
           onClose={() => setVariantItem(null)}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportMenuModal
+          onClose={() => setShowImportModal(false)}
+          onDone={async () => {
+            setShowImportModal(false);
+            await loadData();
+          }}
         />
       )}
     </div>

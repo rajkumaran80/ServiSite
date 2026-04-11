@@ -78,6 +78,15 @@ export class MenuController {
     await this.audit.log(user, 'menu.group.delete', { resource: 'MenuGroup', resourceId: id });
   }
 
+  @Delete('all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteAllMenu(@CurrentUser() user: any, @Tenant('slug') slug: string) {
+    await this.menuService.deleteAllMenuData(user.tenantId, slug);
+    await this.audit.log(user, 'menu.all.delete', { resource: 'Menu' });
+  }
+
   // ── Categories ─────────────────────────────────────────────────────────────
 
   @Public()

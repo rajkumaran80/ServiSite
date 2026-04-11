@@ -44,6 +44,10 @@ class MenuService {
     await api.delete(`/menu/groups/${id}`);
   }
 
+  async deleteAll(): Promise<void> {
+    await api.delete('/menu/all');
+  }
+
   async reorderGroups(groups: Array<{ id: string; sortOrder: number }>): Promise<void> {
     await api.put('/menu/groups/reorder', { groups });
   }
