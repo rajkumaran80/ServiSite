@@ -74,7 +74,7 @@ function formatPrice(price: number | string, currency: string): string {
 }
 
 export default async function TenantHomePage({ params }: { params: { tenant: string } }) {
-  const [tenant, featuredItems, menuGroups, aboutEntries, googleReviews, manualReviewEntries, homeBlockEntries] = await Promise.all([
+  const [tenant, featuredItems, menuGroups, aboutEntries, googleReviews, manualReviewEntries, homeBlockEntries, galleryEntries] = await Promise.all([
     getTenant(params.tenant),
     getFeaturedItems(params.tenant),
     getMenuGroups(params.tenant),
@@ -82,6 +82,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
     getGoogleReviews(params.tenant),
     getPageEntries(params.tenant, 'reviews'),
     getPageEntries(params.tenant, 'home-blocks'),
+    getPageEntries(params.tenant, 'gallery'),
   ]);
 
   if (!tenant) notFound();
@@ -99,6 +100,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
 
   const showAboutSection = theme.showAboutOnHome !== false && aboutEntries.length > 0;
   const showHomeBlocks = theme.navPages?.['home-blocks'] === true && homeBlockEntries.length > 0;
+  const showGalleryOnHome = theme.showGalleryOnHome === true && galleryEntries.length > 0;
   const socialLinks = theme.socialLinks as { instagram?: string; facebook?: string; tiktok?: string; twitter?: string; youtube?: string } | undefined;
   // Google reviews take priority; fall back to manually added entries
   const reviewEntries = googleReviews.length > 0 ? googleReviews : manualReviewEntries;
@@ -470,6 +472,27 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             );
           })}
         </div>
+      )}
+
+      {/* Short Gallery section */}
+      {showGalleryOnHome && (
+        <section className="py-14 bg-gray-50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-black text-gray-900 text-center mb-8"
+              style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
+              Gallery
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {galleryEntries.slice(0, 8).map((entry: any) => (
+                entry.imageUrl && (
+                  <div key={entry.id} className="aspect-square rounded-xl overflow-hidden bg-gray-200">
+                    <img src={entry.imageUrl} alt={entry.title || ''} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                  </div>
+                )
+              ))}
+            </div>
+          </div>
+        </section>
       )}
 
       {/* About / Promo section */}

@@ -10,7 +10,6 @@ import tenantService from '../../../services/tenant.service';
 import { api } from '../../../services/api';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import MultiImageUpload from '../../../components/ui/MultiImageUpload';
-import VideoUpload from '../../../components/ui/VideoUpload';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
 import { getTemplatesForType, getPageTemplate } from '../../../config/page-templates';
 import TemplatePreviewModal, { type TemplateColorScheme } from '../../../components/ui/TemplatePreviewModal';
@@ -61,7 +60,6 @@ export default function SettingsPage() {
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [bannerUrls, setBannerUrls] = useState<string[]>([]);
   const [promoImageUrl, setPromoImageUrl] = useState<string>('');
-  const [menuVideoUrl, setMenuVideoUrl] = useState<string>('');
   const [socialLinks, setSocialLinks] = useState({ instagram: '', facebook: '', tiktok: '', twitter: '', youtube: '' });
   const [selectedTemplate, setSelectedTemplate] = useState<string>('classic');
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -118,7 +116,6 @@ export default function SettingsPage() {
               : currentTenant.banner ? [currentTenant.banner] : []
           );
           setPromoImageUrl((currentTenant.themeSettings as any)?.promoImageUrl || '');
-          setMenuVideoUrl((currentTenant.themeSettings as any)?.menuVideoUrl || '');
           const sl = (currentTenant.themeSettings as any)?.socialLinks || {};
           setSocialLinks({ instagram: sl.instagram || '', facebook: sl.facebook || '', tiktok: sl.tiktok || '', twitter: sl.twitter || '', youtube: sl.youtube || '' });
           setSelectedTemplate((currentTenant.themeSettings as any)?.pageTemplate || 'classic');
@@ -246,7 +243,6 @@ export default function SettingsPage() {
           secondaryColor: data.secondaryColor,
           fontFamily: data.fontFamily,
           promoImageUrl: promoImageUrl || undefined,
-          menuVideoUrl: menuVideoUrl.trim() || undefined,
           pageTemplate: selectedTemplate,
           bannerImages: bannerUrls.length > 0 ? bannerUrls : undefined,
           googlePlaceId: googlePlaceId.trim() || undefined,
@@ -711,15 +707,6 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Menu Banner Video</label>
-              <p className="text-xs text-gray-400 mb-2">Autoplay muted video at the top of your menu page. Overrides the banner image if set.</p>
-              <VideoUpload
-                currentUrl={menuVideoUrl}
-                onUpload={(url) => setMenuVideoUrl(url)}
-                onClear={() => setMenuVideoUrl('')}
-              />
-            </div>
           </div>
 
           {/* Social Media Links */}

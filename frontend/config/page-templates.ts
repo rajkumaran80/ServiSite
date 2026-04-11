@@ -490,9 +490,9 @@ export const TEMPLATES_BY_TYPE: Record<string, PageTemplate[]> = {
 /** All templates across all types (for backward-compat lookups) */
 const ALL_TEMPLATES: PageTemplate[] = Object.values(TEMPLATES_BY_TYPE).flat();
 
-/** Return the templates relevant to a given tenant type */
-export function getTemplatesForType(type?: string | null): PageTemplate[] {
-  return TEMPLATES_BY_TYPE[type ?? ''] ?? RESTAURANT_TEMPLATES;
+/** Return all templates (same for all business types) */
+export function getTemplatesForType(_type?: string | null): PageTemplate[] {
+  return ALL_TEMPLATES;
 }
 
 /** Look up a template by id across all types */

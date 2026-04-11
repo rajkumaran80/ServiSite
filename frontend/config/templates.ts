@@ -41,7 +41,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
     primaryColor: '#1D4ED8',
     secondaryColor: '#1E3A8A',
     gradient: 'from-blue-600 to-blue-950',
-    menuLabel: 'Our Services',
+    menuLabel: 'Our Menu',
     defaultCurrency: 'GBP',
   },
   {
@@ -52,7 +52,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
     primaryColor: '#BE185D',
     secondaryColor: '#9D174D',
     gradient: 'from-pink-600 to-pink-950',
-    menuLabel: 'Our Services',
+    menuLabel: 'Our Menu',
     defaultCurrency: 'GBP',
   },
   {
@@ -63,7 +63,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
     primaryColor: '#EA580C',
     secondaryColor: '#C2410C',
     gradient: 'from-orange-600 to-orange-950',
-    menuLabel: 'Our Services',
+    menuLabel: 'Our Menu',
     defaultCurrency: 'GBP',
   },
   {
@@ -74,7 +74,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
     primaryColor: '#475569',
     secondaryColor: '#1E293B',
     gradient: 'from-slate-600 to-slate-900',
-    menuLabel: 'Our Services',
+    menuLabel: 'Our Menu',
     defaultCurrency: 'GBP',
   },
   {
@@ -85,7 +85,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
     primaryColor: '#6366F1',
     secondaryColor: '#4338CA',
     gradient: 'from-indigo-600 to-indigo-950',
-    menuLabel: 'Our Services',
+    menuLabel: 'Our Menu',
     defaultCurrency: 'GBP',
   },
 ];

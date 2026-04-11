@@ -10,7 +10,13 @@ const SECTIONS = [
     key: 'showAboutOnHome',
     label: 'About Us snippet',
     desc: 'Short intro from your About Us page shown below featured items',
-    manageKey: 'about',
+    manageKey: null,
+  },
+  {
+    key: 'showGalleryOnHome',
+    label: 'Short Gallery',
+    desc: 'Display a small photo gallery section on your home page',
+    manageKey: 'gallery',
   },
   {
     key: 'showReviewsOnHome',
@@ -25,6 +31,7 @@ export default function HomeManagePage() {
   const [tenantId, setTenantId] = useState('');
   const [sections, setSections] = useState<Record<string, boolean>>({
     showAboutOnHome: true,
+    showGalleryOnHome: false,
     showReviewsOnHome: true,
   });
   const [saving, setSaving] = useState<string | null>(null);
@@ -36,6 +43,7 @@ export default function HomeManagePage() {
       setTenantId(tenant.id);
       setSections({
         showAboutOnHome: tenant.themeSettings?.showAboutOnHome !== false,
+        showGalleryOnHome: tenant.themeSettings?.showGalleryOnHome === true,
         showReviewsOnHome: tenant.themeSettings?.showReviewsOnHome !== false,
       });
     }).catch(() => {
@@ -110,6 +118,25 @@ export default function HomeManagePage() {
             </div>
           );
         })}
+      </div>
+
+      {/* Custom home sections */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-4">
+        <div className="flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <span className="font-semibold text-gray-900">Custom Sections</span>
+            <p className="text-sm text-gray-400 mt-0.5">Add sections with a title, image and description that appear on your home page</p>
+          </div>
+          <button
+            onClick={() => router.push('/dashboard/content/home-blocks')}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Manage
+          </button>
+        </div>
       </div>
 
       <p className="text-xs text-gray-400 text-center">Changes take effect immediately on your website</p>

@@ -1103,13 +1103,18 @@ export default function MenuPage() {
       {/* Banner / Video Header */}
       {(() => {
         const themeSettings = (tenant.themeSettings as any) || {};
+        const menuBannerType: string = themeSettings.menuBannerType || 'image';
         const menuVideoUrl: string | null = themeSettings.menuVideoUrl || null;
+        const menuBannerImageUrl: string | null = themeSettings.menuBannerImageUrl || null;
         const bannerImages: string[] = Array.isArray(themeSettings.bannerImages) && themeSettings.bannerImages.length > 0
           ? themeSettings.bannerImages
           : tenant.banner ? [tenant.banner] : [];
-        const heroBgImage = bannerImages[0] || null;
+        // For image type: prefer dedicated menu banner, fall back to site banner
+        const heroBgImage = menuBannerType === 'image'
+          ? (menuBannerImageUrl || bannerImages[0] || null)
+          : (bannerImages[0] || null);
 
-        if (menuVideoUrl) {
+        if (menuBannerType === 'video' && menuVideoUrl) {
           return (
             <div className="relative overflow-hidden" style={{ height: 300 }}>
               <video
@@ -1123,7 +1128,7 @@ export default function MenuPage() {
               <div className="absolute inset-0 bg-black/55" />
               <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
                 <h1 className="text-4xl font-black text-white mb-2">
-                  {isRestaurant ? 'Our Menu' : 'Our Services'}
+                  {'Our Menu'}
                 </h1>
                 <p className="text-white/75 text-lg">{tenant.name}</p>
               </div>
@@ -1138,7 +1143,7 @@ export default function MenuPage() {
               <div className="absolute inset-0 bg-black/55" />
               <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
                 <h1 className="text-4xl font-black text-white mb-2">
-                  {isRestaurant ? 'Our Menu' : 'Our Services'}
+                  {'Our Menu'}
                 </h1>
                 <p className="text-white/75 text-lg">{tenant.name}</p>
               </div>
@@ -1154,7 +1159,7 @@ export default function MenuPage() {
           >
             <div className="text-5xl mb-4">{isRestaurant ? '🍽️' : '🛠️'}</div>
             <h1 className="text-4xl font-bold text-white mb-2">
-              {isRestaurant ? 'Our Menu' : 'Our Services'}
+              {'Our Menu'}
             </h1>
             <p className="text-white/75 text-lg">{tenant.name}</p>
           </div>

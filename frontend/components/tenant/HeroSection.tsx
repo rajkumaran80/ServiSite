@@ -78,7 +78,7 @@ const WhatsAppIcon = () => (
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, heroStyle = 'dark', primaryColor, fontFamily, socialLinks }) => {
   const tenantBase = ``;
-  const ctaLabel = tenant.type === 'RESTAURANT' ? 'View Menu' : 'Our Services';
+  const ctaLabel = 'View Menu';
   const ctaHref = `${tenantBase}/menu`;
   const waHref = tenant.whatsappNumber
     ? `https://wa.me/${tenant.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello! I'm interested in ${tenant.name}.`)}`

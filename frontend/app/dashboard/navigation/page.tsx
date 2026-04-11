@@ -83,9 +83,11 @@ export default function NavigationPage() {
                   <p className="text-sm text-gray-400">{page.description}</p>
                 </div>
 
-                {!page.builtIn && (
+                {(page.key === 'menu' || !page.builtIn) && (
                   <button
-                    onClick={() => router.push(`/dashboard/content/${page.key}`)}
+                    onClick={() => router.push(
+                      page.key === 'menu' ? '/dashboard/menu/banner' : `/dashboard/content/${page.key}`
+                    )}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex-shrink-0"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
