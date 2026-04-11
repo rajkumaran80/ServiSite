@@ -127,25 +127,15 @@ html {
   }
 }
 
-/* ── Scroll Reveal animations ─────────────────────────────────────────────── */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+/* ── Scroll Reveal (animation disabled — items appear immediately) ─────────── */
 .sr-hidden {
-  opacity: 0;
-  transform: translateY(24px);
+  opacity: 1;
+  transform: none;
 }
 
 .sr-visible {
-  animation: fadeInUp 0.55s ease forwards;
+  opacity: 1;
+  transform: none;
 }
 
 /* Scrollbar hide utility */

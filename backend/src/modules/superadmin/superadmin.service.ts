@@ -55,6 +55,10 @@ export class SuperAdminService {
     const existing = await this.prisma.tenant.findUnique({ where: { slug: dto.slug } });
     if (existing) throw new ConflictException(`Slug '${dto.slug}' already taken`);
 
+    const emailLower = dto.adminEmail.toLowerCase();
+    const existingUser = await this.prisma.user.findFirst({ where: { email: emailLower } });
+    if (existingUser) throw new ConflictException(`An account with email '${emailLower}' already exists`);
+
     const theme = MENU_TEMPLATE_THEMES[dto.type] || MENU_TEMPLATE_THEMES.OTHER;
 
     const tenant = await this.prisma.tenant.create({
@@ -71,7 +75,8 @@ export class SuperAdminService {
     await this.prisma.user.create({
       data: {
         tenantId: tenant.id,
-        email: dto.adminEmail,
+        email: emailLower,
+        normalizedEmail: emailLower.replace(/\./g, '').replace(/\+.*@/, '@'),
         passwordHash: await bcrypt.hash(dto.adminPassword, 12),
         role: UserRole.ADMIN,
         emailVerified: true, // superadmin-created users are pre-verified
