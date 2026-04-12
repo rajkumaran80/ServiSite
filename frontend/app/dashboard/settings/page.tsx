@@ -66,7 +66,7 @@ export default function SettingsPage() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [templateModalIndex, setTemplateModalIndex] = useState(0);
   const [storedTemplateColors, setStoredTemplateColors] = useState<TemplateColorScheme | undefined>(undefined);
-  const [activeSection, setActiveSection] = useState<'general' | 'appearance' | 'design' | 'contact' | 'domain'>('general');
+  const [activeSection, setActiveSection] = useState<'business' | 'branding' | 'contact' | 'domain'>('business');
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
@@ -227,13 +227,10 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveTenant = async (data: TenantForm) => {
+  const handleSaveBusiness = async (data: TenantForm) => {
     if (!tenant) return;
     setIsSavingTenant(true);
     try {
-      const cleanSocialLinks = Object.fromEntries(
-        Object.entries(socialLinks).filter(([, v]) => v.trim())
-      );
       const updated = await tenantService.update(tenant.id, {
         name: data.name,
         type: data.type,
@@ -241,6 +238,25 @@ export default function SettingsPage() {
         currency: data.currency,
         timezone: data.timezone,
         locale: data.locale,
+      });
+      setTenant(updated);
+      if (updated.slug) await revalidateTenantCache(updated.slug);
+      toast.success('Business settings saved');
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setIsSavingTenant(false);
+    }
+  };
+
+  const handleSaveBranding = async (data: TenantForm) => {
+    if (!tenant) return;
+    setIsSavingTenant(true);
+    try {
+      const cleanSocialLinks = Object.fromEntries(
+        Object.entries(socialLinks).filter(([, v]) => v.trim())
+      );
+      const updated = await tenantService.update(tenant.id, {
         logo: logoUrl || undefined,
         banner: bannerUrls[0] || undefined,
         themeSettings: {
@@ -250,15 +266,14 @@ export default function SettingsPage() {
           promoImageUrl: promoImageUrl || undefined,
           pageTemplate: selectedTemplate,
           bannerImages: bannerUrls.length > 0 ? bannerUrls : undefined,
-          googlePlaceId: googlePlaceId.trim() || undefined,
           socialLinks: Object.keys(cleanSocialLinks).length > 0 ? cleanSocialLinks : undefined,
         },
       });
       setTenant(updated);
       if (updated.slug) await revalidateTenantCache(updated.slug);
-      toast.success('Settings saved successfully');
+      toast.success('Branding saved');
     } catch {
-      toast.error('Failed to save settings');
+      toast.error('Failed to save branding');
     } finally {
       setIsSavingTenant(false);
     }
@@ -325,7 +340,14 @@ export default function SettingsPage() {
   const handleSaveContact = async (data: ContactForm) => {
     setIsSavingContact(true);
     try {
-      const updated = await tenantService.updateContact(data);
+      const [updated] = await Promise.all([
+        tenantService.updateContact(data),
+        tenant
+          ? tenantService.update(tenant.id, {
+              themeSettings: { googlePlaceId: googlePlaceId.trim() || undefined },
+            })
+          : Promise.resolve(null),
+      ]);
       setContact(updated);
       toast.success('Contact information saved');
       // Auto-lookup Place ID if not already set
@@ -351,32 +373,37 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Site Settings</h1>
         <p className="text-gray-500 text-sm mt-1">Customize your business page</p>
       </div>
 
       {/* Section Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-        {(['general', 'design', 'appearance', 'contact', 'domain'] as const).map((section) => (
+        {([
+          { key: 'business', label: 'Business' },
+          { key: 'branding', label: 'Branding' },
+          { key: 'contact', label: 'Contact' },
+          { key: 'domain', label: 'Domain' },
+        ] as const).map(({ key, label }) => (
           <button
-            key={section}
-            onClick={() => setActiveSection(section)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize ${
-              activeSection === section
+            key={key}
+            onClick={() => setActiveSection(key)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              activeSection === key
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            {section}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* General Settings */}
-      {activeSection === 'general' && (
-        <form onSubmit={tenantForm.handleSubmit(handleSaveTenant)} className="space-y-6">
+      {/* Business Settings */}
+      {activeSection === 'business' && (
+        <form onSubmit={tenantForm.handleSubmit(handleSaveBusiness)} className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
-            <h2 className="font-semibold text-gray-900">General Information</h2>
+            <h2 className="font-semibold text-gray-900">Business Information</h2>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Business Name</label>
@@ -447,59 +474,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Google Reviews */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-            <div>
-              <h2 className="font-semibold text-gray-900">Google Reviews</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Automatically display your Google reviews on your home page.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Google Place ID
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    value={isLookingUpPlace ? '' : googlePlaceId}
-                    onChange={(e) => setGooglePlaceId(e.target.value)}
-                    placeholder={isLookingUpPlace ? 'Looking up…' : 'Auto-filled from address, or enter manually'}
-                    disabled={isLookingUpPlace}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
-                  />
-                  {isLookingUpPlace && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin block" />
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  disabled={isLookingUpPlace}
-                  onClick={() => {
-                    const data = contactForm.getValues();
-                    lookupPlaceId(tenant?.name || '', data.address || '', data.city || '');
-                  }}
-                  className="px-3 py-2.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
-                >
-                  Auto-find
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mt-1.5">
-                Filled automatically when you save your address. Or{' '}
-                <a
-                  href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:underline"
-                >
-                  find it manually
-                </a>
-              </p>
-            </div>
-          </div>
-
           <button
             type="submit"
             disabled={isSavingTenant}
@@ -508,13 +482,13 @@ export default function SettingsPage() {
             {isSavingTenant && (
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             )}
-            Save General Settings
+            Save Business Settings
           </button>
         </form>
       )}
 
-      {/* Design / Template Picker */}
-      {activeSection === 'design' && (
+      {/* Branding */}
+      {activeSection === 'branding' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
             <h2 className="font-semibold text-gray-900 mb-1">Page Template</h2>
@@ -659,98 +633,95 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-sm text-gray-400">Click any template to preview and customise colours before applying.</p>
-        </div>
-      )}
 
-      {/* Appearance Settings */}
-      {activeSection === 'appearance' && (
-        <form onSubmit={tenantForm.handleSubmit(handleSaveTenant)} className="space-y-6">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
-            <h2 className="font-semibold text-gray-900">Branding & Theme</h2>
+          {/* Images & Font */}
+          <form onSubmit={tenantForm.handleSubmit(handleSaveBranding)} className="space-y-6 mt-6">
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+              <h2 className="font-semibold text-gray-900">Images & Font</h2>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Font Family</label>
-              <select
-                {...tenantForm.register('fontFamily')}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {FONTS.map((f) => (
-                  <option key={f} value={f} style={{ fontFamily: f }}>
-                    {f}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Font Family</label>
+                <select
+                  {...tenantForm.register('fontFamily')}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  {FONTS.map((f) => (
+                    <option key={f} value={f} style={{ fontFamily: f }}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Logo</label>
-              <ImageUpload
-                currentUrl={logoUrl}
-                mediaType="logo"
-                onUpload={(url) => setLogoUrl(url)}
-                aspectRatio="square"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Banner Images</label>
-              <p className="text-xs text-gray-400 mb-2">Full-width hero images — add multiple to auto-rotate on your website</p>
-              <MultiImageUpload
-                urls={bannerUrls}
-                onChange={setBannerUrls}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">About / Promo Section Image</label>
-              <p className="text-xs text-gray-400 mb-2">Shown in the mid-page section — great for a restaurant interior, team photo, or product shot</p>
-              <ImageUpload
-                currentUrl={promoImageUrl}
-                mediaType="banner"
-                onUpload={(url) => setPromoImageUrl(url)}
-                aspectRatio="banner"
-              />
-            </div>
-
-          </div>
-
-          {/* Social Media Links */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-            <div>
-              <h2 className="font-semibold text-gray-900">Social Media Links</h2>
-              <p className="text-sm text-gray-500 mt-0.5">Shown on your home page hero and footer. Leave blank to hide.</p>
-            </div>
-            {([
-              { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
-              { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourbusiness' },
-              { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@yourbusiness' },
-              { key: 'twitter', label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
-              { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourbusiness' },
-            ] as const).map(({ key, label, placeholder }) => (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-                <input
-                  type="url"
-                  value={socialLinks[key]}
-                  onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Logo</label>
+                <ImageUpload
+                  currentUrl={logoUrl}
+                  mediaType="logo"
+                  onUpload={(url) => setLogoUrl(url)}
+                  aspectRatio="square"
                 />
               </div>
-            ))}
-          </div>
 
-          <button
-            type="submit"
-            disabled={isSavingTenant}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
-          >
-            {isSavingTenant && (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            )}
-            Save Appearance
-          </button>
-        </form>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Banner Images</label>
+                <p className="text-xs text-gray-400 mb-2">Full-width hero images — add multiple to auto-rotate on your website</p>
+                <MultiImageUpload
+                  urls={bannerUrls}
+                  onChange={setBannerUrls}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">About / Promo Section Image</label>
+                <p className="text-xs text-gray-400 mb-2">Shown in the mid-page section — great for a restaurant interior, team photo, or product shot</p>
+                <ImageUpload
+                  currentUrl={promoImageUrl}
+                  mediaType="banner"
+                  onUpload={(url) => setPromoImageUrl(url)}
+                  aspectRatio="banner"
+                />
+              </div>
+            </div>
+
+            {/* Social Media Links */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+              <div>
+                <h2 className="font-semibold text-gray-900">Social Media Links</h2>
+                <p className="text-sm text-gray-500 mt-0.5">Shown on your home page hero and footer. Leave blank to hide.</p>
+              </div>
+              {([
+                { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
+                { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourbusiness' },
+                { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@yourbusiness' },
+                { key: 'twitter', label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
+                { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourbusiness' },
+              ] as const).map(({ key, label, placeholder }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+                  <input
+                    type="url"
+                    value={socialLinks[key]}
+                    onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSavingTenant}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+            >
+              {isSavingTenant && (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+              Save Branding
+            </button>
+          </form>
+        </div>
       )}
 
       {/* Contact Settings */}
@@ -832,6 +803,57 @@ export default function SettingsPage() {
               />
               <p className="text-xs text-gray-400 mt-1">
                 Go to Google Maps → Share → Embed a map → copy the src URL
+              </p>
+            </div>
+          </div>
+
+          {/* Google Reviews */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Google Reviews</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Automatically display your Google reviews on your home page.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Google Place ID</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    value={isLookingUpPlace ? '' : googlePlaceId}
+                    onChange={(e) => setGooglePlaceId(e.target.value)}
+                    placeholder={isLookingUpPlace ? 'Looking up…' : 'Auto-filled from address, or enter manually'}
+                    disabled={isLookingUpPlace}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  />
+                  {isLookingUpPlace && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin block" />
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={isLookingUpPlace}
+                  onClick={() => {
+                    const data = contactForm.getValues();
+                    lookupPlaceId(tenant?.name || '', data.address || '', data.city || '');
+                  }}
+                  className="px-3 py-2.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                >
+                  Auto-find
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">
+                Filled automatically when you save your address. Or{' '}
+                <a
+                  href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  find it manually
+                </a>
               </p>
             </div>
           </div>
