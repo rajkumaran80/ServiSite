@@ -4,22 +4,26 @@ import { useState, useEffect } from 'react';
 
 interface BannerSlideshowProps {
   images: string[];
-  /** ms between transitions — default 4500 */
+  /** ms per slide — default 5000 */
   interval?: number;
   className?: string;
   overlayStyle?: React.CSSProperties;
 }
 
 /**
- * Renders a full-bleed, auto-rotating background image slideshow.
- * Drop it inside a `relative` parent; it fills the parent via absolute positioning.
+ * Full-bleed, auto-rotating background slideshow with Ken Burns zoom + fade crossfade.
+ * Drop inside a `relative` parent; fills the parent via absolute positioning.
  */
-export function BannerSlideshow({ images, interval = 4500, className = '', overlayStyle }: BannerSlideshowProps) {
+export function BannerSlideshow({ images, interval = 5000, className = '', overlayStyle }: BannerSlideshowProps) {
   const [active, setActive] = useState(0);
+  const [slideKey, setSlideKey] = useState(0); // increments on each transition to restart Ken Burns
 
   useEffect(() => {
     if (images.length <= 1) return;
-    const t = setInterval(() => setActive((p) => (p + 1) % images.length), interval);
+    const t = setInterval(() => {
+      setActive((p) => (p + 1) % images.length);
+      setSlideKey((p) => p + 1);
+    }, interval);
     return () => clearInterval(t);
   }, [images.length, interval]);
 
@@ -27,19 +31,37 @@ export function BannerSlideshow({ images, interval = 4500, className = '', overl
 
   return (
     <>
+      <style>{`
+        @keyframes kenBurns {
+          from { transform: scale(1); }
+          to   { transform: scale(1.12); }
+        }
+      `}</style>
+
       {images.map((src, i) => (
-        <img
+        <div
           key={src}
-          src={src}
-          alt=""
-          aria-hidden="true"
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+          className={`absolute inset-0 overflow-hidden transition-opacity duration-1000 ${
             i === active ? 'opacity-100' : 'opacity-0'
           } ${className}`}
-        />
+        >
+          {/* Separate inner div so we can restart the animation via key change */}
+          <div
+            key={i === active ? slideKey : `idle-${i}`}
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${src})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              animation: i === active
+                ? `kenBurns ${interval}ms ease-in-out forwards`
+                : 'none',
+            }}
+          />
+        </div>
       ))}
 
-      {/* Overlay passed from parent */}
+      {/* Overlay passed from parent (dark gradient, colour tint, etc.) */}
       {overlayStyle && <div className="absolute inset-0" style={overlayStyle} />}
 
       {/* Dot indicators — only when multiple images */}
@@ -48,7 +70,7 @@ export function BannerSlideshow({ images, interval = 4500, className = '', overl
           {images.map((_, i) => (
             <button
               key={i}
-              onClick={() => setActive(i)}
+              onClick={() => { setActive(i); setSlideKey((p) => p + 1); }}
               aria-label={`Banner ${i + 1}`}
               className="w-2 h-2 rounded-full transition-all duration-300 focus:outline-none"
               style={{
