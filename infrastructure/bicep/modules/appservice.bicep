@@ -29,8 +29,6 @@ param vapidSubject string
 param twilioAccountSid string
 param twilioWhatsappFrom string = 'whatsapp:+14155238886'
 param superadminAlertEmail string
-param nextPublicGoogleClientId string
-param nextPublicStripePublishableKey string
 
 // Helper: extract Key Vault name from URI (e.g. https://servisiteprodkv.vault.azure.net/)
 var kvName = split(split(keyVaultUri, '/')[2], '.')[0]
@@ -109,6 +107,9 @@ resource backend 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'TWILIO_WHATSAPP_FROM', value: twilioWhatsappFrom }
         // ── Alerts ───────────────────────────────────────────────────────────
         { name: 'SUPERADMIN_ALERT_EMAIL', value: superadminAlertEmail }
+        // ── Cloudflare for SaaS ───────────────────────────────────────────────
+        { name: 'CLOUDFLARE_API_KEY',  value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=cloudflare-api-key)' }
+        { name: 'CLOUDFLARE_ZONE_ID',  value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=cloudflare-zone-id)' }
         // ── Secrets via Key Vault (no plaintext) ──────────────────────────────
         { name: 'JWT_SECRET',              value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=jwt-secret)' }
         { name: 'REVALIDATE_SECRET',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=revalidate-secret)' }

@@ -113,9 +113,7 @@ export class TenantController {
     return {
       data: result,
       success: true,
-      message: result.nsRecords.length
-        ? `DNS zone created. Add these nameservers in your registrar (Ionos): ${result.nsRecords.join(', ')}`
-        : 'Domain saved. Azure DNS zone creation is not configured — set AZURE_SUBSCRIPTION_ID and AZURE_DNS_RESOURCE_GROUP.',
+      message: 'Domain saved — add the CNAME and TXT records at your registrar then click Check Status.',
     };
   }
 

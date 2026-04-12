@@ -15,10 +15,9 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Tenant } from '@prisma/client';
 import { TenantCacheService, TTL } from '../../common/cache/tenant-cache.service';
 import { NotifyNextjsService } from '../../common/notify/notify-nextjs.service';
-import { AzureDnsService } from './azure-dns.service';
+import { CloudflareService } from './cloudflare.service';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
-import { promises as dns } from 'dns';
 import { normalizeEmail, isDisposableEmail, isSuspiciousEmail } from '../../common/utils/email.util';
 
 @Injectable()
@@ -30,7 +29,7 @@ export class TenantService {
     private readonly authService: AuthService,
     private readonly tenantCache: TenantCacheService,
     private readonly notify: NotifyNextjsService,
-    private readonly azureDns: AzureDnsService,
+    private readonly cloudflare: CloudflareService,
     private readonly billing: BillingService,
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
@@ -232,12 +231,13 @@ export class TenantService {
 
   /**
    * Step 1: Tenant submits their custom domain.
-   * Creates an Azure DNS Zone and returns the nameservers to configure at the registrar.
+   * Creates a Cloudflare custom hostname and returns the TXT record
+   * the tenant must add at their registrar to prove ownership.
    */
   async setCustomDomain(
     tenantId: string,
     domain: string,
-  ): Promise<{ nsRecords: string[] }> {
+  ): Promise<{ txtName: string; txtValue: string; cname: string }> {
     const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
 
     // Check the domain isn't already taken by another tenant
@@ -248,32 +248,37 @@ export class TenantService {
       throw new ConflictException(`Domain '${normalised}' is already registered`);
     }
 
-    // Create Azure DNS Zone and retrieve its nameservers
-    const nsRecords = await this.azureDns.createZone(normalised);
+    // Create Cloudflare custom hostname and get verification TXT record
+    const { id, txtName, txtValue } = await this.cloudflare.createCustomHostname(normalised);
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
         customDomain: normalised,
         customDomainStatus: 'pending',
-        customDomainNsRecords: nsRecords,
+        customDomainToken: id, // store Cloudflare hostname ID
+        customDomainNsRecords: [],
         customDomainVerifiedAt: null,
       },
     });
 
-    return { nsRecords };
+    return {
+      txtName,
+      txtValue,
+      cname: 'origin.servisite.co.uk',
+    };
   }
 
   /**
-   * Check whether the domain's NS records have been delegated to Azure DNS.
-   * Activates the domain if at least one Azure NS is found.
+   * Check whether Cloudflare has verified the custom hostname.
+   * Activates the domain once Cloudflare reports it as active.
    */
   async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string }> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
         customDomain: true,
-        customDomainNsRecords: true,
+        customDomainToken: true,
         customDomainStatus: true,
         slug: true,
       },
@@ -285,23 +290,16 @@ export class TenantService {
     if (tenant.customDomainStatus === 'active') {
       return { verified: true, message: 'Domain already active' };
     }
-
-    const expectedNs = (tenant.customDomainNsRecords ?? []).map((ns) =>
-      ns.replace(/\.$/, '').toLowerCase(),
-    );
-
-    let delegated = false;
-    try {
-      const actualNs = await dns.resolveNs(tenant.customDomain);
-      delegated = actualNs.some((ns) => expectedNs.includes(ns.toLowerCase()));
-    } catch {
-      // NS lookup failed — not yet propagated
+    if (!tenant.customDomainToken) {
+      throw new BadRequestException('Domain not registered with Cloudflare — please re-save the domain');
     }
 
-    if (!delegated) {
+    const { active, sslStatus, hostnameStatus } = await this.cloudflare.checkCustomHostname(tenant.customDomainToken);
+
+    if (!active) {
       return {
         verified: false,
-        message: `Nameservers not yet updated for ${tenant.customDomain}. NS changes can take up to 48 hours to propagate.`,
+        message: `Domain not yet verified. Cloudflare status: hostname=${hostnameStatus}, ssl=${sslStatus}. Make sure you have added the CNAME and TXT records at your registrar.`,
       };
     }
 
@@ -316,18 +314,20 @@ export class TenantService {
   }
 
   /**
-   * Remove a custom domain from the tenant and clean up the Azure DNS zone.
+   * Remove a custom domain from the tenant and delete it from Cloudflare.
    */
   async removeCustomDomain(tenantId: string): Promise<void> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { customDomain: true },
+      select: { customDomain: true, customDomainToken: true },
     });
 
     if (tenant?.customDomain) {
       await Promise.all([
         this.tenantCache.deleteDomainSlug(tenant.customDomain),
-        this.azureDns.deleteZone(tenant.customDomain),
+        tenant.customDomainToken
+          ? this.cloudflare.deleteCustomHostname(tenant.customDomainToken)
+          : Promise.resolve(),
       ]);
     }
 

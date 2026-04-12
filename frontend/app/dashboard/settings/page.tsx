@@ -70,7 +70,9 @@ export default function SettingsPage() {
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
-  const [nsRecords, setNsRecords] = useState<string[]>([]);
+  const [domainTxtName, setDomainTxtName] = useState<string>('');
+  const [domainTxtValue, setDomainTxtValue] = useState<string>('');
+  const [domainCname, setDomainCname] = useState<string>('');
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
   const [isSavingDomain, setIsSavingDomain] = useState(false);
@@ -132,7 +134,7 @@ export default function SettingsPage() {
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
-          setNsRecords(currentTenant.customDomainNsRecords || []);
+          // DNS records will be re-fetched when tenant re-saves domain
 
           tenantForm.reset({
             name: currentTenant.name,
@@ -177,12 +179,10 @@ export default function SettingsPage() {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
       setCustomDomain(domainInput.trim());
       setDomainStatus('pending');
-      setNsRecords(result.nsRecords || []);
-      toast.success(
-        result.nsRecords?.length
-          ? 'Domain saved — add the nameservers in Ionos then click Check Status'
-          : 'Domain saved',
-      );
+      setDomainTxtName(result.txtName || '');
+      setDomainTxtValue(result.txtValue || '');
+      setDomainCname(result.cname || '');
+      toast.success('Domain saved — add the DNS records at your registrar then click Check Status');
     } catch {
       toast.error('Failed to save custom domain');
     } finally {
@@ -215,7 +215,9 @@ export default function SettingsPage() {
       setCustomDomain('');
       setDomainInput('');
       setDomainStatus(null);
-      setNsRecords([]);
+      setDomainTxtName('');
+      setDomainTxtValue('');
+      setDomainCname('');
       toast.success('Custom domain removed');
     } catch {
       toast.error('Failed to remove custom domain');
@@ -912,47 +914,43 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* NS records instructions */}
+            {/* DNS setup instructions */}
             {domainStatus === 'pending' && (
               <div className="space-y-4">
-                {nsRecords.length > 0 ? (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
-                    <div>
-                      <h3 className="font-semibold text-amber-900 text-sm">Update nameservers in Ionos</h3>
-                      <p className="text-xs text-amber-700 mt-1">
-                        Log in to your Ionos account, go to <strong>DNS → Nameservers</strong> for <span className="font-mono">{customDomain}</span>,
-                        and replace the existing nameservers with the ones below.
-                      </p>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs font-mono">
-                        <thead>
-                          <tr className="text-amber-700 text-left">
-                            <th className="pr-6 pb-2 font-semibold">#</th>
-                            <th className="pb-2 font-semibold">Nameserver</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {nsRecords.map((ns, i) => (
-                            <tr key={ns} className="text-amber-900">
-                              <td className="pr-6 py-1">{i + 1}</td>
-                              <td className="py-1">{ns}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className="text-xs text-amber-700">
-                      Nameserver changes can take up to 48 hours to propagate. Click <strong>Check Status</strong> once updated.
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-amber-900 text-sm">Add these 2 DNS records at your registrar</h3>
+                    <p className="text-xs text-amber-700 mt-1">
+                      Log in to your domain registrar (e.g. Ionos) and add the following records for <span className="font-mono font-bold">{customDomain}</span>.
                     </p>
                   </div>
-                ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-                    <p className="text-sm text-gray-600">
-                      Domain saved. Azure DNS zone creation is not configured on this server — nameservers are not available yet.
-                    </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono border-collapse">
+                      <thead>
+                        <tr className="text-amber-700 text-left border-b border-amber-200">
+                          <th className="pr-4 pb-2 font-semibold">Type</th>
+                          <th className="pr-4 pb-2 font-semibold">Name</th>
+                          <th className="pb-2 font-semibold">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-amber-900">
+                        <tr className="border-b border-amber-100">
+                          <td className="pr-4 py-2 font-bold">CNAME</td>
+                          <td className="pr-4 py-2">@</td>
+                          <td className="py-2 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
+                        </tr>
+                        <tr>
+                          <td className="pr-4 py-2 font-bold">TXT</td>
+                          <td className="pr-4 py-2 break-all">{domainTxtName || `_cf-custom-hostname.${customDomain}`}</td>
+                          <td className="py-2 break-all">{domainTxtValue || '(save the domain to get your verification token)'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                )}
+                  <p className="text-xs text-amber-700">
+                    DNS changes usually propagate within minutes. Click <strong>Check Status</strong> once you've added the records.
+                  </p>
+                </div>
 
                 <button
                   type="button"
@@ -972,14 +970,6 @@ export default function SettingsPage() {
                   ✓ Your custom domain <span className="font-mono font-bold">{customDomain}</span> is active.
                   Visitors can now reach your site at this domain.
                 </p>
-                {nsRecords.length > 0 && (
-                  <details className="text-xs">
-                    <summary className="text-green-700 cursor-pointer font-medium">View nameservers</summary>
-                    <ul className="mt-2 font-mono space-y-0.5 text-green-900">
-                      {nsRecords.map((ns) => <li key={ns}>{ns}</li>)}
-                    </ul>
-                  </details>
-                )}
               </div>
             )}
           </div>
