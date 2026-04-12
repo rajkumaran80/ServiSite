@@ -924,7 +924,7 @@ export default function SettingsPage() {
                   <div>
                     <h3 className="font-semibold text-amber-900 text-sm">Add these 2 DNS records at your registrar</h3>
                     <p className="text-xs text-amber-700 mt-1">
-                      Log in to your domain registrar (e.g. Ionos) and add the following records for <span className="font-mono font-bold">{customDomain}</span>.
+                      Log in to your domain registrar (e.g. Ionos, GoDaddy, Namecheap) and add the following records for <span className="font-mono font-bold">{customDomain}</span>.
                     </p>
                   </div>
                   <div className="overflow-x-auto">
@@ -932,14 +932,14 @@ export default function SettingsPage() {
                       <thead>
                         <tr className="text-amber-700 text-left border-b border-amber-200">
                           <th className="pr-4 pb-2 font-semibold">Type</th>
-                          <th className="pr-4 pb-2 font-semibold">Name</th>
+                          <th className="pr-4 pb-2 font-semibold">Name / Host</th>
                           <th className="pb-2 font-semibold">Value</th>
                         </tr>
                       </thead>
                       <tbody className="text-amber-900">
                         <tr className="border-b border-amber-100">
                           <td className="pr-4 py-2 font-bold">CNAME</td>
-                          <td className="pr-4 py-2">@</td>
+                          <td className="pr-4 py-2">@ <span className="text-amber-600 font-sans">(or www)</span></td>
                           <td className="py-2 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
                         </tr>
                         <tr>
@@ -953,6 +953,19 @@ export default function SettingsPage() {
                   <p className="text-xs text-amber-700">
                     DNS changes usually propagate within minutes. Click <strong>Check Status</strong> once you've added the records.
                   </p>
+                </div>
+
+                {/* Ionos-specific warning */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
+                  <p className="text-xs font-semibold text-blue-800">⚠️ Using Ionos?</p>
+                  <p className="text-xs text-blue-700">
+                    Ionos locks the root <span className="font-mono">@</span> record if their <strong>Default Site</strong> service is active on your domain.
+                    If you can't add or delete the CNAME for <span className="font-mono">@</span>, do one of the following:
+                  </p>
+                  <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                    <li>Contact Ionos support and ask them to <strong>remove the Default Site service</strong> from your domain — then add the CNAME for <span className="font-mono">@</span></li>
+                    <li>Or use <span className="font-mono">www</span> instead of <span className="font-mono">@</span> for the CNAME — then come back here, remove this domain, and re-enter it as <span className="font-mono font-bold">www.{customDomain?.replace(/^www\./, '')}</span></li>
+                  </ul>
                 </div>
 
                 <button
