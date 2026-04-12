@@ -66,7 +66,7 @@ export default function NavigationPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
-          {PREDEFINED_PAGES.map((page) => {
+          {PREDEFINED_PAGES.filter((page) => page.key !== 'home-blocks').map((page) => {
             const isEnabled = navPages[page.key] ?? page.defaultEnabled;
             const isSaving = saving === page.key;
 

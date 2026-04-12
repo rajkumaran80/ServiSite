@@ -153,6 +153,7 @@ export const PREDEFINED_PAGES: PredefinedPage[] = [
       { key: 'imageUrl', label: 'Image', type: 'image' },
       { key: 'imagePosition', label: 'Image Position (left/right)', type: 'text', placeholder: 'left' },
     ],
+    builtIn: true,
     defaultEnabled: false,
   },
 ];

@@ -7,11 +7,17 @@ import { api } from '../../../services/api';
 import uploadService from '../../../services/upload.service';
 import type { GalleryImage } from '../../../types/tenant.types';
 
+const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+
+function isVideo(url: string) {
+  return /\.(mp4|webm|mov)(\?|$)/i.test(url);
+}
+
 export default function DashboardGalleryPage() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -26,15 +32,12 @@ export default function DashboardGalleryPage() {
     }
   };
 
-  useEffect(() => {
-    loadGallery();
-  }, []);
+  useEffect(() => { loadGallery(); }, []);
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
-    setUploadProgress(0);
 
     const uploaded: GalleryImage[] = [];
     const total = files.length;
@@ -49,41 +52,44 @@ export default function DashboardGalleryPage() {
       }
 
       try {
-        // Upload file first
+        setUploadProgress(`Uploading ${i + 1}/${total}…`);
         const uploadResult = await uploadService.uploadFile(file, 'gallery');
 
-        // Add to gallery
         const res = await api.post('/gallery', {
           url: uploadResult.url,
           caption: '',
         });
 
         uploaded.push(res.data.data);
-        setUploadProgress(Math.round(((i + 1) / total) * 100));
-      } catch (error) {
+      } catch {
         toast.error(`Failed to upload ${file.name}`);
       }
     }
 
     if (uploaded.length > 0) {
       setImages((prev) => [...uploaded, ...prev]);
-      toast.success(`${uploaded.length} photo${uploaded.length > 1 ? 's' : ''} added`);
+      const videos = uploaded.filter((u) => isVideo(u.url)).length;
+      const photos = uploaded.length - videos;
+      const parts = [];
+      if (photos > 0) parts.push(`${photos} photo${photos > 1 ? 's' : ''}`);
+      if (videos > 0) parts.push(`${videos} video${videos > 1 ? 's' : ''}`);
+      toast.success(`${parts.join(' & ')} added`);
     }
 
     setIsUploading(false);
-    setUploadProgress(0);
+    setUploadProgress('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this image?')) return;
+    if (!confirm('Delete this item?')) return;
     setDeletingId(id);
     try {
       await api.delete(`/gallery/${id}`);
       setImages((prev) => prev.filter((img) => img.id !== id));
-      toast.success('Image deleted');
+      toast.success('Deleted');
     } catch {
-      toast.error('Failed to delete image');
+      toast.error('Failed to delete');
     } finally {
       setDeletingId(null);
     }
@@ -98,6 +104,13 @@ export default function DashboardGalleryPage() {
       toast.error('Failed to update caption');
     }
   };
+
+  const photoCount = images.filter((i) => !isVideo(i.url)).length;
+  const videoCount = images.filter((i) => isVideo(i.url)).length;
+  const countLabel = [
+    photoCount > 0 ? `${photoCount} photo${photoCount > 1 ? 's' : ''}` : '',
+    videoCount > 0 ? `${videoCount} video${videoCount > 1 ? 's' : ''}` : '',
+  ].filter(Boolean).join(' · ') || '0 items';
 
   if (isLoading) {
     return (
@@ -117,13 +130,13 @@ export default function DashboardGalleryPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gallery</h1>
-          <p className="text-gray-500 text-sm mt-1">{images.length} photos</p>
+          <p className="text-gray-500 text-sm mt-1">{countLabel}</p>
         </div>
         <div>
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,video/mp4,video/webm,video/quicktime"
             multiple
             className="hidden"
             onChange={(e) => handleUpload(e.target.files)}
@@ -136,87 +149,108 @@ export default function DashboardGalleryPage() {
             {isUploading ? (
               <>
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Uploading {uploadProgress}%
+                {uploadProgress}
               </>
             ) : (
               <>
-                <span>+</span> Upload Photos
+                <span>+</span> Upload
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Upload Drop Zone */}
+      {/* Drop Zone */}
       <div
         className="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center hover:border-blue-300 transition-colors cursor-pointer"
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !isUploading && fileInputRef.current?.click()}
         onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          handleUpload(e.dataTransfer.files);
-        }}
+        onDrop={(e) => { e.preventDefault(); handleUpload(e.dataTransfer.files); }}
       >
-        <div className="text-4xl mb-3">📸</div>
-        <p className="font-medium text-gray-700">Drop photos here or click to upload</p>
-        <p className="text-sm text-gray-500 mt-1">
-          JPEG, PNG, WebP, GIF up to 10MB each
-        </p>
+        {isUploading ? (
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-blue-600 font-medium">{uploadProgress}</p>
+          </div>
+        ) : (
+          <>
+            <div className="text-4xl mb-3">📸</div>
+            <p className="font-medium text-gray-700">Drop photos or videos here, or click to upload</p>
+            <p className="text-sm text-gray-500 mt-1">Photos: JPEG, PNG, WebP, GIF · Videos: MP4, WebM, MOV up to 200MB</p>
+          </>
+        )}
       </div>
 
       {/* Gallery Grid */}
       {images.length > 0 && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {images.map((image) => (
-            <div
-              key={image.id}
-              className="group relative bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm"
-            >
-              <div className="relative aspect-square">
-                <Image
-                  src={image.url}
-                  alt={image.caption || 'Gallery image'}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                />
-                {/* Overlay on hover */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => handleDelete(image.id)}
-                    disabled={deletingId === image.id}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium"
-                  >
-                    {deletingId === image.id ? '...' : 'Delete'}
-                  </button>
+          {images.map((image) => {
+            const itemIsVideo = isVideo(image.url);
+            return (
+              <div
+                key={image.id}
+                className="group relative bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm"
+              >
+                <div className="relative aspect-square bg-gray-100">
+                  {itemIsVideo ? (
+                    <>
+                      <video
+                        src={image.url}
+                        muted
+                        playsInline
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play()}
+                        onMouseLeave={(e) => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0; }}
+                      />
+                      <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-md font-medium pointer-events-none">
+                        ▶ Video
+                      </div>
+                    </>
+                  ) : (
+                    <Image
+                      src={image.url}
+                      alt={image.caption || 'Gallery image'}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                    <button
+                      onClick={() => handleDelete(image.id)}
+                      disabled={deletingId === image.id}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium"
+                    >
+                      {deletingId === image.id ? '…' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3">
+                  <input
+                    type="text"
+                    defaultValue={image.caption || ''}
+                    placeholder="Add caption…"
+                    className="w-full text-xs text-gray-600 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 py-0.5"
+                    onBlur={(e) => {
+                      const newCaption = e.target.value.trim();
+                      if (newCaption !== (image.caption || '')) {
+                        handleUpdateCaption(image.id, newCaption);
+                      }
+                    }}
+                  />
                 </div>
               </div>
-
-              {/* Caption */}
-              <div className="p-3">
-                <input
-                  type="text"
-                  defaultValue={image.caption || ''}
-                  placeholder="Add caption..."
-                  className="w-full text-xs text-gray-600 bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-300 rounded px-1 py-0.5"
-                  onBlur={(e) => {
-                    const newCaption = e.target.value.trim();
-                    if (newCaption !== (image.caption || '')) {
-                      handleUpdateCaption(image.id, newCaption);
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {images.length === 0 && (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
           <div className="text-5xl mb-3">🖼️</div>
-          <h3 className="font-semibold text-gray-700">No photos yet</h3>
-          <p className="text-gray-500 text-sm mt-1">Upload your first photo to get started</p>
+          <h3 className="font-semibold text-gray-700">No photos or videos yet</h3>
+          <p className="text-gray-500 text-sm mt-1">Upload your first photo or video to get started</p>
         </div>
       )}
     </div>

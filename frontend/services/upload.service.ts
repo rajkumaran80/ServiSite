@@ -33,18 +33,22 @@ class UploadService {
   }
 
   validateFile(file: File, maxSizeMB = 10): { valid: boolean; error?: string } {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+    const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+    const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
+    const allowedTypes = [...imageTypes, ...videoTypes];
 
     if (!allowedTypes.includes(file.type)) {
       return {
         valid: false,
-        error: `Invalid file type. Allowed: ${allowedTypes.map((t) => t.split('/')[1]).join(', ')}`,
+        error: `Invalid file type. Allowed: JPEG, PNG, WebP, GIF, MP4, WebM, MOV`,
       };
     }
 
-    const maxBytes = maxSizeMB * 1024 * 1024;
+    const isVideo = videoTypes.includes(file.type);
+    const effectiveMaxMB = isVideo ? 200 : maxSizeMB;
+    const maxBytes = effectiveMaxMB * 1024 * 1024;
     if (file.size > maxBytes) {
-      return { valid: false, error: `File too large. Maximum size is ${maxSizeMB}MB` };
+      return { valid: false, error: `File too large. Maximum ${effectiveMaxMB}MB` };
     }
 
     return { valid: true };

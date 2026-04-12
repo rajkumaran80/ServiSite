@@ -74,22 +74,19 @@ function formatPrice(price: number | string, currency: string): string {
 }
 
 export default async function TenantHomePage({ params }: { params: { tenant: string } }) {
-  const [tenant, featuredItems, menuGroups, aboutEntries, googleReviews, manualReviewEntries, homeBlockEntries, galleryEntries] = await Promise.all([
+  const [tenant, featuredItems, menuGroups, googleReviews, manualReviewEntries, homeBlockEntries] = await Promise.all([
     getTenant(params.tenant),
     getFeaturedItems(params.tenant),
     getMenuGroups(params.tenant),
-    getPageEntries(params.tenant, 'about'),
     getGoogleReviews(params.tenant),
     getPageEntries(params.tenant, 'reviews'),
     getPageEntries(params.tenant, 'home-blocks'),
-    getPageEntries(params.tenant, 'gallery'),
   ]);
 
   if (!tenant) notFound();
 
   const publicUrl = `https://${tenant.slug}.${APP_DOMAIN}`;
   const theme = tenant.themeSettings as any || {};
-  const promoImageUrl = theme.promoImageUrl || null;
   const isRestaurant = tenant.type === 'RESTAURANT' || tenant.type === 'CAFE';
 
   // Resolve template — stored as pageTemplate in themeSettings
@@ -98,9 +95,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   const primaryColor = theme.primaryColor || template.primaryColor;
   const fontFamily = theme.fontFamily || template.fontFamily;
 
-  const showAboutSection = theme.showAboutOnHome !== false && aboutEntries.length > 0;
-  const showHomeBlocks = theme.navPages?.['home-blocks'] === true && homeBlockEntries.length > 0;
-  const showGalleryOnHome = theme.showGalleryOnHome === true && galleryEntries.length > 0;
+  const showHomeBlocks = homeBlockEntries.length > 0;
   const socialLinks = theme.socialLinks as { instagram?: string; facebook?: string; tiktok?: string; twitter?: string; youtube?: string } | undefined;
   // Google reviews take priority; fall back to manually added entries
   const reviewEntries = googleReviews.length > 0 ? googleReviews : manualReviewEntries;
@@ -114,18 +109,6 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
       : tenant.banner
       ? [tenant.banner]
       : [];
-
-  const featurePoints = isRestaurant
-    ? [
-        { icon: '🌿', title: 'Fresh Ingredients', desc: 'Locally sourced, quality produce every day' },
-        { icon: '👨‍🍳', title: 'Expert Chefs', desc: 'Passionate cooks with years of experience' },
-        { icon: '⚡', title: 'Quick Service', desc: 'Fast, attentive service without compromise' },
-      ]
-    : [
-        { icon: '✅', title: 'Quality Work', desc: 'Professional results every time' },
-        { icon: '🕐', title: 'On Time', desc: 'We respect your schedule' },
-        { icon: '💬', title: 'Great Support', desc: 'Always here to help you' },
-      ];
 
   return (
     <div className="bg-white">
@@ -241,65 +224,120 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
 
             {/* Grid or Large card layout */}
             {template.cardStyle === 'large' ? (
-              /* Elegant: 2-col large cards */
-              <div className="grid sm:grid-cols-2 gap-8">
-                {featuredItems.slice(0, 4).map((item: any, idx: number) => (
-                  <ScrollReveal key={item.id} delay={idx * 80}>
-                  <Link href={`/menu#item-${item.id}`}
-                    className="group relative overflow-hidden rounded-2xl bg-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 block"
-                    style={{ minHeight: '320px' }}
-                  >
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-7xl bg-gray-100">🍽️</div>
-                    )}
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 60%)' }} />
-                    <div className="absolute bottom-0 left-0 right-0 p-6">
-                      {item.isPopular && (
-                        <span className="inline-block bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full mb-2">⭐ Popular</span>
-                      )}
-                      <h3 className="text-white font-bold text-xl leading-snug"
-                        style={{ fontFamily: `'${fontFamily}', Georgia, serif` }}>{item.name}</h3>
-                      {item.description && <p className="text-white/70 text-sm mt-1 line-clamp-1">{item.description}</p>}
-                      <p className="text-white font-bold mt-2" style={{ color: `${primaryColor}` }}>
-                        {formatPrice(item.price, tenant.currency || 'GBP')}
-                      </p>
-                    </div>
-                  </Link>
-                  </ScrollReveal>
-                ))}
-              </div>
-            ) : (
-              /* Classic / Modern / Fresh: 3-col card grid */
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {featuredItems.map((item: any, idx: number) => (
-                  <ScrollReveal key={item.id} delay={idx * 70}>
-                  <Link href={`/menu#item-${item.id}`}
-                    className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 block"
-                  >
-                    <div className="relative h-52 bg-gray-100 overflow-hidden">
+              /* Elegant: horizontal scroll on mobile, 2-col grid on sm+ */
+              <>
+                <div className="flex gap-5 overflow-x-auto pb-3 scrollbar-none sm:hidden">
+                  {featuredItems.slice(0, 4).map((item: any) => (
+                    <Link key={item.id} href={`/menu#item-${item.id}`}
+                      className="group relative overflow-hidden rounded-2xl bg-gray-100 flex-shrink-0 hover:shadow-2xl transition-all duration-300 block"
+                      style={{ minHeight: '260px', width: '72vw', maxWidth: '280px' }}
+                    >
                       {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
+                        <div className="absolute inset-0 flex items-center justify-center text-7xl bg-gray-100">🍽️</div>
                       )}
-                      {item.isPopular && (
-                        <span className="absolute top-3 left-3 bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">⭐ Popular</span>
-                      )}
-                      <div className="absolute bottom-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-xl shadow-lg backdrop-blur-sm"
-                        style={{ backgroundColor: `${primaryColor}e6` }}>
-                        {formatPrice(item.price, tenant.currency || 'GBP')}
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 60%)' }} />
+                      <div className="absolute bottom-0 left-0 right-0 p-5">
+                        {item.isPopular && (
+                          <span className="inline-block bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full mb-2">⭐ Popular</span>
+                        )}
+                        <h3 className="text-white font-bold text-lg leading-snug"
+                          style={{ fontFamily: `'${fontFamily}', Georgia, serif` }}>{item.name}</h3>
+                        <p className="text-white font-bold mt-1.5" style={{ color: `${primaryColor}` }}>
+                          {formatPrice(item.price, tenant.currency || 'GBP')}
+                        </p>
                       </div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-gray-900 text-base leading-snug">{item.name}</h3>
-                      {item.description && <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>}
-                    </div>
-                  </Link>
-                  </ScrollReveal>
-                ))}
-              </div>
+                    </Link>
+                  ))}
+                </div>
+                <div className="hidden sm:grid sm:grid-cols-2 gap-8">
+                  {featuredItems.slice(0, 4).map((item: any, idx: number) => (
+                    <ScrollReveal key={item.id} delay={idx * 80}>
+                    <Link href={`/menu#item-${item.id}`}
+                      className="group relative overflow-hidden rounded-2xl bg-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 block"
+                      style={{ minHeight: '320px' }}
+                    >
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-7xl bg-gray-100">🍽️</div>
+                      )}
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.1) 60%)' }} />
+                      <div className="absolute bottom-0 left-0 right-0 p-6">
+                        {item.isPopular && (
+                          <span className="inline-block bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full mb-2">⭐ Popular</span>
+                        )}
+                        <h3 className="text-white font-bold text-xl leading-snug"
+                          style={{ fontFamily: `'${fontFamily}', Georgia, serif` }}>{item.name}</h3>
+                        {item.description && <p className="text-white/70 text-sm mt-1 line-clamp-1">{item.description}</p>}
+                        <p className="text-white font-bold mt-2" style={{ color: `${primaryColor}` }}>
+                          {formatPrice(item.price, tenant.currency || 'GBP')}
+                        </p>
+                      </div>
+                    </Link>
+                    </ScrollReveal>
+                  ))}
+                </div>
+              </>
+            ) : (
+              /* Classic / Modern / Fresh: horizontal scroll on mobile, 3-col grid on sm+ */
+              <>
+                <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-none sm:hidden">
+                  {featuredItems.map((item: any) => (
+                    <Link key={item.id} href={`/menu#item-${item.id}`}
+                      className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm flex-shrink-0 hover:shadow-xl transition-all duration-300 block"
+                      style={{ width: '65vw', maxWidth: '260px' }}
+                    >
+                      <div className="relative bg-gray-100 overflow-hidden" style={{ height: 180 }}>
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
+                        )}
+                        {item.isPopular && (
+                          <span className="absolute top-3 left-3 bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">⭐ Popular</span>
+                        )}
+                        <div className="absolute bottom-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-xl shadow-lg backdrop-blur-sm"
+                          style={{ backgroundColor: `${primaryColor}e6` }}>
+                          {formatPrice(item.price, tenant.currency || 'GBP')}
+                        </div>
+                      </div>
+                      <div className="p-3">
+                        <h3 className="font-bold text-gray-900 text-sm leading-snug">{item.name}</h3>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {featuredItems.map((item: any, idx: number) => (
+                    <ScrollReveal key={item.id} delay={idx * 70}>
+                    <Link href={`/menu#item-${item.id}`}
+                      className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 block"
+                    >
+                      <div className="relative h-52 bg-gray-100 overflow-hidden">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
+                        )}
+                        {item.isPopular && (
+                          <span className="absolute top-3 left-3 bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">⭐ Popular</span>
+                        )}
+                        <div className="absolute bottom-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-xl shadow-lg backdrop-blur-sm"
+                          style={{ backgroundColor: `${primaryColor}e6` }}>
+                          {formatPrice(item.price, tenant.currency || 'GBP')}
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-bold text-gray-900 text-base leading-snug">{item.name}</h3>
+                        {item.description && <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>}
+                      </div>
+                    </Link>
+                    </ScrollReveal>
+                  ))}
+                </div>
+              </>
             )}
 
             <div className="text-center mt-10 sm:hidden">
@@ -308,115 +346,6 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 style={{ backgroundColor: primaryColor }}>
                 View Full {isRestaurant ? 'Menu' : 'Services'}
               </Link>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* About Us section */}
-      {showAboutSection && (() => {
-        const entry = aboutEntries[0];
-        const description: string = entry.data?.description || '';
-        const snippet = description.length > 300 ? description.slice(0, 300).trimEnd() + '…' : description;
-        return (
-          <section className="py-16 bg-white">
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-10">
-                <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>About Us</p>
-                <h2 className="text-3xl font-black text-gray-900"
-                  style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
-                  {entry.title || tenant.name}
-                </h2>
-              </div>
-              {entry.imageUrl ? (
-                <div className="grid lg:grid-cols-2 gap-10 items-center">
-                  <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100">
-                    <img src={entry.imageUrl} alt={entry.title || 'About us'} className="absolute inset-0 w-full h-full object-cover" />
-                  </div>
-                  <div>
-                    <p className="text-gray-600 leading-relaxed text-base">{snippet}</p>
-                    <Link href="/about" className="inline-flex items-center gap-1.5 mt-6 text-sm font-bold" style={{ color: primaryColor }}>
-                      Read our full story →
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-3xl mx-auto text-center">
-                  <p className="text-gray-600 leading-relaxed text-base">{snippet}</p>
-                  <Link href="/about" className="inline-flex items-center gap-1.5 mt-6 text-sm font-bold" style={{ color: primaryColor }}>
-                    Read our full story →
-                  </Link>
-                </div>
-              )}
-            </div>
-          </section>
-        );
-      })()}
-
-      {/* Customer Reviews section */}
-      {showReviewsSection && (
-        <section className="py-16 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-10">
-              <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>Reviews</p>
-              <h2 className="text-3xl font-black text-gray-900"
-                style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
-                What Our Customers Say
-              </h2>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {reviewEntries.map((entry: any, idx: number) => {
-                const isGoogle = reviewsSource === 'google';
-                const authorName: string = isGoogle ? entry.authorName : entry.title;
-                const photoUrl: string | null = isGoogle ? entry.authorPhotoUrl : entry.imageUrl;
-                const rating: number = Math.min(5, Math.max(1, Number(isGoogle ? entry.rating : entry.data?.rating) || 5));
-                const comment: string = isGoogle ? entry.text : (entry.data?.comment || '');
-                const relativeTime: string | null = isGoogle ? entry.relativeTime : null;
-                const mapsUrl: string | null = isGoogle ? entry.googleMapsUri : null;
-                const Wrapper = mapsUrl ? 'a' : 'div';
-                const wrapperProps = mapsUrl ? { href: mapsUrl, target: '_blank', rel: 'noopener noreferrer' } : {};
-                return (
-                  <Wrapper key={isGoogle ? idx : entry.id} {...wrapperProps} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col hover:shadow-md transition-shadow cursor-pointer">
-                    {/* Stars */}
-                    <div className="flex gap-0.5 mb-3">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <span key={i} className={`text-lg ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
-                      ))}
-                    </div>
-                    {/* Comment */}
-                    <p className="text-gray-600 text-sm leading-relaxed flex-1 mb-4">"{comment}"</p>
-                    {/* Author */}
-                    <div className="flex items-center gap-3 pt-4 border-t border-gray-50">
-                      {photoUrl ? (
-                        <img src={photoUrl} alt={authorName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                          style={{ backgroundColor: primaryColor }}>
-                          {(authorName || '?')[0].toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 text-sm truncate">{authorName}</p>
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          {isGoogle ? (
-                            <>
-                              <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M21.35 11.1h-9.18v2.93h5.34c-.23 1.24-.95 2.29-2.03 3l3.28 2.54c1.91-1.76 3.01-4.35 3.01-7.47 0-.58-.05-1.14-.14-1.7z" fill="#4285F4"/>
-                                <path d="M11.17 22c2.7 0 4.96-.9 6.62-2.43l-3.28-2.54c-.9.6-2.04.96-3.34.96-2.57 0-4.74-1.74-5.52-4.07H2.3v2.63A9.99 9.99 0 0011.17 22z" fill="#34A853"/>
-                                <path d="M5.65 13.92A5.97 5.97 0 015.35 12c0-.67.12-1.32.3-1.93V7.44H2.3A9.99 9.99 0 001.17 12c0 1.62.39 3.14 1.13 4.56l3.35-2.64z" fill="#FBBC05"/>
-                                <path d="M11.17 5.97c1.45 0 2.75.5 3.77 1.48l2.83-2.83C16.13 2.99 13.87 2 11.17 2A9.99 9.99 0 002.3 7.44l3.35 2.63c.78-2.33 2.95-4.1 5.52-4.1z" fill="#EA4335"/>
-                              </svg>
-                              Google · {relativeTime}
-                            </>
-                          ) : (
-                            <span>Verified customer</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Wrapper>
-                );
-              })}
             </div>
           </div>
         </section>
@@ -474,74 +403,67 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
         </div>
       )}
 
-      {/* Short Gallery section */}
-      {showGalleryOnHome && (
-        <section className="py-14 bg-gray-50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-black text-gray-900 text-center mb-8"
-              style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
-              Gallery
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {galleryEntries.slice(0, 8).map((entry: any) => (
-                entry.imageUrl && (
-                  <div key={entry.id} className="aspect-square rounded-xl overflow-hidden bg-gray-200">
-                    <img src={entry.imageUrl} alt={entry.title || ''} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-                  </div>
-                )
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* About / Promo section */}
-      {promoImageUrl ? (
-        <section className="overflow-hidden">
-          <div className="grid lg:grid-cols-2 min-h-[440px]">
-            <div className="relative order-2 lg:order-1 min-h-[300px]">
-              <img src={promoImageUrl} alt={`${tenant.name}`} className="absolute inset-0 w-full h-full object-cover" />
-            </div>
-            <div className="order-1 lg:order-2 flex flex-col justify-center px-8 py-14 lg:px-14"
-              style={{ backgroundColor: `${primaryColor}0d` }}>
-              <p className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: primaryColor }}>Why Choose Us</p>
-              <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-8 leading-tight"
-                style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
-                {isRestaurant ? 'Food Made with Passion' : 'Service You Can Trust'}
-              </h2>
-              <div className="space-y-5">
-                {featurePoints.map(({ icon, title, desc }) => (
-                  <div key={title} className="flex items-start gap-4">
-                    <span className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                      style={{ backgroundColor: `${primaryColor}20` }}>{icon}</span>
-                    <div>
-                      <p className="font-bold text-gray-900 text-sm">{title}</p>
-                      <p className="text-gray-500 text-sm">{desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section className="py-14" style={{ backgroundColor: `${primaryColor}0d` }}>
+      {/* Customer Reviews section */}
+      {showReviewsSection && (
+        <section className="py-16 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
-              <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>Why Choose Us</p>
-              <h2 className="text-2xl font-black text-gray-900"
+              <p className="text-sm font-bold uppercase tracking-widest mb-2" style={{ color: primaryColor }}>Reviews</p>
+              <h2 className="text-3xl font-black text-gray-900"
                 style={{ fontFamily: fontFamily === 'Playfair Display' ? `'Playfair Display', Georgia, serif` : undefined }}>
-                {isRestaurant ? 'Food Made with Passion' : 'Service You Can Trust'}
+                What Our Customers Say
               </h2>
             </div>
-            <div className="grid sm:grid-cols-3 gap-6">
-              {featurePoints.map(({ icon, title, desc }) => (
-                <div key={title} className="bg-white rounded-2xl p-7 shadow-sm text-center">
-                  <div className="text-4xl mb-3">{icon}</div>
-                  <h3 className="font-bold text-gray-900 text-base mb-1">{title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
-                </div>
-              ))}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {reviewEntries.map((entry: any, idx: number) => {
+                const isGoogle = reviewsSource === 'google';
+                const authorName: string = isGoogle ? entry.authorName : entry.title;
+                const photoUrl: string | null = isGoogle ? entry.authorPhotoUrl : entry.imageUrl;
+                const rating: number = Math.min(5, Math.max(1, Number(isGoogle ? entry.rating : entry.data?.rating) || 5));
+                const comment: string = isGoogle ? entry.text : (entry.data?.comment || '');
+                const relativeTime: string | null = isGoogle ? entry.relativeTime : null;
+                const mapsUrl: string | null = isGoogle ? entry.googleMapsUri : null;
+                const Wrapper = mapsUrl ? 'a' : 'div';
+                const wrapperProps = mapsUrl ? { href: mapsUrl, target: '_blank', rel: 'noopener noreferrer' } : {};
+                return (
+                  <Wrapper key={isGoogle ? idx : entry.id} {...wrapperProps} className="bg-white rounded-2xl p-6 shadow-sm flex flex-col hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="flex gap-0.5 mb-3">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span key={i} className={`text-lg ${i < rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                      ))}
+                    </div>
+                    <p className="text-gray-600 text-sm leading-relaxed flex-1 mb-4">"{comment}"</p>
+                    <div className="flex items-center gap-3 pt-4 border-t border-gray-50">
+                      {photoUrl ? (
+                        <img src={photoUrl} alt={authorName} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                          style={{ backgroundColor: primaryColor }}>
+                          {(authorName || '?')[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm truncate">{authorName}</p>
+                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                          {isGoogle ? (
+                            <>
+                              <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M21.35 11.1h-9.18v2.93h5.34c-.23 1.24-.95 2.29-2.03 3l3.28 2.54c1.91-1.76 3.01-4.35 3.01-7.47 0-.58-.05-1.14-.14-1.7z" fill="#4285F4"/>
+                                <path d="M11.17 22c2.7 0 4.96-.9 6.62-2.43l-3.28-2.54c-.9.6-2.04.96-3.34.96-2.57 0-4.74-1.74-5.52-4.07H2.3v2.63A9.99 9.99 0 0011.17 22z" fill="#34A853"/>
+                                <path d="M5.65 13.92A5.97 5.97 0 015.35 12c0-.67.12-1.32.3-1.93V7.44H2.3A9.99 9.99 0 001.17 12c0 1.62.39 3.14 1.13 4.56l3.35-2.64z" fill="#FBBC05"/>
+                                <path d="M11.17 5.97c1.45 0 2.75.5 3.77 1.48l2.83-2.83C16.13 2.99 13.87 2 11.17 2A9.99 9.99 0 002.3 7.44l3.35 2.63c.78-2.33 2.95-4.1 5.52-4.1z" fill="#EA4335"/>
+                              </svg>
+                              Google · {relativeTime}
+                            </>
+                          ) : (
+                            <span>Verified customer</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Wrapper>
+                );
+              })}
             </div>
           </div>
         </section>
