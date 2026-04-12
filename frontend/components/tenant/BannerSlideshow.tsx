@@ -34,16 +34,18 @@ export function BannerSlideshow({ images, interval = 5000, className = '', overl
       <style>{`
         @keyframes kenBurns {
           from { transform: scale(1); }
-          to   { transform: scale(1.12); }
+          to   { transform: scale(1.08); }
         }
       `}</style>
 
       {images.map((src, i) => (
         <div
           key={src}
-          className={`absolute inset-0 overflow-hidden transition-opacity duration-1000 ${
-            i === active ? 'opacity-100' : 'opacity-0'
-          } ${className}`}
+          className={`absolute inset-0 overflow-hidden ${className}`}
+          style={{
+            opacity: i === active ? 1 : 0,
+            transition: 'opacity 2000ms ease-in-out',
+          }}
         >
           {/* Separate inner div so we can restart the animation via key change */}
           <div
@@ -54,7 +56,7 @@ export function BannerSlideshow({ images, interval = 5000, className = '', overl
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               animation: i === active
-                ? `kenBurns ${interval}ms ease-in-out forwards`
+                ? `kenBurns ${interval + 2000}ms ease-in-out forwards`
                 : 'none',
             }}
           />
