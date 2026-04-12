@@ -83,10 +83,12 @@ export default function NavigationPage() {
                   <p className="text-sm text-gray-400">{page.description}</p>
                 </div>
 
-                {(page.key === 'menu' || !page.builtIn) && (
+                {(page.key === 'menu' || page.key === 'gallery' || !page.builtIn) && (
                   <button
                     onClick={() => router.push(
-                      page.key === 'menu' ? '/dashboard/menu/banner' : `/dashboard/content/${page.key}`
+                      page.key === 'menu' ? '/dashboard/menu/banner' :
+                      page.key === 'gallery' ? '/dashboard/gallery' :
+                      `/dashboard/content/${page.key}`
                     )}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex-shrink-0"
                   >
