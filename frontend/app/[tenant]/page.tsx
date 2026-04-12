@@ -46,7 +46,7 @@ async function getMenuGroups(slug: string) {
 async function getPageEntries(slug: string, pageKey: string) {
   try {
     const res = await fetch(`${API_URL}/page-entries?pageKey=${pageKey}`, {
-      next: { tags: [`tenant:${slug}:${pageKey}`], revalidate: 300 },
+      next: { tags: [`tenant:${slug}:entries`], revalidate: 300 },
       headers: { 'X-Tenant-ID': slug },
     });
     if (!res.ok) return [];
