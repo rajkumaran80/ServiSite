@@ -134,7 +134,9 @@ export default function SettingsPage() {
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
-          // DNS records will be re-fetched when tenant re-saves domain
+          setDomainTxtName(currentTenant.customDomainTxtName || '');
+          setDomainTxtValue(currentTenant.customDomainTxtValue || '');
+          setDomainCname(currentTenant.customDomainStatus !== 'active' ? 'origin.servisite.co.uk' : '');
 
           tenantForm.reset({
             name: currentTenant.name,

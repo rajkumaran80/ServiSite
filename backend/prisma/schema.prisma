@@ -117,11 +117,13 @@ model Tenant {
   qrCodeUrl      String?
   plan           TenantPlan   @default(BASIC)
   // Custom domain support
-  customDomain          String?   @unique
-  customDomainStatus    String?
-  customDomainToken     String?
+  customDomain           String?   @unique
+  customDomainStatus     String?
+  customDomainToken      String?   // Cloudflare custom hostname ID
+  customDomainTxtName    String?   // TXT record name for ownership verification
+  customDomainTxtValue   String?   // TXT record value for ownership verification
   customDomainVerifiedAt DateTime?
-  customDomainNsRecords String[]
+  customDomainNsRecords  String[]
   // Email verification — site is only public after admin verifies email
   emailVerified Boolean @default(false)
   // Billing / subscription

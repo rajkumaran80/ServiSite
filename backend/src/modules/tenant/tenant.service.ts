@@ -256,7 +256,9 @@ export class TenantService {
       data: {
         customDomain: normalised,
         customDomainStatus: 'pending',
-        customDomainToken: id, // store Cloudflare hostname ID
+        customDomainToken: id,
+        customDomainTxtName: txtName,
+        customDomainTxtValue: txtValue,
         customDomainNsRecords: [],
         customDomainVerifiedAt: null,
       },
