@@ -195,11 +195,12 @@ export default function SettingsPage() {
     setIsVerifyingDomain(true);
     try {
       const result = await tenantService.verifyCustomDomain(tenant.id);
-      setDomainStatus(result.status);
       if (result.status === 'active') {
+        setDomainStatus('active');
         toast.success('Domain verified! Your custom domain is now active.');
       } else {
-        toast.error('Verification failed — TXT record not found yet. DNS changes can take up to 48 hours.');
+        // Keep status as pending so the DNS instructions remain visible
+        toast.error(result.message || 'Not verified yet — check your DNS records and try again.');
       }
     } catch {
       toast.error('Verification failed');

@@ -57,12 +57,15 @@ class TenantService {
     return response.data.data;
   }
 
-  async verifyCustomDomain(tenantId: string): Promise<{ status: string }> {
-    const response = await api.post<{ data: { status: string } }>(
+  async verifyCustomDomain(tenantId: string): Promise<{ status: string; message: string }> {
+    const response = await api.post<{ data: { verified: boolean; message: string } }>(
       `/tenant/${tenantId}/custom-domain/verify`,
       {},
     );
-    return response.data.data;
+    return {
+      status: response.data.data.verified ? 'active' : 'pending',
+      message: response.data.data.message,
+    };
   }
 
   async removeCustomDomain(tenantId: string): Promise<void> {

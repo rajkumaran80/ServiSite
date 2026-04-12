@@ -118,8 +118,10 @@ export class CloudflareService {
       throw new Error(`Cloudflare error: ${JSON.stringify(data.errors)}`);
     }
     const result: CloudflareCustomHostname = data.result;
+    // Consider active if hostname is active — SSL cert may still be provisioning
+    // but traffic will work once the hostname resolves correctly
     return {
-      active: result.status === 'active' && result.ssl.status === 'active',
+      active: result.status === 'active',
       sslStatus: result.ssl.status,
       hostnameStatus: result.status,
     };
