@@ -53,9 +53,8 @@ export async function middleware(request: NextRequest) {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
       const res = await fetch(`${apiUrl}/tenant/by-domain?domain=${encodeURIComponent(hostname)}`, {
-        // 30 min edge cache — avoids hammering the API on every request
-        next: { revalidate: 1800 },
-      } as RequestInit);
+        cache: 'no-store',
+      });
       if (res.ok) {
         const json = await res.json();
         const slug: string | null = json?.data?.slug ?? null;
