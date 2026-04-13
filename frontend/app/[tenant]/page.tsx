@@ -11,7 +11,7 @@ const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
 async function getTenant(slug: string) {
   try {
     const res = await fetch(`${API_URL}/tenant/${slug}`, {
-      next: { tags: [`tenant:${slug}`], revalidate: 60 },
+      next: { tags: [`tenant:${slug}`], revalidate: 10 },
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -46,7 +46,7 @@ async function getMenuGroups(slug: string) {
 async function getPageEntries(slug: string, pageKey: string) {
   try {
     const res = await fetch(`${API_URL}/page-entries?pageKey=${pageKey}`, {
-      next: { tags: [`tenant:${slug}:entries`], revalidate: 300 },
+      next: { tags: [`tenant:${slug}:entries`], revalidate: 30 },
       headers: { 'X-Tenant-ID': slug },
     });
     if (!res.ok) return [];
