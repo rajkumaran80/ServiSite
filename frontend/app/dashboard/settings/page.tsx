@@ -70,11 +70,7 @@ export default function SettingsPage() {
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
-  const [domainTxtName, setDomainTxtName] = useState<string>('');
-  const [domainTxtValue, setDomainTxtValue] = useState<string>('');
-  const [domainCname, setDomainCname] = useState<string>('');
-  const [sslTxtName, setSslTxtName] = useState<string>('');
-  const [sslTxtValue, setSslTxtValue] = useState<string>('');
+  const [domainNameservers, setDomainNameservers] = useState<string[]>([]);
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
   const [isSavingDomain, setIsSavingDomain] = useState(false);
@@ -136,9 +132,7 @@ export default function SettingsPage() {
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
-          setDomainTxtName(currentTenant.customDomainTxtName || '');
-          setDomainTxtValue(currentTenant.customDomainTxtValue || '');
-          setDomainCname(currentTenant.customDomainStatus !== 'active' ? 'origin.servisite.co.uk' : '');
+          setDomainNameservers(currentTenant.customDomainNsRecords || []);
 
           tenantForm.reset({
             name: currentTenant.name,
@@ -181,12 +175,10 @@ export default function SettingsPage() {
     setIsSavingDomain(true);
     try {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
-      setCustomDomain(domainInput.trim());
+      setCustomDomain(domainInput.trim().replace(/^www\./, ''));
       setDomainStatus('pending');
-      setDomainTxtName(result.txtName || '');
-      setDomainTxtValue(result.txtValue || '');
-      setDomainCname(result.cname || '');
-      toast.success('Domain saved — add the DNS records at your registrar then click Check Status');
+      setDomainNameservers(result.nameservers || []);
+      toast.success('Domain saved — change your nameservers then click Check Status');
     } catch {
       toast.error('Failed to save custom domain');
     } finally {
@@ -201,14 +193,9 @@ export default function SettingsPage() {
       const result = await tenantService.verifyCustomDomain(tenant.id);
       if (result.status === 'active') {
         setDomainStatus('active');
-        setSslTxtName('');
-        setSslTxtValue('');
         toast.success('Domain verified! Your custom domain is now active.');
       } else {
-        // Keep status as pending so the DNS instructions remain visible
-        if (result.sslTxtName) setSslTxtName(result.sslTxtName);
-        if (result.sslTxtValue) setSslTxtValue(result.sslTxtValue);
-        toast.error(result.message || 'Not verified yet — check your DNS records and try again.');
+        toast.error(result.message || 'Not verified yet — check your nameservers and try again.');
       }
     } catch {
       toast.error('Verification failed');
@@ -224,11 +211,7 @@ export default function SettingsPage() {
       setCustomDomain('');
       setDomainInput('');
       setDomainStatus(null);
-      setDomainTxtName('');
-      setDomainTxtValue('');
-      setDomainCname('');
-      setSslTxtName('');
-      setSslTxtValue('');
+      setDomainNameservers([]);
       toast.success('Custom domain removed');
     } catch {
       toast.error('Failed to remove custom domain');
@@ -947,63 +930,35 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* DNS setup instructions */}
+            {/* Nameserver instructions */}
             {domainStatus === 'pending' && (
               <div className="space-y-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
                   <div>
-                    <h3 className="font-semibold text-amber-900 text-sm">Add these 2 DNS records at your registrar</h3>
+                    <h3 className="font-semibold text-amber-900 text-sm">One step — change your nameservers</h3>
                     <p className="text-xs text-amber-700 mt-1">
-                      Log in to your domain registrar (e.g. Ionos, GoDaddy, Namecheap) and add the following records for <span className="font-mono font-bold">{customDomain}</span>.
+                      Log in to your domain registrar (e.g. Ionos, GoDaddy, Namecheap) and replace your nameservers with these two:
                     </p>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs font-mono border-collapse">
-                      <thead>
-                        <tr className="text-amber-700 text-left border-b border-amber-200">
-                          <th className="pr-4 pb-2 font-semibold">Type</th>
-                          <th className="pr-4 pb-2 font-semibold">Name / Host</th>
-                          <th className="pb-2 font-semibold">Value</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-amber-900">
-                        <tr className="border-b border-amber-100">
-                          <td className="pr-4 py-2 font-bold">CNAME</td>
-                          <td className="pr-4 py-2">@ <span className="text-amber-600 font-sans">(or www)</span></td>
-                          <td className="py-2 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
-                        </tr>
-                        <tr className={sslTxtName ? 'border-b border-amber-100' : ''}>
-                          <td className="pr-4 py-2 font-bold">TXT</td>
-                          <td className="pr-4 py-2 break-all">{domainTxtName || `_cf-custom-hostname.${customDomain}`}</td>
-                          <td className="py-2 break-all">{domainTxtValue || '(save the domain to get your verification token)'}</td>
-                        </tr>
-                        {sslTxtName && sslTxtValue && (
-                          <tr>
-                            <td className="pr-4 py-2 font-bold">TXT</td>
-                            <td className="pr-4 py-2 break-all">{sslTxtName}</td>
-                            <td className="py-2 break-all">{sslTxtValue}</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                  <div className="space-y-2">
+                    {(domainNameservers.length > 0 ? domainNameservers : ['(save domain to get nameservers)']).map((ns, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-white border border-amber-200 rounded-lg px-4 py-2.5">
+                        <span className="text-xs text-amber-600 font-medium w-4">{i + 1}</span>
+                        <span className="font-mono text-sm text-amber-900 flex-1">{ns}</span>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(ns)}
+                          className="text-xs text-amber-600 hover:text-amber-800"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    ))}
                   </div>
                   <p className="text-xs text-amber-700">
-                    DNS changes usually propagate within minutes. Click <strong>Check Status</strong> once you've added the records.
-                    {sslTxtName && <span className="block mt-1">The 3rd TXT record (<span className="font-mono">{sslTxtName}</span>) is required for HTTPS — it appeared after your first Check Status attempt.</span>}
+                    That's it — no CNAME, no TXT records. Everything else is set up automatically.
+                    Nameserver changes can take up to 24h to propagate, but usually happen within minutes.
                   </p>
-                </div>
-
-                {/* Ionos-specific warning */}
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
-                  <p className="text-xs font-semibold text-blue-800">⚠️ Using Ionos?</p>
-                  <p className="text-xs text-blue-700">
-                    Ionos locks the root <span className="font-mono">@</span> record if their <strong>Default Site</strong> service is active on your domain.
-                    If you can't add or delete the CNAME for <span className="font-mono">@</span>, do one of the following:
-                  </p>
-                  <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                    <li>Contact Ionos support and ask them to <strong>remove the Default Site service</strong> from your domain — then add the CNAME for <span className="font-mono">@</span></li>
-                    <li>Or use <span className="font-mono">www</span> instead of <span className="font-mono">@</span> for the CNAME — then come back here, remove this domain, and re-enter it as <span className="font-mono font-bold">www.{customDomain?.replace(/^www\./, '')}</span></li>
-                  </ul>
                 </div>
 
                 <button

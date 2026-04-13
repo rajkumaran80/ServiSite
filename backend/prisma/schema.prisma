@@ -119,11 +119,12 @@ model Tenant {
   // Custom domain support
   customDomain           String?   @unique
   customDomainStatus     String?
-  customDomainToken      String?   // Cloudflare custom hostname ID
-  customDomainTxtName    String?   // TXT record name for ownership verification
-  customDomainTxtValue   String?   // TXT record value for ownership verification
+  customDomainToken      String?   // Cloudflare custom hostname ID (legacy)
+  customDomainZoneId     String?   // Cloudflare DNS zone ID for customer domain
+  customDomainTxtName    String?   // TXT record name for ownership verification (legacy)
+  customDomainTxtValue   String?   // TXT record value for ownership verification (legacy)
   customDomainVerifiedAt DateTime?
-  customDomainNsRecords  String[]
+  customDomainNsRecords  String[]  // Nameservers customer must set at their registrar
   // Email verification — site is only public after admin verifies email
   emailVerified Boolean @default(false)
   // Billing / subscription
