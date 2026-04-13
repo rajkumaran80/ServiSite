@@ -64,9 +64,8 @@ export function BannerSlideshow({ images, interval = 5000, className = '', overl
               backgroundImage: `url(${src})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              animation: i === active
-                ? `kenBurns ${interval + 2000}ms ease-in-out forwards`
-                : 'none',
+              animation: `kenBurns ${interval + 2000}ms ease-in-out forwards`,
+              animationPlayState: i === active ? 'running' : 'paused',
             }}
           />
         </div>
