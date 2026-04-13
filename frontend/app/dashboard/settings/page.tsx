@@ -248,7 +248,7 @@ export default function SettingsPage() {
         locale: data.locale,
       });
       setTenant(updated);
-      if (updated.slug) await revalidateTenantCache(updated.slug);
+      await revalidateTenantCache(tenant.slug);
       toast.success('Business settings saved');
     } catch {
       toast.error('Failed to save settings');
@@ -278,7 +278,7 @@ export default function SettingsPage() {
         },
       });
       setTenant(updated);
-      if (updated.slug) await revalidateTenantCache(updated.slug);
+      await revalidateTenantCache(tenant.slug);
       toast.success('Branding saved');
     } catch {
       toast.error('Failed to save branding');
@@ -314,7 +314,7 @@ export default function SettingsPage() {
       tenantForm.setValue('primaryColor', appliedColors.primaryColor);
       tenantForm.setValue('secondaryColor', appliedColors.secondaryColor);
       tenantForm.setValue('fontFamily', tmpl.fontFamily);
-      if (updated.slug) await revalidateTenantCache(updated.slug);
+      await revalidateTenantCache(tenant.slug);
       toast.success(`Template "${tmpl.name}" applied!`);
     } catch {
       toast.error('Failed to apply template');
