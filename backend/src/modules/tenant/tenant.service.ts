@@ -151,9 +151,16 @@ export class TenantService {
     if (cached === '__NOT_FOUND__') return null;
     if (cached) return { slug: cached };
 
-    // DB lookup
+    // Build candidate list: try exact match, then www↔bare fallback
+    const candidates = [normalised];
+    if (normalised.startsWith('www.')) {
+      candidates.push(normalised.slice(4)); // www.la-cafe.co.uk → la-cafe.co.uk
+    } else {
+      candidates.push(`www.${normalised}`); // la-cafe.co.uk → www.la-cafe.co.uk
+    }
+
     const tenant = await this.prisma.tenant.findFirst({
-      where: { customDomain: normalised, customDomainStatus: 'active' },
+      where: { customDomain: { in: candidates }, customDomainStatus: 'active' },
       select: { slug: true },
     });
 
