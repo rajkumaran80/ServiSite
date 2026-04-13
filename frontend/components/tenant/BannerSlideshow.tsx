@@ -16,13 +16,22 @@ interface BannerSlideshowProps {
  */
 export function BannerSlideshow({ images, interval = 5000, className = '', overlayStyle }: BannerSlideshowProps) {
   const [active, setActive] = useState(0);
-  const [slideKey, setSlideKey] = useState(0); // increments on each transition to restart Ken Burns
+  // Per-slide keys — only increment for the slide becoming active, so inactive
+  // slides never remount and their scale stays frozen during the dissolve.
+  const [slideKeys, setSlideKeys] = useState<number[]>(() => images.map(() => 0));
 
   useEffect(() => {
     if (images.length <= 1) return;
     const t = setInterval(() => {
-      setActive((p) => (p + 1) % images.length);
-      setSlideKey((p) => p + 1);
+      setActive((prev) => {
+        const next = (prev + 1) % images.length;
+        setSlideKeys((keys) => {
+          const updated = [...keys];
+          updated[next] = updated[next] + 1;
+          return updated;
+        });
+        return next;
+      });
     }, interval);
     return () => clearInterval(t);
   }, [images.length, interval]);
@@ -47,9 +56,9 @@ export function BannerSlideshow({ images, interval = 5000, className = '', overl
             transition: 'opacity 2000ms ease-in-out',
           }}
         >
-          {/* Separate inner div so we can restart the animation via key change */}
+          {/* key only changes when this slide becomes active — never on deactivation */}
           <div
-            key={i === active ? slideKey : `idle-${i}`}
+            key={slideKeys[i]}
             className="absolute inset-0"
             style={{
               backgroundImage: `url(${src})`,
@@ -72,7 +81,14 @@ export function BannerSlideshow({ images, interval = 5000, className = '', overl
           {images.map((_, i) => (
             <button
               key={i}
-              onClick={() => { setActive(i); setSlideKey((p) => p + 1); }}
+              onClick={() => {
+                setSlideKeys((keys) => {
+                  const updated = [...keys];
+                  updated[i] = updated[i] + 1;
+                  return updated;
+                });
+                setActive(i);
+              }}
               aria-label={`Banner ${i + 1}`}
               className="w-2 h-2 rounded-full transition-all duration-300 focus:outline-none"
               style={{
