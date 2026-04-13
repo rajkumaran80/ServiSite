@@ -275,7 +275,7 @@ export class TenantService {
    * Check whether Cloudflare has verified the custom hostname.
    * Activates the domain once Cloudflare reports it as active.
    */
-  async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string }> {
+  async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string; sslTxtName?: string; sslTxtValue?: string }> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -296,12 +296,14 @@ export class TenantService {
       throw new BadRequestException('Domain not registered with Cloudflare — please re-save the domain');
     }
 
-    const { active, sslStatus, hostnameStatus } = await this.cloudflare.checkCustomHostname(tenant.customDomainToken);
+    const { active, sslStatus, hostnameStatus, sslTxtName, sslTxtValue } = await this.cloudflare.checkCustomHostname(tenant.customDomainToken);
 
     if (!active) {
       return {
         verified: false,
         message: `Domain not yet verified. Cloudflare status: hostname=${hostnameStatus}, ssl=${sslStatus}. Make sure you have added the CNAME and TXT records at your registrar.`,
+        sslTxtName,
+        sslTxtValue,
       };
     }
 

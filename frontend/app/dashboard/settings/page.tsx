@@ -73,6 +73,8 @@ export default function SettingsPage() {
   const [domainTxtName, setDomainTxtName] = useState<string>('');
   const [domainTxtValue, setDomainTxtValue] = useState<string>('');
   const [domainCname, setDomainCname] = useState<string>('');
+  const [sslTxtName, setSslTxtName] = useState<string>('');
+  const [sslTxtValue, setSslTxtValue] = useState<string>('');
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
   const [isSavingDomain, setIsSavingDomain] = useState(false);
@@ -199,9 +201,13 @@ export default function SettingsPage() {
       const result = await tenantService.verifyCustomDomain(tenant.id);
       if (result.status === 'active') {
         setDomainStatus('active');
+        setSslTxtName('');
+        setSslTxtValue('');
         toast.success('Domain verified! Your custom domain is now active.');
       } else {
         // Keep status as pending so the DNS instructions remain visible
+        if (result.sslTxtName) setSslTxtName(result.sslTxtName);
+        if (result.sslTxtValue) setSslTxtValue(result.sslTxtValue);
         toast.error(result.message || 'Not verified yet — check your DNS records and try again.');
       }
     } catch {
@@ -221,6 +227,8 @@ export default function SettingsPage() {
       setDomainTxtName('');
       setDomainTxtValue('');
       setDomainCname('');
+      setSslTxtName('');
+      setSslTxtValue('');
       toast.success('Custom domain removed');
     } catch {
       toast.error('Failed to remove custom domain');
@@ -964,16 +972,24 @@ export default function SettingsPage() {
                           <td className="pr-4 py-2">@ <span className="text-amber-600 font-sans">(or www)</span></td>
                           <td className="py-2 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
                         </tr>
-                        <tr>
+                        <tr className={sslTxtName ? 'border-b border-amber-100' : ''}>
                           <td className="pr-4 py-2 font-bold">TXT</td>
                           <td className="pr-4 py-2 break-all">{domainTxtName || `_cf-custom-hostname.${customDomain}`}</td>
                           <td className="py-2 break-all">{domainTxtValue || '(save the domain to get your verification token)'}</td>
                         </tr>
+                        {sslTxtName && sslTxtValue && (
+                          <tr>
+                            <td className="pr-4 py-2 font-bold">TXT</td>
+                            <td className="pr-4 py-2 break-all">{sslTxtName}</td>
+                            <td className="py-2 break-all">{sslTxtValue}</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
                   <p className="text-xs text-amber-700">
                     DNS changes usually propagate within minutes. Click <strong>Check Status</strong> once you've added the records.
+                    {sslTxtName && <span className="block mt-1">The 3rd TXT record (<span className="font-mono">{sslTxtName}</span>) is required for HTTPS — it appeared after your first Check Status attempt.</span>}
                   </p>
                 </div>
 

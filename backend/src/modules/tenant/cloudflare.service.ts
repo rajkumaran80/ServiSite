@@ -108,6 +108,8 @@ export class CloudflareService {
     active: boolean;
     sslStatus: string;
     hostnameStatus: string;
+    sslTxtName?: string;
+    sslTxtValue?: string;
   }> {
     const res = await fetch(
       `${this.baseUrl}/zones/${this.zoneId}/custom_hostnames/${id}`,
@@ -118,12 +120,13 @@ export class CloudflareService {
       throw new Error(`Cloudflare error: ${JSON.stringify(data.errors)}`);
     }
     const result: CloudflareCustomHostname = data.result;
-    // Consider active if hostname is active — SSL cert may still be provisioning
-    // but traffic will work once the hostname resolves correctly
     return {
       active: result.status === 'active',
       sslStatus: result.ssl.status,
       hostnameStatus: result.status,
+      // TXT-based DCV record — only present when SSL is pending_validation via txt method
+      sslTxtName: result.ssl.txt_name,
+      sslTxtValue: result.ssl.txt_value,
     };
   }
 
