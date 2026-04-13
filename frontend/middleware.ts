@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 // Routes that are exclusively for the main domain (not tenant subdomains)
 const MAIN_DOMAIN_ROUTES = ['/dashboard', '/auth'];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   // X-Forwarded-Host is set by Azure Front Door to the original client hostname.
   // Fall back to Host when running locally without a proxy.
   const hostname = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
@@ -42,17 +42,34 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Custom domain: forward hostname to backend for slug resolution, rewrite to a
-  // placeholder tenant segment — the backend will resolve via X-Tenant-Domain header.
+  // Custom domain: resolve hostname → tenant slug via backend, then rewrite to
+  // the existing [tenant] routes so no code duplication is needed.
   if (isCustomDomain) {
-    const newUrl = url.clone();
-    // Use __custom__ as placeholder; backend resolves actual tenant from hostname
-    if (!pathname.startsWith('/__custom__')) {
-      newUrl.pathname = `/__custom__${pathname}`;
+    // Don't loop if we already rewrote to a tenant path
+    if (pathname.startsWith('/__custom__')) {
+      return NextResponse.next();
     }
-    const response = NextResponse.rewrite(newUrl);
-    response.headers.set('x-tenant-domain', hostname);
-    return response;
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+      const res = await fetch(`${apiUrl}/tenant/by-domain?domain=${encodeURIComponent(hostname)}`, {
+        // 30 min edge cache — avoids hammering the API on every request
+        next: { revalidate: 1800 },
+      } as RequestInit);
+      if (res.ok) {
+        const json = await res.json();
+        const slug: string | null = json?.data?.slug ?? null;
+        if (slug) {
+          const newUrl = url.clone();
+          newUrl.pathname = `/${slug}${pathname === '/' ? '' : pathname}`;
+          return NextResponse.rewrite(newUrl);
+        }
+      }
+    } catch {
+      // fall through to 404
+    }
+
+    return NextResponse.next();
   }
 
   // If there's a subdomain, rewrite to [tenant] route

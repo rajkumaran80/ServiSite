@@ -143,6 +143,29 @@ export class TenantService {
     }
   }
 
+  async findByDomain(domain: string): Promise<{ slug: string } | null> {
+    const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '').split(':')[0];
+
+    // Check Redis first
+    const cached = await this.tenantCache.getDomainSlug(normalised);
+    if (cached === '__NOT_FOUND__') return null;
+    if (cached) return { slug: cached };
+
+    // DB lookup
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { customDomain: normalised, customDomainStatus: 'active' },
+      select: { slug: true },
+    });
+
+    if (tenant) {
+      await this.tenantCache.setDomainSlug(normalised, tenant.slug);
+      return { slug: tenant.slug };
+    }
+
+    await this.tenantCache.setDomainNotFound(normalised);
+    return null;
+  }
+
   async findAll(): Promise<Tenant[]> {
     return this.prisma.tenant.findMany({
       orderBy: { createdAt: 'desc' },

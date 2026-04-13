@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   Req,
   HttpCode,
   HttpStatus,
@@ -42,6 +43,15 @@ export class TenantController {
       success: true,
       message: result.message,
     };
+  }
+
+  @Public()
+  @Get('by-domain')
+  @ApiOperation({ summary: 'Resolve a custom domain to a tenant slug (used by Next.js middleware)' })
+  async findByDomain(@Query('domain') domain: string) {
+    if (!domain) return { data: null, success: false };
+    const result = await this.tenantService.findByDomain(domain);
+    return { data: result, success: !!result };
   }
 
   @Get()
