@@ -123,7 +123,7 @@ export class TenantController {
     return {
       data: result,
       success: true,
-      message: 'Domain saved — point your nameservers to Cloudflare then click Check Status.',
+      message: 'Domain saved — add the CNAME record at your registrar then click Check Status.',
     };
   }
 

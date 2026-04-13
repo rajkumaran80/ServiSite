@@ -216,7 +216,7 @@ export class CloudflareService {
       headers: this.headers,
       body: JSON.stringify({
         hostname,
-        ssl: { method: 'txt', type: 'dv', settings: { min_tls_version: '1.2' } },
+        ssl: { method: 'http', type: 'dv', settings: { min_tls_version: '1.2' } },
       }),
     });
 

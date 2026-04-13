@@ -267,52 +267,46 @@ export class TenantService {
   async setCustomDomain(
     tenantId: string,
     domain: string,
-  ): Promise<{ nameservers: string[] }> {
-    const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '');
+  ): Promise<{ cname: string }> {
+    const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const apex = normalised.replace(/^www\./, '');
 
     // Check the domain isn't already taken by another tenant
     const conflict = await this.prisma.tenant.findFirst({
-      where: { customDomain: normalised, NOT: { id: tenantId } },
+      where: { customDomain: apex, NOT: { id: tenantId } },
     });
     if (conflict) {
-      throw new ConflictException(`Domain '${normalised}' is already registered`);
+      throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // Create (or retrieve) a Cloudflare DNS zone for the customer domain
-    const { zoneId, nameservers } = await this.cloudflare.createZone(normalised);
-
-    // Add CNAME www → origin.servisite.co.uk + apex redirect rule
-    await this.cloudflare.setupZoneDnsRecords(zoneId, normalised);
+    // Create Cloudflare custom hostname for www.domain — http validation
+    // means SSL activates automatically once the CNAME is in place, no TXT needed.
+    const wwwHostname = apex.startsWith('www.') ? apex : `www.${apex}`;
+    const { id } = await this.cloudflare.createCustomHostname(wwwHostname);
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        customDomain: normalised,
+        customDomain: apex,
         customDomainStatus: 'pending',
-        customDomainZoneId: zoneId,
-        customDomainNsRecords: nameservers,
+        customDomainToken: id,
+        customDomainZoneId: null,
+        customDomainNsRecords: [],
         customDomainVerifiedAt: null,
-        // Clear legacy fields
-        customDomainToken: null,
         customDomainTxtName: null,
         customDomainTxtValue: null,
       },
     });
 
-    return { nameservers };
+    return { cname: 'origin.servisite.co.uk' };
   }
 
-  /**
-   * Check whether the customer has pointed their nameservers to Cloudflare.
-   * Activates the domain once the zone becomes active.
-   */
   async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string }> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
         customDomain: true,
-        customDomainZoneId: true,
-        customDomainNsRecords: true,
+        customDomainToken: true,
         customDomainStatus: true,
         slug: true,
       },
@@ -324,17 +318,16 @@ export class TenantService {
     if (tenant.customDomainStatus === 'active') {
       return { verified: true, message: 'Domain already active' };
     }
-    if (!tenant.customDomainZoneId) {
-      throw new BadRequestException('Domain zone not created — please re-save the domain');
+    if (!tenant.customDomainToken) {
+      throw new BadRequestException('Domain not registered with Cloudflare — please re-save the domain');
     }
 
-    const { active, status } = await this.cloudflare.checkZoneActive(tenant.customDomainZoneId);
+    const { active, sslStatus, hostnameStatus } = await this.cloudflare.checkCustomHostname(tenant.customDomainToken);
 
     if (!active) {
-      const ns = tenant.customDomainNsRecords?.join(' and ') ?? 'the nameservers shown below';
       return {
         verified: false,
-        message: `Nameservers not yet updated. Zone status: ${status}. Point your domain to ${ns} at your registrar and wait up to 24h for propagation.`,
+        message: `Not yet active. Status: hostname=${hostnameStatus}, ssl=${sslStatus}. Make sure you have added the CNAME record and try again in a few minutes.`,
       };
     }
 

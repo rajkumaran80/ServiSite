@@ -70,7 +70,7 @@ export default function SettingsPage() {
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
-  const [domainNameservers, setDomainNameservers] = useState<string[]>([]);
+  const [domainCname, setDomainCname] = useState<string>('');
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
   const [isSavingDomain, setIsSavingDomain] = useState(false);
@@ -132,7 +132,7 @@ export default function SettingsPage() {
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
-          setDomainNameservers(currentTenant.customDomainNsRecords || []);
+          setDomainCname(currentTenant.customDomainStatus !== 'active' ? 'origin.servisite.co.uk' : '');
 
           tenantForm.reset({
             name: currentTenant.name,
@@ -177,8 +177,8 @@ export default function SettingsPage() {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
       setCustomDomain(domainInput.trim().replace(/^www\./, ''));
       setDomainStatus('pending');
-      setDomainNameservers(result.nameservers || []);
-      toast.success('Domain saved — change your nameservers then click Check Status');
+      setDomainCname(result.cname || 'origin.servisite.co.uk');
+      toast.success('Domain saved — add the CNAME record then click Check Status');
     } catch {
       toast.error('Failed to save custom domain');
     } finally {
@@ -211,7 +211,7 @@ export default function SettingsPage() {
       setCustomDomain('');
       setDomainInput('');
       setDomainStatus(null);
-      setDomainNameservers([]);
+      setDomainCname('');
       toast.success('Custom domain removed');
     } catch {
       toast.error('Failed to remove custom domain');
@@ -930,34 +930,49 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Nameserver instructions */}
+            {/* DNS setup instructions */}
             {domainStatus === 'pending' && (
               <div className="space-y-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
                   <div>
-                    <h3 className="font-semibold text-amber-900 text-sm">One step — change your nameservers</h3>
-                    <p className="text-xs text-amber-700 mt-1">
-                      Log in to your domain registrar (e.g. Ionos, GoDaddy, Namecheap) and replace your nameservers with these two:
-                    </p>
+                    <h3 className="font-semibold text-amber-900 text-sm">2 steps to connect your domain</h3>
                   </div>
-                  <div className="space-y-2">
-                    {(domainNameservers.length > 0 ? domainNameservers : ['(save domain to get nameservers)']).map((ns, i) => (
-                      <div key={i} className="flex items-center gap-3 bg-white border border-amber-200 rounded-lg px-4 py-2.5">
-                        <span className="text-xs text-amber-600 font-medium w-4">{i + 1}</span>
-                        <span className="font-mono text-sm text-amber-900 flex-1">{ns}</span>
-                        <button
-                          type="button"
-                          onClick={() => navigator.clipboard.writeText(ns)}
-                          className="text-xs text-amber-600 hover:text-amber-800"
-                        >
-                          Copy
-                        </button>
+
+                  <div className="space-y-3">
+                    {/* Step 1 */}
+                    <div>
+                      <p className="text-xs font-semibold text-amber-800 mb-1.5">Step 1 — Add a CNAME record at your registrar</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs font-mono border-collapse">
+                          <thead>
+                            <tr className="text-amber-700 text-left border-b border-amber-200">
+                              <th className="pr-4 pb-1.5 font-semibold">Type</th>
+                              <th className="pr-4 pb-1.5 font-semibold">Host</th>
+                              <th className="pb-1.5 font-semibold">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-amber-900">
+                            <tr>
+                              <td className="pr-4 py-1.5 font-bold">CNAME</td>
+                              <td className="pr-4 py-1.5">www</td>
+                              <td className="py-1.5 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Step 2 */}
+                    <div>
+                      <p className="text-xs font-semibold text-amber-800 mb-1">Step 2 — Set up a domain forward (apex → www)</p>
+                      <p className="text-xs text-amber-700">
+                        In your registrar's <strong>Forwarding</strong> section, redirect <span className="font-mono">{customDomain}</span> → <span className="font-mono">https://www.{customDomain}</span> (HTTP redirect, 301).
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-amber-700">
-                    That's it — no CNAME, no TXT records. Everything else is set up automatically.
-                    Nameserver changes can take up to 24h to propagate, but usually happen within minutes.
+
+                  <p className="text-xs text-amber-700 border-t border-amber-200 pt-3">
+                    SSL activates automatically — no TXT records needed. Changes usually propagate within minutes.
                   </p>
                 </div>
 
