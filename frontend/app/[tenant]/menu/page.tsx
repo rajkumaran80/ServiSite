@@ -653,6 +653,61 @@ function ItemModal({
   );
 }
 
+// ─── Item Row (compact list view) ─────────────────────────────────────────────
+
+function ItemRow({
+  item,
+  currency,
+  onClick,
+  onAdd,
+  orderingEnabled,
+  highlight,
+  primaryColor,
+}: {
+  item: MenuItem;
+  currency: string;
+  onClick: () => void;
+  onAdd: (e: React.MouseEvent) => void;
+  orderingEnabled: boolean;
+  highlight?: boolean;
+  primaryColor: string;
+}) {
+  return (
+    <div
+      id={`item-${item.id}`}
+      className={`flex items-center justify-between gap-3 py-3 px-1 border-b border-gray-100 last:border-0 ${
+        highlight ? 'bg-amber-50' : ''
+      }`}
+    >
+      <button type="button" onClick={onClick} className="flex-1 text-left min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-900 text-sm truncate">{item.name}</span>
+          {item.isPopular && (
+            <span className="flex-shrink-0 bg-amber-100 text-amber-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">Popular</span>
+          )}
+        </div>
+        {item.description && (
+          <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>
+        )}
+      </button>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <span className="text-sm font-bold" style={{ color: primaryColor }}>{formatPrice(item.price, currency)}</span>
+        {orderingEnabled && item.isAvailable && (
+          <button
+            onClick={onAdd}
+            className="w-7 h-7 rounded-full border flex items-center justify-center text-lg leading-none transition-colors hover:text-white"
+            style={{ borderColor: primaryColor, color: primaryColor }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = primaryColor; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = ''; (e.currentTarget as HTMLButtonElement).style.color = primaryColor; }}
+          >
+            +
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Item Card ─────────────────────────────────────────────────────────────────
 
 function ItemCard({
@@ -941,6 +996,7 @@ export default function MenuPage() {
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const cart = useCartStore();
 
@@ -1215,31 +1271,56 @@ export default function MenuPage() {
                   )}
                 </div>
               </div>
-              {/* Search — visible only on sm+ alongside tabs */}
-              <div className="hidden sm:block flex-shrink-0 relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search…"
-                  className="pl-8 pr-3 py-1.5 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:border-transparent w-48"
-                  style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-                />
-                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              {/* Search + view toggle — visible only on sm+ alongside tabs */}
+              <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search…"
+                    className="pl-8 pr-3 py-1.5 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:border-transparent w-48"
+                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                  />
+                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {/* View toggle */}
+                <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 transition-colors ${viewMode === 'grid' ? 'text-white' : 'text-gray-400 hover:text-gray-600 bg-white'}`}
+                    style={viewMode === 'grid' ? { backgroundColor: primaryColor } : {}}
+                    title="Grid view"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z"/>
                     </svg>
                   </button>
-                )}
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 transition-colors ${viewMode === 'list' ? 'text-white' : 'text-gray-400 hover:text-gray-600 bg-white'}`}
+                    style={viewMode === 'list' ? { backgroundColor: primaryColor } : {}}
+                    title="List view"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
             {/* Search row — mobile only, below tabs */}
-            <div className="sm:hidden pb-2">
-              <div className="relative">
+            <div className="sm:hidden pb-2 flex items-center gap-2">
+              <div className="relative flex-1">
                 <input
                   type="text"
                   value={searchQuery}
@@ -1258,6 +1339,27 @@ export default function MenuPage() {
                     </svg>
                   </button>
                 )}
+              </div>
+              {/* View toggle — mobile */}
+              <div className="flex border border-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 transition-colors ${viewMode === 'grid' ? 'text-white' : 'text-gray-400 bg-white'}`}
+                  style={viewMode === 'grid' ? { backgroundColor: primaryColor } : {}}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 transition-colors ${viewMode === 'list' ? 'text-white' : 'text-gray-400 bg-white'}`}
+                  style={viewMode === 'list' ? { backgroundColor: primaryColor } : {}}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
@@ -1364,28 +1466,45 @@ export default function MenuPage() {
                               <p className="text-sm text-gray-500 mt-0.5">{category.description}</p>
                             )}
                           </div>
-                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {category.menuItems.map((item, idx) => (
-                              <div key={item.id} className="sr-hidden" style={{ animationDelay: `${idx * 60}ms` }}
-                                ref={(el) => {
-                                  if (!el) return;
-                                  const obs = new IntersectionObserver(([e]) => {
-                                    if (e.isIntersecting) { setTimeout(() => el.classList.add('sr-visible'), idx * 60); obs.unobserve(el); }
-                                  }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
-                                  obs.observe(el);
-                                }}
-                              >
-                                <ItemCard
+                          {viewMode === 'grid' ? (
+                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                              {category.menuItems.map((item, idx) => (
+                                <div key={item.id} className="sr-hidden" style={{ animationDelay: `${idx * 60}ms` }}
+                                  ref={(el) => {
+                                    if (!el) return;
+                                    const obs = new IntersectionObserver(([e]) => {
+                                      if (e.isIntersecting) { setTimeout(() => el.classList.add('sr-visible'), idx * 60); obs.unobserve(el); }
+                                    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+                                    obs.observe(el);
+                                  }}
+                                >
+                                  <ItemCard
+                                    item={item}
+                                    currency={currency}
+                                    onClick={() => openItem(item)}
+                                    onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
+                                    orderingEnabled={orderingEnabled}
+                                    highlight={item.id === highlightItemId}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4">
+                              {category.menuItems.map((item) => (
+                                <ItemRow
+                                  key={item.id}
                                   item={item}
                                   currency={currency}
                                   onClick={() => openItem(item)}
                                   onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
                                   orderingEnabled={orderingEnabled}
                                   highlight={item.id === highlightItemId}
+                                  primaryColor={primaryColor}
                                 />
-                              </div>
-                            ))}
-                          </div>
+                              ))}
+                            </div>
+                          )}
                         </section>
                       ))}
                     </div>
@@ -1409,28 +1528,45 @@ export default function MenuPage() {
                   <div className="mb-8">
                     <h2 className="text-2xl font-bold text-gray-900 uppercase tracking-wide">Other Items</h2>
                   </div>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {filtered.map((item, idx) => (
-                      <div key={item.id} className="sr-hidden"
-                        ref={(el) => {
-                          if (!el) return;
-                          const obs = new IntersectionObserver(([e]) => {
-                            if (e.isIntersecting) { setTimeout(() => el.classList.add('sr-visible'), idx * 60); obs.unobserve(el); }
-                          }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
-                          obs.observe(el);
-                        }}
-                      >
-                        <ItemCard
+                  {viewMode === 'grid' ? (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {filtered.map((item, idx) => (
+                        <div key={item.id} className="sr-hidden"
+                          ref={(el) => {
+                            if (!el) return;
+                            const obs = new IntersectionObserver(([e]) => {
+                              if (e.isIntersecting) { setTimeout(() => el.classList.add('sr-visible'), idx * 60); obs.unobserve(el); }
+                            }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+                            obs.observe(el);
+                          }}
+                        >
+                          <ItemCard
+                            item={item}
+                            currency={currency}
+                            onClick={() => openItem(item)}
+                            onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
+                            orderingEnabled={orderingEnabled}
+                            highlight={item.id === highlightItemId}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4">
+                      {filtered.map((item) => (
+                        <ItemRow
+                          key={item.id}
                           item={item}
                           currency={currency}
                           onClick={() => openItem(item)}
                           onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
                           orderingEnabled={orderingEnabled}
                           highlight={item.id === highlightItemId}
+                          primaryColor={primaryColor}
                         />
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })()}
