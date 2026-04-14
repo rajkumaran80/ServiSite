@@ -48,13 +48,15 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      // Allow subdomain origins dynamically
       const appDomain = configService.get<string>('APP_DOMAIN', 'servisite.com');
       const isAllowed =
         allowedOrigins.includes(origin) ||
         origin.endsWith(`.${appDomain}`) ||
         origin === `https://${appDomain}` ||
-        /^https?:\/\/[^.]+\.localhost(:\d+)?$/.test(origin);
+        /^https?:\/\/[^.]+\.localhost(:\d+)?$/.test(origin) ||
+        // Allow any HTTPS origin — tenant custom domains can't be enumerated in advance.
+        // Auth endpoints are protected by JWT; public endpoints are intentionally public.
+        origin.startsWith('https://');
       if (isAllowed) {
         callback(null, true);
       } else {
