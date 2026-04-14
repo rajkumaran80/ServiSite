@@ -810,6 +810,7 @@ export default function DashboardMenuPage() {
   // Filter state
   const [filterGroupId, setFilterGroupId] = useState<string>('');
   const [filterCategoryId, setFilterCategoryId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Modal state
   const [showGroupForm, setShowGroupForm] = useState(false);
@@ -854,6 +855,10 @@ export default function DashboardMenuPage() {
       if (!itemCats.some((c) => c.menuGroupId === filterGroupId)) return false;
     }
     if (filterCategoryId && !item.categoryIds.includes(filterCategoryId)) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (!item.name.toLowerCase().includes(q) && !(item.description ?? '').toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
@@ -1154,7 +1159,22 @@ export default function DashboardMenuPage() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="flex items-center gap-3 flex-wrap">
-            <label className="text-sm font-medium text-gray-700 flex-shrink-0">Filter:</label>
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px]">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 111 11a6 6 0 0116 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search items by name…"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">✕</button>
+              )}
+            </div>
             <select
               className="px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               value={filterGroupId}
@@ -1175,12 +1195,12 @@ export default function DashboardMenuPage() {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            {(filterGroupId || filterCategoryId) && (
+            {(filterGroupId || filterCategoryId || searchQuery) && (
               <button
-                onClick={() => { setFilterGroupId(''); setFilterCategoryId(''); }}
-                className="text-sm text-blue-600 hover:underline"
+                onClick={() => { setFilterGroupId(''); setFilterCategoryId(''); setSearchQuery(''); }}
+                className="text-sm text-blue-600 hover:underline whitespace-nowrap"
               >
-                Clear filters
+                Clear all
               </button>
             )}
           </div>
@@ -1191,9 +1211,9 @@ export default function DashboardMenuPage() {
                 <div className="text-5xl mb-3">🍽️</div>
                 <h3 className="font-semibold text-gray-700">No items found</h3>
                 <p className="text-gray-500 text-sm mt-1">
-                  {filterGroupId || filterCategoryId ? 'Try adjusting the filters' : 'Add your first menu item'}
+                  {filterGroupId || filterCategoryId || searchQuery ? 'Try adjusting the filters or search' : 'Add your first menu item'}
                 </p>
-                {!filterGroupId && !filterCategoryId && (
+                {!filterGroupId && !filterCategoryId && !searchQuery && (
                   <button
                     onClick={() => { setEditingItem(null); setShowItemForm(true); }}
                     className="mt-4 bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
