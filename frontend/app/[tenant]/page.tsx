@@ -7,6 +7,7 @@ import ScrollReveal from '../../components/ui/ScrollReveal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
+const INTERNAL_SECRET = process.env.INTERNAL_SECRET || '';
 
 async function getTenant(slug: string) {
   try {
@@ -59,7 +60,7 @@ async function getGoogleReviews(slug: string) {
   try {
     const res = await fetch(`${API_URL}/google-reviews`, {
       next: { tags: [`tenant:${slug}:google-reviews`], revalidate: 86400 }, // 24h
-      headers: { 'X-Tenant-ID': slug },
+      headers: { 'X-Tenant-ID': slug, ...(INTERNAL_SECRET && { 'X-Internal-Secret': INTERNAL_SECRET }) },
     });
     if (!res.ok) return [];
     const data = await res.json();

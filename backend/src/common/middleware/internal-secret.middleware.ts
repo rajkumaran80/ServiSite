@@ -52,7 +52,8 @@ export class InternalSecretMiddleware implements NestMiddleware {
         rawUrl.includes('/api/v1/menu') ||
         rawUrl.includes('/api/v1/gallery') ||
         rawUrl.includes('/api/v1/page-entries') ||
-        rawUrl.includes('/api/v1/pages/')
+        rawUrl.includes('/api/v1/pages/') ||
+        rawUrl.includes('/api/v1/google-reviews')
       )
     ) {
       return next();
