@@ -4,6 +4,11 @@ import type { NextRequest } from 'next/server';
 // Routes that are exclusively for the main domain (not tenant subdomains)
 const MAIN_DOMAIN_ROUTES = ['/dashboard', '/auth'];
 
+// In-memory cache for custom domain → slug resolution
+// Middleware runs in the edge runtime — this persists for the lifetime of the worker
+const domainCache = new Map<string, { slug: string; expiresAt: number }>();
+const DOMAIN_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export async function middleware(request: NextRequest) {
   // X-Forwarded-Host is set by Azure Front Door to the original client hostname.
   // Fall back to Host when running locally without a proxy.
@@ -51,18 +56,30 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-      const res = await fetch(`${apiUrl}/tenant/by-domain?domain=${encodeURIComponent(hostname)}`, {
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const slug: string | null = json?.data?.slug ?? null;
-        if (slug) {
-          const newUrl = url.clone();
-          newUrl.pathname = `/${slug}${pathname === '/' ? '' : pathname}`;
-          return NextResponse.rewrite(newUrl);
+      // Check in-memory cache first — avoids API call on every request
+      const cached = domainCache.get(hostname);
+      let slug: string | null = null;
+
+      if (cached && cached.expiresAt > Date.now()) {
+        slug = cached.slug;
+      } else {
+        const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+        const res = await fetch(`${apiUrl}/tenant/by-domain?domain=${encodeURIComponent(hostname)}`, {
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const json = await res.json();
+          slug = json?.data?.slug ?? null;
+          if (slug) {
+            domainCache.set(hostname, { slug, expiresAt: Date.now() + DOMAIN_CACHE_TTL });
+          }
         }
+      }
+
+      if (slug) {
+        const newUrl = url.clone();
+        newUrl.pathname = `/${slug}${pathname === '/' ? '' : pathname}`;
+        return NextResponse.rewrite(newUrl);
       }
     } catch {
       // fall through to 404
