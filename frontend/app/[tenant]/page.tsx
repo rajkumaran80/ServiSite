@@ -100,7 +100,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   // Google reviews take priority; fall back to manually added entries
   const reviewEntries = googleReviews.length > 0 ? googleReviews : manualReviewEntries;
   const reviewsSource: 'google' | 'manual' = googleReviews.length > 0 ? 'google' : 'manual';
-  const showReviewsSection = reviewEntries.length > 0;
+  const showReviewsSection = reviewEntries.length > 0 && theme.showReviews !== false;
 
   // Banner images: prefer themeSettings.bannerImages array, fall back to single banner field
   const bannerImages: string[] =

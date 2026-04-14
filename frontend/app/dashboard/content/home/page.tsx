@@ -128,6 +128,10 @@ export default function HomeManagePage() {
   const [promoImageUrl, setPromoImageUrl] = useState<string>('');
   const [isSavingImages, setIsSavingImages] = useState(false);
 
+  // Google Reviews toggle
+  const [showReviews, setShowReviews] = useState(true);
+  const [isSavingReviews, setIsSavingReviews] = useState(false);
+
   // Sections
   const [sections, setSections] = useState<Section[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -161,6 +165,7 @@ export default function HomeManagePage() {
               : t.banner ? [t.banner] : []
           );
           setPromoImageUrl(t.themeSettings?.promoImageUrl || '');
+          setShowReviews(t.themeSettings?.showReviews !== false);
         }
       } catch {
         toast.error('Failed to load settings');
@@ -171,6 +176,22 @@ export default function HomeManagePage() {
     init();
     loadSections();
   }, [loadSections]);
+
+  const handleToggleReviews = async (value: boolean) => {
+    if (!tenantId) return;
+    setShowReviews(value);
+    setIsSavingReviews(true);
+    try {
+      await tenantService.update(tenantId, { themeSettings: { showReviews: value } });
+      await revalidateTenantCache(tenantSlug);
+      toast.success(value ? 'Reviews shown' : 'Reviews hidden');
+    } catch {
+      setShowReviews(!value);
+      toast.error('Failed to update');
+    } finally {
+      setIsSavingReviews(false);
+    }
+  };
 
   const handleSaveImages = async () => {
     if (!tenantId) return;
@@ -325,6 +346,24 @@ export default function HomeManagePage() {
           {isSavingImages && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
           Save Images
         </button>
+      </div>
+
+      {/* Google Reviews toggle */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Google Reviews</h2>
+            <p className="text-sm text-gray-400 mt-0.5">Show or hide the reviews section on your home page</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleToggleReviews(!showReviews)}
+            disabled={isSavingReviews}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${showReviews ? 'bg-blue-600' : 'bg-gray-200'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${showReviews ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
       </div>
 
       {/* Custom Sections */}
