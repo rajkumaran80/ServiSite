@@ -83,9 +83,9 @@ export default async function ContactPage({ params }: { params: { tenant: string
             <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Get in Touch</h2>
               <div className="space-y-5">
-                {contact?.phone && (
+                {(tenant.whatsappNumber || contact?.phone) && (
                   <a
-                    href={`tel:${contact.phone}`}
+                    href={`tel:${tenant.whatsappNumber || contact?.phone}`}
                     className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors group"
                   >
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl flex-shrink-0">
@@ -94,7 +94,7 @@ export default async function ContactPage({ params }: { params: { tenant: string
                     <div>
                       <p className="text-xs text-gray-500 uppercase tracking-wide">Phone</p>
                       <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        {contact.phone}
+                        {tenant.whatsappNumber || contact?.phone}
                       </p>
                     </div>
                   </a>

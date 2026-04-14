@@ -70,13 +70,13 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
             <div>
               <h4 className="text-white font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm">
-                {tenant.contactInfo.phone && (
+                {(tenant.whatsappNumber || tenant.contactInfo.phone) && (
                   <li>
                     <a
-                      href={`tel:${tenant.contactInfo.phone}`}
+                      href={`tel:${tenant.whatsappNumber || tenant.contactInfo.phone}`}
                       className="text-gray-400 hover:text-white transition-colors flex items-center gap-2"
                     >
-                      <span>📞</span> {tenant.contactInfo.phone}
+                      <span>📞</span> {tenant.whatsappNumber || tenant.contactInfo.phone}
                     </a>
                   </li>
                 )}
@@ -94,8 +94,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
                   <li className="flex items-start gap-2 text-gray-400">
                     <span className="mt-0.5">📍</span>
                     <span>
-                      {tenant.contactInfo.address}
-                      {tenant.contactInfo.city && `, ${tenant.contactInfo.city}`}
+                      {[tenant.contactInfo.address, tenant.contactInfo.city, tenant.contactInfo.zipCode, tenant.contactInfo.country].filter(Boolean).join(', ')}
                     </span>
                   </li>
                 )}

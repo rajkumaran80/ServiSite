@@ -470,7 +470,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
       )}
 
       {/* Contact & QR */}
-      {tenant.contactInfo && (tenant.contactInfo.phone || tenant.contactInfo.address || tenant.contactInfo.email) && (
+      {tenant.contactInfo && (tenant.whatsappNumber || tenant.contactInfo.phone || tenant.contactInfo.address || tenant.contactInfo.email) && (
         <section className="py-16 bg-gray-900 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -481,12 +481,12 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                   We'd Love<br />to Hear From You
                 </h2>
                 <div className="space-y-5">
-                  {tenant.contactInfo.phone && (
-                    <a href={`tel:${tenant.contactInfo.phone}`} className="flex items-center gap-4 group">
+                  {(tenant.whatsappNumber || tenant.contactInfo.phone) && (
+                    <a href={`tel:${tenant.whatsappNumber || tenant.contactInfo.phone}`} className="flex items-center gap-4 group">
                       <span className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ backgroundColor: `${primaryColor}33` }}>📞</span>
                       <div>
                         <p className="text-white/50 text-xs uppercase tracking-wider">Phone</p>
-                        <p className="text-white font-semibold group-hover:underline">{tenant.contactInfo.phone}</p>
+                        <p className="text-white font-semibold group-hover:underline">{tenant.whatsappNumber || tenant.contactInfo.phone}</p>
                       </div>
                     </a>
                   )}
@@ -496,7 +496,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                       <div>
                         <p className="text-white/50 text-xs uppercase tracking-wider">Address</p>
                         <p className="text-white font-semibold">
-                          {tenant.contactInfo.address}{tenant.contactInfo.city && `, ${tenant.contactInfo.city}`}
+                          {[tenant.contactInfo.address, tenant.contactInfo.city, tenant.contactInfo.zipCode, tenant.contactInfo.country].filter(Boolean).join(', ')}
                         </p>
                       </div>
                     </div>
