@@ -51,7 +51,6 @@ export default async function ContactPage({ params }: { params: { tenant: string
   const fullAddress = [
     contact?.address,
     contact?.city,
-    contact?.state,
     contact?.zipCode,
     contact?.country,
   ]

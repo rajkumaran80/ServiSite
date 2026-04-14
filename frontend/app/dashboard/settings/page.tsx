@@ -424,12 +424,20 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone Number</label>
                 <input
                   {...tenantForm.register('whatsappNumber')}
-                  placeholder="+1234567890"
+                  placeholder="+447911123456"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    tenantForm.setValue('whatsappNumber', e.target.value);
+                    // Pre-fill contact phone if not already set
+                    if (!contactForm.getValues('phone')) {
+                      contactForm.setValue('phone', e.target.value);
+                    }
+                  }}
                 />
+                <p className="text-xs text-gray-400 mt-1">Used for WhatsApp button and calls. Include country code.</p>
               </div>
             </div>
 
@@ -750,7 +758,7 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div className="grid sm:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>
                 <input
@@ -759,14 +767,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">State</label>
-                <input
-                  {...contactForm.register('state')}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Zip Code</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Postcode</label>
                 <input
                   {...contactForm.register('zipCode')}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
