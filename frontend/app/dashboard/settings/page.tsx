@@ -66,7 +66,7 @@ export default function SettingsPage() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [templateModalIndex, setTemplateModalIndex] = useState(0);
   const [storedTemplateColors, setStoredTemplateColors] = useState<TemplateColorScheme | undefined>(undefined);
-  const [activeSection, setActiveSection] = useState<'business' | 'branding' | 'contact' | 'domain'>('business');
+  const [activeSection, setActiveSection] = useState<'business' | 'branding' | 'domain'>('business');
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
@@ -222,17 +222,26 @@ export default function SettingsPage() {
     if (!tenant) return;
     setIsSavingTenant(true);
     try {
-      const updated = await tenantService.update(tenant.id, {
-        name: data.name,
-        type: data.type,
-        whatsappNumber: data.whatsappNumber,
-        currency: data.currency,
-        timezone: data.timezone,
-        locale: data.locale,
-      });
+      const contactData = contactForm.getValues();
+      const [updated] = await Promise.all([
+        tenantService.update(tenant.id, {
+          name: data.name,
+          type: data.type,
+          whatsappNumber: data.whatsappNumber,
+          currency: data.currency,
+          timezone: data.timezone,
+          locale: data.locale,
+          themeSettings: { googlePlaceId: googlePlaceId.trim() || undefined },
+        }),
+        tenantService.updateContact(contactData),
+      ]);
       setTenant(updated);
       await revalidateTenantCache(tenant.slug);
-      toast.success('Business settings saved');
+      // Auto-lookup Place ID if not already set
+      if (!googlePlaceId && (contactData.address || contactData.city)) {
+        await lookupPlaceId(data.name, contactData.address || '', contactData.city || '');
+      }
+      toast.success('Settings saved');
     } catch {
       toast.error('Failed to save settings');
     } finally {
@@ -373,7 +382,6 @@ export default function SettingsPage() {
         {([
           { key: 'business', label: 'Business' },
           { key: 'branding', label: 'Branding' },
-          { key: 'contact', label: 'Contact' },
           { key: 'domain', label: 'Domain' },
         ] as const).map(({ key, label }) => (
           <button
@@ -473,6 +481,99 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Contact Details */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+            <h2 className="font-semibold text-gray-900">Contact Details</h2>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp Number</label>
+                <input
+                  {...contactForm.register('phone')}
+                  placeholder="+447911123456"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">Shown on contact page and footer</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                <input
+                  type="email"
+                  {...contactForm.register('email')}
+                  placeholder="info@yourbusiness.com"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Street Address</label>
+              <input
+                {...contactForm.register('address')}
+                placeholder="123 Main Street"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>
+                <input
+                  {...contactForm.register('city')}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Postcode</label>
+                <input
+                  {...contactForm.register('zipCode')}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Country</label>
+                <input
+                  {...contactForm.register('country')}
+                  placeholder="United Kingdom"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Google Maps Embed URL</label>
+              <input
+                {...contactForm.register('mapUrl')}
+                placeholder="https://maps.google.com/embed?..."
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">Go to Google Maps → Share → Embed a map → copy the src URL</p>
+            </div>
+
+            {/* Google Place ID */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Google Place ID</label>
+              <div className="flex gap-2">
+                <input
+                  value={googlePlaceId}
+                  onChange={(e) => setGooglePlaceId(e.target.value)}
+                  placeholder="ChIJ..."
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => lookupPlaceId(tenantForm.getValues('name'), contactForm.getValues('address') || '', contactForm.getValues('city') || '')}
+                  disabled={isLookingUpPlace}
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 whitespace-nowrap"
+                >
+                  {isLookingUpPlace && <span className="w-3 h-3 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />}
+                  Auto-find
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Required to show Google Reviews on your site</p>
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={isSavingTenant}
@@ -481,7 +582,7 @@ export default function SettingsPage() {
             {isSavingTenant && (
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             )}
-            Save Business Settings
+            Save Settings
           </button>
         </form>
       )}
@@ -721,146 +822,6 @@ export default function SettingsPage() {
             </button>
           </form>
         </div>
-      )}
-
-      {/* Contact Settings */}
-      {activeSection === 'contact' && (
-        <form onSubmit={contactForm.handleSubmit(handleSaveContact)} className="space-y-6">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
-            <h2 className="font-semibold text-gray-900">Contact Information</h2>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
-                <input
-                  {...contactForm.register('phone')}
-                  placeholder="+1 (555) 000-0000"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                <input
-                  type="email"
-                  {...contactForm.register('email')}
-                  placeholder="info@yourbusiness.com"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Street Address</label>
-              <input
-                {...contactForm.register('address')}
-                placeholder="123 Main Street"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>
-                <input
-                  {...contactForm.register('city')}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Postcode</label>
-                <input
-                  {...contactForm.register('zipCode')}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Country</label>
-              <input
-                {...contactForm.register('country')}
-                placeholder="United States"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Google Maps Embed URL
-              </label>
-              <input
-                {...contactForm.register('mapUrl')}
-                placeholder="https://maps.google.com/embed?..."
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                Go to Google Maps → Share → Embed a map → copy the src URL
-              </p>
-            </div>
-          </div>
-
-          {/* Google Reviews */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-            <div>
-              <h2 className="font-semibold text-gray-900">Google Reviews</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Automatically display your Google reviews on your home page.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Google Place ID</label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    value={isLookingUpPlace ? '' : googlePlaceId}
-                    onChange={(e) => setGooglePlaceId(e.target.value)}
-                    placeholder={isLookingUpPlace ? 'Looking up…' : 'Auto-filled from address, or enter manually'}
-                    disabled={isLookingUpPlace}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
-                  />
-                  {isLookingUpPlace && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin block" />
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  disabled={isLookingUpPlace}
-                  onClick={() => {
-                    const data = contactForm.getValues();
-                    lookupPlaceId(tenant?.name || '', data.address || '', data.city || '');
-                  }}
-                  className="px-3 py-2.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
-                >
-                  Auto-find
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mt-1.5">
-                Filled automatically when you save your address. Or{' '}
-                <a
-                  href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:underline"
-                >
-                  find it manually
-                </a>
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSavingContact}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
-          >
-            {isSavingContact && (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            )}
-            Save Contact Information
-          </button>
-        </form>
       )}
 
       {/* Custom Domain */}
