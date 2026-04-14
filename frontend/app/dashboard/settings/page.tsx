@@ -223,6 +223,9 @@ export default function SettingsPage() {
     setIsSavingTenant(true);
     try {
       const contactData = contactForm.getValues();
+      const cleanSocialLinks = Object.fromEntries(
+        Object.entries(socialLinks).filter(([, v]) => v.trim())
+      );
       const [updated] = await Promise.all([
         tenantService.update(tenant.id, {
           name: data.name,
@@ -231,7 +234,10 @@ export default function SettingsPage() {
           currency: data.currency,
           timezone: data.timezone,
           locale: data.locale,
-          themeSettings: { googlePlaceId: googlePlaceId.trim() || undefined },
+          themeSettings: {
+            googlePlaceId: googlePlaceId.trim() || undefined,
+            socialLinks: Object.keys(cleanSocialLinks).length > 0 ? cleanSocialLinks : undefined,
+          },
         }),
         tenantService.updateContact(contactData),
       ]);
@@ -253,20 +259,13 @@ export default function SettingsPage() {
     if (!tenant) return;
     setIsSavingTenant(true);
     try {
-      const cleanSocialLinks = Object.fromEntries(
-        Object.entries(socialLinks).filter(([, v]) => v.trim())
-      );
       const updated = await tenantService.update(tenant.id, {
         logo: logoUrl || undefined,
-        banner: bannerUrls[0] || undefined,
         themeSettings: {
           primaryColor: data.primaryColor,
           secondaryColor: data.secondaryColor,
           fontFamily: data.fontFamily,
-          promoImageUrl: promoImageUrl || undefined,
           pageTemplate: selectedTemplate,
-          bannerImages: bannerUrls.length > 0 ? bannerUrls : undefined,
-          socialLinks: Object.keys(cleanSocialLinks).length > 0 ? cleanSocialLinks : undefined,
         },
       });
       setTenant(updated);
@@ -415,38 +414,20 @@ export default function SettingsPage() {
               )}
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Business Type</label>
-                <select
-                  {...tenantForm.register('type')}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="RESTAURANT">Restaurant</option>
-                  <option value="CAFE">Café</option>
-                  <option value="BARBER_SHOP">Barber Shop</option>
-                  <option value="SALON">Salon</option>
-                  <option value="GYM">Gym & Fitness</option>
-                  <option value="REPAIR_SHOP">Repair Shop</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone Number</label>
-                <input
-                  {...tenantForm.register('whatsappNumber')}
-                  placeholder="+447911123456"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => {
-                    tenantForm.setValue('whatsappNumber', e.target.value);
-                    // Pre-fill contact phone if not already set
-                    if (!contactForm.getValues('phone')) {
-                      contactForm.setValue('phone', e.target.value);
-                    }
-                  }}
-                />
-                <p className="text-xs text-gray-400 mt-1">Used for WhatsApp button and calls. Include country code.</p>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Business Type</label>
+              <select
+                {...tenantForm.register('type')}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="RESTAURANT">Restaurant</option>
+                <option value="CAFE">Café</option>
+                <option value="BARBER_SHOP">Barber Shop</option>
+                <option value="SALON">Salon</option>
+                <option value="GYM">Gym & Fitness</option>
+                <option value="REPAIR_SHOP">Repair Shop</option>
+                <option value="OTHER">Other</option>
+              </select>
             </div>
 
             <div className="grid sm:grid-cols-3 gap-4">
@@ -487,23 +468,37 @@ export default function SettingsPage() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone Number</label>
+                <input
+                  {...tenantForm.register('whatsappNumber')}
+                  placeholder="+447911123456"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    tenantForm.setValue('whatsappNumber', e.target.value);
+                    if (!contactForm.getValues('phone')) {
+                      contactForm.setValue('phone', e.target.value);
+                    }
+                  }}
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp Number</label>
                 <input
                   {...contactForm.register('phone')}
                   placeholder="+447911123456"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">Shown on contact page and footer</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                <input
-                  type="email"
-                  {...contactForm.register('email')}
-                  placeholder="info@yourbusiness.com"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <input
+                type="email"
+                {...contactForm.register('email')}
+                placeholder="info@yourbusiness.com"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <div>
@@ -572,6 +567,32 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-gray-400 mt-1">Required to show Google Reviews on your site</p>
             </div>
+          </div>
+
+          {/* Social Media Links */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Social Media Links</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Shown on your home page and footer. Leave blank to hide.</p>
+            </div>
+            {([
+              { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
+              { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourbusiness' },
+              { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@yourbusiness' },
+              { key: 'twitter', label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
+              { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourbusiness' },
+            ] as const).map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+                <input
+                  type="url"
+                  value={socialLinks[key]}
+                  onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            ))}
           </div>
 
           <button
@@ -763,51 +784,6 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Banner Images</label>
-                <p className="text-xs text-gray-400 mb-2">Full-width hero images — add multiple to auto-rotate on your website</p>
-                <MultiImageUpload
-                  urls={bannerUrls}
-                  onChange={setBannerUrls}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">About / Promo Section Image</label>
-                <p className="text-xs text-gray-400 mb-2">Shown in the mid-page section — great for a restaurant interior, team photo, or product shot</p>
-                <ImageUpload
-                  currentUrl={promoImageUrl}
-                  mediaType="banner"
-                  onUpload={(url) => setPromoImageUrl(url)}
-                  aspectRatio="banner"
-                />
-              </div>
-            </div>
-
-            {/* Social Media Links */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-              <div>
-                <h2 className="font-semibold text-gray-900">Social Media Links</h2>
-                <p className="text-sm text-gray-500 mt-0.5">Shown on your home page hero and footer. Leave blank to hide.</p>
-              </div>
-              {([
-                { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
-                { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourbusiness' },
-                { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@yourbusiness' },
-                { key: 'twitter', label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
-                { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourbusiness' },
-              ] as const).map(({ key, label, placeholder }) => (
-                <div key={key}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-                  <input
-                    type="url"
-                    value={socialLinks[key]}
-                    onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={placeholder}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              ))}
             </div>
 
             <button

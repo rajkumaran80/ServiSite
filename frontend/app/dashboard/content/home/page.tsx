@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../../../../services/api';
 import { ImageUpload } from '../../../../components/ui/ImageUpload';
+import MultiImageUpload from '../../../../components/ui/MultiImageUpload';
+import tenantService from '../../../../services/tenant.service';
+import { revalidateTenantCache } from '../../settings/actions';
 
 
 // ── Section form types ────────────────────────────────────────────────────────
@@ -118,6 +121,13 @@ function SectionModal({
 export default function HomeManagePage() {
   const [isLoading, setIsLoading] = useState(true);
 
+  // Hero images
+  const [tenantId, setTenantId] = useState<string>('');
+  const [tenantSlug, setTenantSlug] = useState<string>('');
+  const [bannerUrls, setBannerUrls] = useState<string[]>([]);
+  const [promoImageUrl, setPromoImageUrl] = useState<string>('');
+  const [isSavingImages, setIsSavingImages] = useState(false);
+
   // Sections
   const [sections, setSections] = useState<Section[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -139,7 +149,19 @@ export default function HomeManagePage() {
   useEffect(() => {
     const init = async () => {
       try {
-        await api.get('/tenant/current');
+        const res = await api.get<{ data: any }>('/tenant/current');
+        const t = res.data.data;
+        if (t) {
+          setTenantId(t.id);
+          setTenantSlug(t.slug);
+          const storedBanners = t.themeSettings?.bannerImages;
+          setBannerUrls(
+            Array.isArray(storedBanners) && storedBanners.length > 0
+              ? storedBanners
+              : t.banner ? [t.banner] : []
+          );
+          setPromoImageUrl(t.themeSettings?.promoImageUrl || '');
+        }
       } catch {
         toast.error('Failed to load settings');
       } finally {
@@ -149,6 +171,26 @@ export default function HomeManagePage() {
     init();
     loadSections();
   }, [loadSections]);
+
+  const handleSaveImages = async () => {
+    if (!tenantId) return;
+    setIsSavingImages(true);
+    try {
+      await tenantService.update(tenantId, {
+        banner: bannerUrls[0] || undefined,
+        themeSettings: {
+          bannerImages: bannerUrls.length > 0 ? bannerUrls : undefined,
+          promoImageUrl: promoImageUrl || undefined,
+        },
+      });
+      await revalidateTenantCache(tenantSlug);
+      toast.success('Images saved');
+    } catch {
+      toast.error('Failed to save images');
+    } finally {
+      setIsSavingImages(false);
+    }
+  };
 
   const openAdd = () => {
     setEditingId(null);
@@ -248,6 +290,41 @@ export default function HomeManagePage() {
           <h1 className="text-2xl font-bold text-gray-900">Home Page</h1>
           <p className="text-gray-500 text-sm mt-1">Control which sections appear on your home page</p>
         </div>
+      </div>
+
+      {/* Hero Images */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Hero & Promo Images</h2>
+          <p className="text-sm text-gray-400 mt-0.5">Images shown at the top and mid-section of your home page</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Banner Images</label>
+          <p className="text-xs text-gray-400 mb-2">Full-width hero images — add multiple to auto-rotate</p>
+          <MultiImageUpload urls={bannerUrls} onChange={setBannerUrls} />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">About / Promo Section Image</label>
+          <p className="text-xs text-gray-400 mb-2">Shown in the mid-page section — great for an interior, team photo, or product shot</p>
+          <ImageUpload
+            currentUrl={promoImageUrl}
+            mediaType="banner"
+            onUpload={(url) => setPromoImageUrl(url)}
+            aspectRatio="banner"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSaveImages}
+          disabled={isSavingImages}
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+        >
+          {isSavingImages && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+          Save Images
+        </button>
       </div>
 
       {/* Custom Sections */}
