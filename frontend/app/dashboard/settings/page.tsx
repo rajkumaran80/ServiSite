@@ -938,41 +938,39 @@ export default function SettingsPage() {
                     <h3 className="font-semibold text-amber-900 text-sm">2 steps to connect your domain</h3>
                   </div>
 
-                  <div className="space-y-3">
-                    {/* Step 1 */}
-                    <div>
-                      <p className="text-xs font-semibold text-amber-800 mb-1.5">Step 1 — Add a CNAME record at your registrar</p>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs font-mono border-collapse">
-                          <thead>
-                            <tr className="text-amber-700 text-left border-b border-amber-200">
-                              <th className="pr-4 pb-1.5 font-semibold">Type</th>
-                              <th className="pr-4 pb-1.5 font-semibold">Host</th>
-                              <th className="pb-1.5 font-semibold">Value</th>
-                            </tr>
-                          </thead>
-                          <tbody className="text-amber-900">
-                            <tr>
-                              <td className="pr-4 py-1.5 font-bold">CNAME</td>
-                              <td className="pr-4 py-1.5">www</td>
-                              <td className="py-1.5 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono border-collapse">
+                      <thead>
+                        <tr className="text-amber-700 text-left border-b border-amber-200">
+                          <th className="pr-4 pb-1.5 font-semibold">Type</th>
+                          <th className="pr-4 pb-1.5 font-semibold">Host</th>
+                          <th className="pb-1.5 font-semibold">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-amber-900">
+                        <tr className="border-b border-amber-100">
+                          <td className="pr-4 py-1.5 font-bold">CNAME</td>
+                          <td className="pr-4 py-1.5">www</td>
+                          <td className="py-1.5 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
+                        </tr>
+                        <tr>
+                          <td className="pr-4 py-1.5 font-bold">TXT</td>
+                          <td className="pr-4 py-1.5">asuid.www</td>
+                          <td className="py-1.5 break-all">921c9222c9c2a858b880fae91c6c5debf8263248bc34267e426f99771a6eab89</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
 
-                    {/* Step 2 */}
-                    <div>
-                      <p className="text-xs font-semibold text-amber-800 mb-1">Step 2 — Set up a domain forward (apex → www)</p>
-                      <p className="text-xs text-amber-700">
-                        In your registrar's <strong>Forwarding</strong> section, redirect <span className="font-mono">{customDomain}</span> → <span className="font-mono">https://www.{customDomain}</span> (HTTP redirect, 301).
-                      </p>
-                    </div>
+                  <div className="border-t border-amber-200 pt-3 space-y-1">
+                    <p className="text-xs font-semibold text-amber-800">Also set up a domain forward (apex → www)</p>
+                    <p className="text-xs text-amber-700">
+                      In your registrar's <strong>Forwarding</strong> section, redirect <span className="font-mono">{customDomain}</span> → <span className="font-mono">https://www.{customDomain}</span> (HTTP redirect, 301). Leave "also set up for www" <strong>unchecked</strong>.
+                    </p>
                   </div>
 
                   <p className="text-xs text-amber-700 border-t border-amber-200 pt-3">
-                    SSL activates automatically — no TXT records needed. Changes usually propagate within minutes.
+                    SSL activates automatically. Changes usually propagate within minutes.
                   </p>
                 </div>
 

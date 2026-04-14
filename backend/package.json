@@ -24,6 +24,7 @@
     "seed": "ts-node -r tsconfig-paths/register src/prisma/seed.ts"
   },
   "dependencies": {
+    "@azure/arm-appservice": "^18.0.0",
     "@azure/arm-dns": "^5.1.0",
     "@azure/identity": "^4.13.1",
     "@azure/storage-blob": "^12.17.0",

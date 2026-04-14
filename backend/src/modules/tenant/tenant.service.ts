@@ -16,6 +16,7 @@ import { Tenant } from '@prisma/client';
 import { TenantCacheService, TTL } from '../../common/cache/tenant-cache.service';
 import { NotifyNextjsService } from '../../common/notify/notify-nextjs.service';
 import { CloudflareService } from './cloudflare.service';
+import { AzureAppServiceService } from './azure-appservice.service';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { normalizeEmail, isDisposableEmail, isSuspiciousEmail } from '../../common/utils/email.util';
@@ -30,6 +31,7 @@ export class TenantService {
     private readonly tenantCache: TenantCacheService,
     private readonly notify: NotifyNextjsService,
     private readonly cloudflare: CloudflareService,
+    private readonly azureAppService: AzureAppServiceService,
     private readonly billing: BillingService,
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
@@ -298,6 +300,9 @@ export class TenantService {
       },
     });
 
+    // Add hostname binding to Azure App Service so it accepts requests for this domain
+    await this.azureAppService.addHostnameBinding(wwwHostname);
+
     return { cname: 'origin.servisite.co.uk' };
   }
 
@@ -351,13 +356,16 @@ export class TenantService {
     });
 
     if (tenant?.customDomain) {
+      const wwwHostname = `www.${tenant.customDomain}`;
       await Promise.all([
         this.tenantCache.deleteDomainSlug(tenant.customDomain),
+        this.tenantCache.deleteDomainSlug(wwwHostname),
         tenant.customDomainZoneId
           ? this.cloudflare.deleteZone(tenant.customDomainZoneId)
           : tenant.customDomainToken
             ? this.cloudflare.deleteCustomHostname(tenant.customDomainToken)
             : Promise.resolve(),
+        this.azureAppService.removeHostnameBinding(wwwHostname).catch(() => {}),
       ]);
     }
 
