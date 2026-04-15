@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import HeroSection from '../../components/tenant/HeroSection';
-import QRCodeDisplay from '../../components/tenant/QRCodeDisplay';
 import { getPageTemplate } from '../../config/page-templates';
 import ScrollReveal from '../../components/ui/ScrollReveal';
 
@@ -573,11 +572,11 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                   </div>
                 )}
               </div>
-              <div className="flex flex-col items-center text-center">
-                <div className="bg-white rounded-3xl p-6 shadow-2xl inline-block">
-                  <QRCodeDisplay url={publicUrl} businessName={tenant.name} size={180} />
-                </div>
-                <p className="text-white/60 text-sm mt-4">Scan to share this page</p>
+              <div className="flex flex-col items-center justify-center">
+                <Link href="/contact"
+                  className="inline-flex items-center gap-2 border border-white/20 hover:border-white/50 text-white/70 hover:text-white text-sm px-5 py-3 rounded-xl transition-colors">
+                  View Contact Page →
+                </Link>
               </div>
             </div>
           </div>

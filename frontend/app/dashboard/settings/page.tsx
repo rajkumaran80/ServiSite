@@ -73,6 +73,15 @@ export default function SettingsPage() {
   const [domainCname, setDomainCname] = useState<string>('');
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
+
+  const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+  type DayKey = typeof DAYS[number];
+  type DayHours = { open: string; close: string; closed: boolean };
+  const defaultHours = (): DayHours => ({ open: '09:00', close: '22:00', closed: false });
+  const [openingHours, setOpeningHours] = useState<Record<DayKey, DayHours>>(() =>
+    Object.fromEntries(DAYS.map((d) => [d, defaultHours()])) as Record<DayKey, DayHours>
+  );
+  const [isSavingHours, setIsSavingHours] = useState(false);
   const [isSavingDomain, setIsSavingDomain] = useState(false);
   const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
 
@@ -159,6 +168,32 @@ export default function SettingsPage() {
             zipCode: contactData.zipCode || '',
             mapUrl: contactData.mapUrl || '',
           });
+          // Load opening hours — support both new {open,close,closed} and legacy string formats
+          if (contactData.openingHours && typeof contactData.openingHours === 'object') {
+            const loaded = Object.fromEntries(
+              DAYS.map((d) => {
+                const val = (contactData.openingHours as any)[d];
+                if (!val) return [d, defaultHours()];
+                if (typeof val === 'object' && 'open' in val) return [d, val];
+                // Legacy string like "9:00 AM - 10:00 PM" or "Closed"
+                if (typeof val === 'string') {
+                  if (val.toLowerCase() === 'closed') return [d, { ...defaultHours(), closed: true }];
+                  const match = val.match(/(\d+:\d+)\s*(AM|PM)?\s*[-–]\s*(\d+:\d+)\s*(AM|PM)?/i);
+                  if (match) {
+                    const toH24 = (t: string, ampm: string) => {
+                      let [h, m] = t.split(':').map(Number);
+                      if (ampm?.toUpperCase() === 'PM' && h !== 12) h += 12;
+                      if (ampm?.toUpperCase() === 'AM' && h === 12) h = 0;
+                      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                    };
+                    return [d, { open: toH24(match[1], match[2]), close: toH24(match[3], match[4]), closed: false }];
+                  }
+                }
+                return [d, defaultHours()];
+              })
+            ) as Record<DayKey, DayHours>;
+            setOpeningHours(loaded);
+          }
         }
       } catch (error) {
         toast.error('Failed to load settings');
@@ -252,6 +287,20 @@ export default function SettingsPage() {
       toast.error('Failed to save settings');
     } finally {
       setIsSavingTenant(false);
+    }
+  };
+
+  const handleSaveHours = async () => {
+    if (!tenant) return;
+    setIsSavingHours(true);
+    try {
+      await tenantService.updateContact({ openingHours: openingHours as any });
+      await revalidateTenantCache(tenant.slug);
+      toast.success('Opening times saved');
+    } catch {
+      toast.error('Failed to save opening times');
+    } finally {
+      setIsSavingHours(false);
     }
   };
 
@@ -606,6 +655,62 @@ export default function SettingsPage() {
             Save Settings
           </button>
         </form>
+
+        {/* Opening Times — separate save */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">Opening Times</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Set your hours for each day. Shown in footer and contact page.</p>
+          </div>
+
+          <div className="space-y-3">
+            {DAYS.map((day) => {
+              const h = openingHours[day];
+              return (
+                <div key={day} className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                  <span className="w-24 text-sm font-medium text-gray-700 capitalize flex-shrink-0">{day}</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={h.closed}
+                      onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], closed: e.target.checked } }))}
+                      className="accent-red-500"
+                    />
+                    <span className="text-xs text-gray-500">Closed</span>
+                  </label>
+                  {!h.closed && (
+                    <>
+                      <input
+                        type="time"
+                        value={h.open}
+                        onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))}
+                        className="flex-1 min-w-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-400 text-sm flex-shrink-0">to</span>
+                      <input
+                        type="time"
+                        value={h.close}
+                        onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))}
+                        className="flex-1 min-w-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </>
+                  )}
+                  {h.closed && <span className="text-sm text-red-400 font-medium">Closed</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSaveHours}
+            disabled={isSavingHours}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            {isSavingHours && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Save Opening Times
+          </button>
+        </div>
       )}
 
       {/* Branding */}

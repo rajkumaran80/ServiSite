@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import QRCodeDisplay from '../../../components/tenant/QRCodeDisplay';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
 
 const DAYS_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -39,6 +41,10 @@ export async function generateMetadata({ params }: { params: { tenant: string } 
 export default async function ContactPage({ params }: { params: { tenant: string } }) {
   const tenant = await getTenant(params.tenant);
   if (!tenant) notFound();
+
+  const publicUrl = tenant.customDomain
+    ? `https://www.${tenant.customDomain}`
+    : `https://${params.tenant}.${APP_DOMAIN}`;
 
   // contactInfo is already included in the tenant response via findBySlug
   const contact = tenant.contactInfo ?? null;
@@ -164,20 +170,30 @@ export default async function ContactPage({ params }: { params: { tenant: string
                 <h2 className="text-xl font-bold text-gray-900 mb-6">Opening Hours</h2>
                 <div className="space-y-3">
                   {allDays.map((day) => {
-                    const hours = openingHours[day];
-                    const isClosed = hours?.toLowerCase() === 'closed';
+                    const raw = openingHours[day];
+                    let display = '';
+                    let isClosed = false;
+                    if (typeof raw === 'object' && raw !== null) {
+                      isClosed = (raw as any).closed;
+                      if (!isClosed) {
+                        const fmt = (t: string) => {
+                          if (!t) return '';
+                          const [h, m] = t.split(':').map(Number);
+                          const ampm = h >= 12 ? 'pm' : 'am';
+                          const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                          return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2,'0')}${ampm}`;
+                        };
+                        display = `${fmt((raw as any).open)} – ${fmt((raw as any).close)}`;
+                      }
+                    } else if (typeof raw === 'string') {
+                      isClosed = raw.toLowerCase() === 'closed';
+                      display = raw;
+                    }
                     return (
-                      <div
-                        key={day}
-                        className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
-                      >
+                      <div key={day} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                         <span className="capitalize text-gray-700 font-medium">{day}</span>
-                        <span
-                          className={`text-sm font-medium ${
-                            isClosed ? 'text-red-500' : 'text-green-600'
-                          }`}
-                        >
-                          {hours || 'Hours not set'}
+                        <span className={`text-sm font-medium ${isClosed ? 'text-red-500' : 'text-green-600'}`}>
+                          {isClosed ? 'Closed' : display || 'Hours not set'}
                         </span>
                       </div>
                     );
@@ -223,6 +239,20 @@ export default async function ContactPage({ params }: { params: { tenant: string
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* QR Code */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center gap-6">
+          <div className="flex-shrink-0">
+            <QRCodeDisplay url={publicUrl} businessName={tenant.name} size={140} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Share this page</h3>
+            <p className="text-gray-500 text-sm mt-1">Scan the QR code to open or share {tenant.name}&apos;s page on your phone.</p>
+            <p className="text-xs text-gray-400 mt-2 font-mono">{publicUrl}</p>
           </div>
         </div>
       </div>
