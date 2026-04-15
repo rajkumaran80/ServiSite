@@ -469,8 +469,8 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
         </section>
       )}
 
-      {/* Contact & QR */}
-      {tenant.contactInfo && (tenant.whatsappNumber || tenant.contactInfo.phone || tenant.contactInfo.address || tenant.contactInfo.email) && (
+      {/* Contact section removed — info available in footer on every page */}
+      {false && tenant.contactInfo && (tenant.whatsappNumber || tenant.contactInfo.phone || tenant.contactInfo.address || tenant.contactInfo.email) && (
         <section className="py-16 bg-gray-900 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-2 gap-12 items-center">
