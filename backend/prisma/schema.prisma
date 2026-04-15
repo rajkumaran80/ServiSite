@@ -140,6 +140,7 @@ model Tenant {
   lastReminderSentAt          DateTime?
   reminderCount               Int          @default(0)
   suspendedAt                 DateTime?
+  usedStorageBytes            BigInt       @default(0)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -437,6 +438,9 @@ model GalleryImage {
   url       String
   caption   String?
   sortOrder Int      @default(0)
+  mediaType String   @default("image")  // "image" | "video"
+  fileSize  Int      @default(0)        // bytes, after optimization
+  blobName  String?                     // Azure blob path for deletion
   createdAt DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)

@@ -8,6 +8,9 @@ export interface AddGalleryImageDto {
   url: string;
   caption?: string;
   sortOrder?: number;
+  mediaType?: string;
+  fileSize?: number;
+  blobName?: string;
 }
 
 @Injectable()
@@ -40,7 +43,15 @@ export class GalleryService {
 
   async addImage(tenantId: string, dto: AddGalleryImageDto, slug: string): Promise<GalleryImage> {
     const image = await this.prisma.galleryImage.create({
-      data: { tenantId, url: dto.url, caption: dto.caption, sortOrder: dto.sortOrder ?? 0 },
+      data: {
+        tenantId,
+        url: dto.url,
+        caption: dto.caption,
+        sortOrder: dto.sortOrder ?? 0,
+        mediaType: dto.mediaType ?? 'image',
+        fileSize: dto.fileSize ?? 0,
+        blobName: dto.blobName ?? null,
+      },
     });
     await this.invalidateGallery(slug);
     return image;

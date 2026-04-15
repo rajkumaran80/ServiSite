@@ -9,6 +9,8 @@ import {
 } from '@azure/storage-blob';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
+import { PrismaService } from '../../prisma/prisma.service';
+import { MediaProcessorService } from './media-processor.service';
 
 export type MediaType = 'logo' | 'banner' | 'menu' | 'gallery' | 'misc';
 
@@ -34,13 +36,25 @@ const ALLOWED_MIME_TYPES = [
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB (videos need more)
 
+export interface GalleryUploadResult {
+  url: string;
+  blobName: string;
+  mediaType: 'image' | 'video';
+  contentType: string;
+  size: number;
+}
+
 @Injectable()
 export class MediaService implements OnModuleInit {
   private readonly logger = new Logger(MediaService.name);
   private blobServiceClient: BlobServiceClient;
   private containerName: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly processor: MediaProcessorService,
+  ) {
     const connectionString = configService.get<string>(
       'AZURE_STORAGE_CONNECTION_STRING',
       '',
@@ -294,5 +308,120 @@ export class MediaService implements OnModuleInit {
       'video/quicktime': '.mov',
     };
     return map[mimeType] || '.bin';
+  }
+
+  // ── Gallery Upload Pipeline ───────────────────────────────────────────────
+  // VALIDATE → OPTIMIZE → STORE → SERVE VIA CDN
+
+  async uploadGalleryMedia(
+    tenantId: string,
+    file: Express.Multer.File,
+  ): Promise<GalleryUploadResult> {
+    // 1. Load tenant storage usage + gallery counts
+    const [tenant, totalImages, totalVideos] = await Promise.all([
+      this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { usedStorageBytes: true },
+      }),
+      this.prisma.galleryImage.count({ where: { tenantId, mediaType: 'image' } }),
+      this.prisma.galleryImage.count({ where: { tenantId, mediaType: 'video' } }),
+    ]);
+
+    if (!tenant) throw new BadRequestException('Tenant not found');
+
+    const isImage = this.processor.isImage(file.mimetype);
+    const isVideo = this.processor.isVideo(file.mimetype);
+
+    if (!isImage && !isVideo) {
+      throw new BadRequestException(
+        'Unsupported file type. Images: JPG/PNG/WebP. Videos: MP4 only.',
+      );
+    }
+
+    // 2. VALIDATE
+    if (isImage) {
+      this.processor.validateImageInput(file, totalImages);
+    } else {
+      this.processor.validateVideoInput(file, totalVideos);
+    }
+    this.processor.validateStorageLimit(tenant.usedStorageBytes, file.size);
+
+    // 3. OPTIMIZE
+    let processedBuffer: Buffer;
+    let contentType: string;
+
+    if (isImage) {
+      const result = await this.processor.processImage(file.buffer);
+      processedBuffer = result.buffer;
+      contentType = result.contentType;
+    } else {
+      const result = await this.processor.processVideo(file.buffer);
+      processedBuffer = result.buffer;
+      contentType = result.contentType;
+    }
+
+    const optimizedSize = processedBuffer.length;
+
+    // Re-check storage after optimization (optimized size may differ from raw)
+    this.processor.validateStorageLimit(tenant.usedStorageBytes, optimizedSize);
+
+    // 4. STORE
+    await this.ensureContainerExists();
+
+    const ext = isImage ? '.webp' : '.mp4';
+    const blobName = `${tenantId}/gallery/${uuidv4()}${ext}`;
+    const containerClient = this.getContainerClient();
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+    await blockBlobClient.uploadData(processedBuffer, {
+      blobHTTPHeaders: {
+        blobContentType: contentType,
+        blobCacheControl: 'public, max-age=31536000',
+      },
+      metadata: {
+        tenantId,
+        mediaType: isImage ? 'image' : 'video',
+        originalName: encodeURIComponent(file.originalname),
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    // 5. Update tenant storage usage
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { usedStorageBytes: { increment: BigInt(optimizedSize) } },
+    });
+
+    this.logger.log(
+      `Gallery upload: ${blobName} | ${isImage ? 'image' : 'video'} | ${Math.round(optimizedSize / 1024)}KB | tenant ${tenantId}`,
+    );
+
+    return {
+      url: blockBlobClient.url,
+      blobName,
+      mediaType: isImage ? 'image' : 'video',
+      contentType,
+      size: optimizedSize,
+    };
+  }
+
+  async deleteGalleryBlob(blobName: string, fileSize: number, tenantId: string): Promise<void> {
+    try {
+      await this.deleteFile(blobName);
+      // Decrement storage usage (floor at 0)
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { usedStorageBytes: true },
+      });
+      if (tenant) {
+        const newBytes = BigInt(tenant.usedStorageBytes) - BigInt(fileSize);
+        await this.prisma.tenant.update({
+          where: { id: tenantId },
+          data: { usedStorageBytes: newBytes < 0n ? 0n : newBytes },
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to delete gallery blob ${blobName}: ${err.message}`);
+    }
   }
 }
