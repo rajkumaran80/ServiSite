@@ -226,6 +226,130 @@ function AddTenantModal({
   );
 }
 
+// ─── Change Email Modal ───────────────────────────────────────────────────────
+
+function ChangeEmailModal({
+  tenant,
+  onConfirm,
+  onCancel,
+}: {
+  tenant: TenantSummary;
+  onConfirm: (newEmail: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [email, setEmail] = useState(tenant.users[0]?.email || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !email.includes('@')) { toast.error('Enter a valid email'); return; }
+    setSaving(true);
+    try {
+      await onConfirm(email.trim());
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">Change Admin Email</h2>
+          <p className="text-sm text-gray-500 mt-1">{tenant.name}</p>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">New email address</label>
+            <input
+              autoFocus
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass}
+              placeholder="new@email.com"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onCancel} disabled={saving}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50">
+              {saving ? 'Saving...' : 'Update Email'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Change Plan Modal ────────────────────────────────────────────────────────
+
+function ChangePlanModal({
+  tenant,
+  onConfirm,
+  onCancel,
+}: {
+  tenant: TenantSummary;
+  onConfirm: (plan: 'BASIC' | 'ORDERING') => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [plan, setPlan] = useState<'BASIC' | 'ORDERING'>((tenant.plan as 'BASIC' | 'ORDERING') || 'BASIC');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onConfirm(plan);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">Change Subscription Plan</h2>
+          <p className="text-sm text-gray-500 mt-1">{tenant.name}</p>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div className="space-y-3">
+            {[
+              { value: 'BASIC', label: 'Basic', desc: 'Website with menu, gallery & contact', price: '£49/month' },
+              { value: 'ORDERING', label: 'Ordering', desc: 'Basic + full online ordering system', price: '£99/month' },
+            ].map((opt) => (
+              <label key={opt.value}
+                className={`flex items-start gap-3 p-3.5 border-2 rounded-xl cursor-pointer transition-colors ${plan === opt.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                <input type="radio" name="plan" value={opt.value} checked={plan === opt.value}
+                  onChange={() => setPlan(opt.value as 'BASIC' | 'ORDERING')} className="mt-0.5 accent-blue-600" />
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">{opt.label} — <span className="text-blue-600">{opt.price}</span></p>
+                  <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onCancel} disabled={saving}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50">
+              {saving ? 'Saving...' : 'Update Plan'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Delete Confirmation Modal ───────────────────────────────────────────────
 
 function DeleteTenantModal({
@@ -305,6 +429,180 @@ function DeleteTenantModal({
   );
 }
 
+// ─── Pricing Config Card ──────────────────────────────────────────────────────
+
+function PricingCard() {
+  const [pricing, setPricing] = useState({ registrationFee: 299, basicMonthly: 49, orderingMonthly: 99 });
+  const [form, setForm] = useState({ registrationFee: '299', basicMonthly: '49', orderingMonthly: '99' });
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    superAdminService.getPricing().then((p) => {
+      setPricing(p);
+      setForm({ registrationFee: String(p.registrationFee), basicMonthly: String(p.basicMonthly), orderingMonthly: String(p.orderingMonthly) });
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const reg = parseFloat(form.registrationFee);
+    const basic = parseFloat(form.basicMonthly);
+    const ordering = parseFloat(form.orderingMonthly);
+    if (isNaN(reg) || isNaN(basic) || isNaN(ordering)) { toast.error('Enter valid numbers'); return; }
+    setSaving(true);
+    try {
+      await superAdminService.setPricing({ registrationFee: reg, basicMonthly: basic, orderingMonthly: ordering });
+      setPricing({ registrationFee: reg, basicMonthly: basic, orderingMonthly: ordering });
+      toast.success('Global pricing updated');
+    } catch { toast.error('Failed to save pricing'); }
+    finally { setSaving(false); }
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">Global Default Pricing (£)</h2>
+      <form onSubmit={handleSave} className="flex flex-wrap gap-4 items-end">
+        {[
+          { key: 'registrationFee', label: 'Registration Fee (one-time)' },
+          { key: 'basicMonthly', label: 'Basic Plan (monthly)' },
+          { key: 'orderingMonthly', label: 'Ordering Plan (monthly)' },
+        ].map(({ key, label }) => (
+          <div key={key} className="flex-1 min-w-[150px]">
+            <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">£</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form[key as keyof typeof form]}
+                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        ))}
+        <button type="submit" disabled={saving}
+          className="px-5 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors">
+          {saving ? 'Saving...' : 'Save Pricing'}
+        </button>
+      </form>
+      <p className="text-xs text-gray-400 mt-3">These are display defaults. Stripe prices are not automatically updated — update Stripe separately if needed.</p>
+    </div>
+  );
+}
+
+// ─── Per-Tenant Pricing Override Modal ───────────────────────────────────────
+
+function TenantPricingModal({
+  tenant,
+  onClose,
+}: {
+  tenant: TenantSummary;
+  onClose: () => void;
+}) {
+  const [override, setOverride] = useState<{ registrationFee: string; basicMonthly: string; orderingMonthly: string } | null>(null);
+  const [enabled, setEnabled] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    superAdminService.getTenantPricing(tenant.id).then((p) => {
+      if (p) {
+        setEnabled(true);
+        setOverride({
+          registrationFee: String(p.registrationFee ?? ''),
+          basicMonthly: String(p.basicMonthly ?? ''),
+          orderingMonthly: String(p.orderingMonthly ?? ''),
+        });
+      } else {
+        setOverride({ registrationFee: '', basicMonthly: '', orderingMonthly: '' });
+      }
+      setLoaded(true);
+    }).catch(() => {
+      setOverride({ registrationFee: '', basicMonthly: '', orderingMonthly: '' });
+      setLoaded(true);
+    });
+  }, [tenant.id]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      if (!enabled) {
+        await superAdminService.setTenantPricing(tenant.id, null);
+        toast.success('Pricing override removed — using global defaults');
+      } else {
+        const payload: Record<string, number> = {};
+        if (override?.registrationFee) payload.registrationFee = parseFloat(override.registrationFee);
+        if (override?.basicMonthly) payload.basicMonthly = parseFloat(override.basicMonthly);
+        if (override?.orderingMonthly) payload.orderingMonthly = parseFloat(override.orderingMonthly);
+        await superAdminService.setTenantPricing(tenant.id, payload);
+        toast.success('Tenant pricing override saved');
+      }
+      onClose();
+    } catch { toast.error('Failed to save pricing override'); }
+    finally { setSaving(false); }
+  };
+
+  if (!loaded) return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">Pricing Override</h2>
+          <p className="text-sm text-gray-500 mt-1">{tenant.name}</p>
+        </div>
+        <form onSubmit={handleSave} className="px-6 py-5 space-y-4">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)}
+              className="w-4 h-4 accent-purple-600" />
+            <span className="text-sm font-medium text-gray-700">Override global pricing for this tenant</span>
+          </label>
+          {enabled && override && (
+            <div className="space-y-3">
+              {[
+                { key: 'registrationFee', label: 'Registration Fee (£)' },
+                { key: 'basicMonthly', label: 'Basic Monthly (£)' },
+                { key: 'orderingMonthly', label: 'Ordering Monthly (£)' },
+              ].map(({ key, label }) => (
+                <div key={key}>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+                  <input
+                    type="number" min="0" step="0.01" placeholder="Leave blank to use global default"
+                    value={override[key as keyof typeof override]}
+                    onChange={(e) => setOverride((o) => o ? { ...o, [key]: e.target.value } : o)}
+                    className={inputClass}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} disabled={saving}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50">
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function SuperAdminPage() {
@@ -319,6 +617,9 @@ export default function SuperAdminPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TenantSummary | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [changeEmailTarget, setChangeEmailTarget] = useState<TenantSummary | null>(null);
+  const [changePlanTarget, setChangePlanTarget] = useState<TenantSummary | null>(null);
+  const [tenantPricingTarget, setTenantPricingTarget] = useState<TenantSummary | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) { router.replace('/superadmin/login'); return; }
@@ -417,6 +718,33 @@ export default function SuperAdminPage() {
     finally { setResettingId(null); }
   };
 
+  const handleChangeEmail = async (newEmail: string) => {
+    if (!changeEmailTarget) return;
+    try {
+      await superAdminService.changeAdminEmail(changeEmailTarget.id, newEmail);
+      setTenants((prev) => prev.map((t) => t.id === changeEmailTarget.id
+        ? { ...t, users: [{ ...t.users[0], email: newEmail }] }
+        : t
+      ));
+      toast.success('Admin email updated');
+      setChangeEmailTarget(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to update email');
+    }
+  };
+
+  const handleChangePlan = async (plan: 'BASIC' | 'ORDERING') => {
+    if (!changePlanTarget) return;
+    try {
+      await superAdminService.changeTenantPlan(changePlanTarget.id, plan);
+      setTenants((prev) => prev.map((t) => t.id === changePlanTarget.id ? { ...t, plan } : t));
+      toast.success(`Plan updated to ${plan}`);
+      setChangePlanTarget(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to update plan');
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     router.replace('/superadmin/login');
@@ -477,6 +805,9 @@ export default function SuperAdminPage() {
           ))}
         </div>
 
+        {/* Global Pricing */}
+        <PricingCard />
+
         {/* Tenants Table */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -496,7 +827,7 @@ export default function SuperAdminPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    {['Business', 'Slug', 'Type', 'Status', 'Admin Email', 'Items', 'Created', 'Actions'].map((h) => (
+                    {['Business', 'Slug', 'Type', 'Status', 'Plan', 'Admin Email', 'Items', 'Created', 'Actions'].map((h) => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -515,6 +846,11 @@ export default function SuperAdminPage() {
                           t.status === 'GRACE' ? 'bg-amber-100 text-amber-700' :
                           'bg-gray-100 text-gray-600'
                         }`}>{t.status || '—'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          t.plan === 'ORDERING' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
+                        }`}>{t.plan || 'BASIC'}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{t.users[0]?.email || '—'}</td>
                       <td className="px-4 py-3 text-gray-600">{t._count.menuItems}</td>
@@ -536,6 +872,18 @@ export default function SuperAdminPage() {
                             {resettingId === t.id ? '...' : 'Reset PW'}
                           </button>
                           <button
+                            onClick={() => setChangeEmailTarget(t)}
+                            className="text-xs px-2.5 py-1 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg transition-colors"
+                          >
+                            Change Email
+                          </button>
+                          <button
+                            onClick={() => setChangePlanTarget(t)}
+                            className="text-xs px-2.5 py-1 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg transition-colors"
+                          >
+                            Change Plan
+                          </button>
+                          <button
                             onClick={() => handleToggleStatus(t)}
                             disabled={togglingId === t.id}
                             className={`text-xs px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 ${
@@ -545,6 +893,12 @@ export default function SuperAdminPage() {
                             }`}
                           >
                             {togglingId === t.id ? '...' : t.status === 'SUSPENDED' ? 'Enable' : 'Disable'}
+                          </button>
+                          <button
+                            onClick={() => setTenantPricingTarget(t)}
+                            className="text-xs px-2.5 py-1 bg-orange-50 text-orange-700 hover:bg-orange-100 rounded-lg transition-colors"
+                          >
+                            Pricing
                           </button>
                           <button
                             onClick={() => handleApplyTemplate(t)}
@@ -601,6 +955,32 @@ export default function SuperAdminPage() {
           deleting={deletingId === deleteTarget.id}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* Change email modal */}
+      {changeEmailTarget && (
+        <ChangeEmailModal
+          tenant={changeEmailTarget}
+          onConfirm={handleChangeEmail}
+          onCancel={() => setChangeEmailTarget(null)}
+        />
+      )}
+
+      {/* Change plan modal */}
+      {changePlanTarget && (
+        <ChangePlanModal
+          tenant={changePlanTarget}
+          onConfirm={handleChangePlan}
+          onCancel={() => setChangePlanTarget(null)}
+        />
+      )}
+
+      {/* Tenant pricing override modal */}
+      {tenantPricingTarget && (
+        <TenantPricingModal
+          tenant={tenantPricingTarget}
+          onClose={() => setTenantPricingTarget(null)}
         />
       )}
     </div>

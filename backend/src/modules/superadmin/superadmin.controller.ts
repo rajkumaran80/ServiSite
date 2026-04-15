@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, HttpCode, Put } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
@@ -17,6 +17,35 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Platform stats' })
   async getStats() {
     return { data: await this.service.getStats(), success: true };
+  }
+
+  @Get('pricing')
+  @ApiOperation({ summary: 'Get global default pricing' })
+  async getPricing() {
+    return { data: await this.service.getPricing(), success: true };
+  }
+
+  @Put('pricing')
+  @ApiOperation({ summary: 'Update global default pricing' })
+  async setPricing(@Body() body: { registrationFee: number; basicMonthly: number; orderingMonthly: number }) {
+    await this.service.setPricing(body.registrationFee, body.basicMonthly, body.orderingMonthly);
+    return { success: true, message: 'Pricing updated' };
+  }
+
+  @Get('tenants/:id/pricing')
+  @ApiOperation({ summary: 'Get per-tenant pricing override' })
+  async getTenantPricing(@Param('id') id: string) {
+    return { data: await this.service.getTenantPricingOverride(id), success: true };
+  }
+
+  @Put('tenants/:id/pricing')
+  @ApiOperation({ summary: 'Set per-tenant pricing override (null to remove)' })
+  async setTenantPricing(
+    @Param('id') id: string,
+    @Body() body: { registrationFee?: number; basicMonthly?: number; orderingMonthly?: number } | null,
+  ) {
+    await this.service.setTenantPricingOverride(id, body && Object.keys(body).length > 0 ? body : null);
+    return { success: true, message: 'Tenant pricing override updated' };
   }
 
   @Get('tenants')
@@ -61,6 +90,20 @@ export class SuperAdminController {
   async setTenantStatus(@Param('id') id: string, @Body('status') status: TenantStatus) {
     await this.service.setTenantStatus(id, status);
     return { success: true, message: `Tenant status updated to ${status}` };
+  }
+
+  @Post('tenants/:id/change-email')
+  @ApiOperation({ summary: 'Change the admin email for a tenant' })
+  async changeAdminEmail(@Param('id') id: string, @Body('newEmail') newEmail: string) {
+    await this.service.changeAdminEmail(id, newEmail);
+    return { success: true, message: 'Admin email updated' };
+  }
+
+  @Post('tenants/:id/change-plan')
+  @ApiOperation({ summary: 'Change the subscription plan for a tenant' })
+  async changeTenantPlan(@Param('id') id: string, @Body('plan') plan: 'BASIC' | 'ORDERING') {
+    await this.service.changeTenantPlan(id, plan);
+    return { success: true, message: `Tenant plan updated to ${plan}` };
   }
 
   @Post('tenants/:id/apply-template')

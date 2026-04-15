@@ -29,6 +29,21 @@ class ResendVerificationDto {
   email: string;
 }
 
+class ForgotPasswordDto {
+  @IsEmail()
+  email: string;
+}
+
+class ResetPasswordDto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+
+  @IsString()
+  @IsNotEmpty()
+  newPassword: string;
+}
+
 // Strict rate limit on all auth endpoints: 5 attempts per minute per IP
 @Throttle({ api: { limit: 5, ttl: 60_000 } })
 @ApiTags('auth')
@@ -89,6 +104,32 @@ export class AuthController {
       data: null,
       success: true,
       message: 'If that email exists and is unverified, a new link has been sent.',
+    };
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send password reset email' })
+  async forgotPassword(@Body() body: ForgotPasswordDto) {
+    await this.authService.forgotPassword(body.email);
+    return {
+      data: null,
+      success: true,
+      message: 'If that email exists, a password reset link has been sent.',
+    };
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password using token from email' })
+  async resetPassword(@Body() body: ResetPasswordDto) {
+    await this.authService.resetPassword(body.token, body.newPassword);
+    return {
+      data: null,
+      success: true,
+      message: 'Password updated successfully.',
     };
   }
 

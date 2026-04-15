@@ -7,6 +7,7 @@ export interface TenantSummary {
   type: string;
   currency: string;
   status: string;
+  plan: string;
   createdAt: string;
   _count: { users: number; menuItems: number };
   users: Array<{ email: string; createdAt: string }>;
@@ -56,6 +57,32 @@ class SuperAdminService {
   async impersonate(tenantId: string): Promise<{ accessToken: string; refreshToken: string; user: any; tenantSlug: string }> {
     const res = await api.post<{ data: any }>(`/superadmin/tenants/${tenantId}/impersonate`);
     return res.data.data;
+  }
+
+  async getPricing(): Promise<{ registrationFee: number; basicMonthly: number; orderingMonthly: number }> {
+    const res = await api.get<{ data: any }>('/superadmin/pricing');
+    return res.data.data;
+  }
+
+  async setPricing(pricing: { registrationFee: number; basicMonthly: number; orderingMonthly: number }): Promise<void> {
+    await api.put('/superadmin/pricing', pricing);
+  }
+
+  async getTenantPricing(tenantId: string): Promise<{ registrationFee?: number; basicMonthly?: number; orderingMonthly?: number } | null> {
+    const res = await api.get<{ data: any }>(`/superadmin/tenants/${tenantId}/pricing`);
+    return res.data.data;
+  }
+
+  async setTenantPricing(tenantId: string, pricing: { registrationFee?: number; basicMonthly?: number; orderingMonthly?: number } | null): Promise<void> {
+    await api.put(`/superadmin/tenants/${tenantId}/pricing`, pricing ?? {});
+  }
+
+  async changeAdminEmail(tenantId: string, newEmail: string): Promise<void> {
+    await api.post(`/superadmin/tenants/${tenantId}/change-email`, { newEmail });
+  }
+
+  async changeTenantPlan(tenantId: string, plan: 'BASIC' | 'ORDERING'): Promise<void> {
+    await api.post(`/superadmin/tenants/${tenantId}/change-plan`, { plan });
   }
 }
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 
 interface BannerSlideshowProps {
   images: string[];
-  /** ms per slide — default 5000 */
+  /** ms per slide — default 7000 */
   interval?: number;
   className?: string;
   overlayStyle?: React.CSSProperties;
@@ -14,7 +14,7 @@ interface BannerSlideshowProps {
  * Full-bleed, auto-rotating background slideshow with Ken Burns zoom + fade crossfade.
  * Drop inside a `relative` parent; fills the parent via absolute positioning.
  */
-export function BannerSlideshow({ images, interval = 5000, className = '', overlayStyle }: BannerSlideshowProps) {
+export function BannerSlideshow({ images, interval = 7000, className = '', overlayStyle }: BannerSlideshowProps) {
   const [active, setActive] = useState(0);
   // Per-slide keys — only increment for the slide becoming active, so inactive
   // slides never remount and their scale stays frozen during the dissolve.
@@ -43,7 +43,7 @@ export function BannerSlideshow({ images, interval = 5000, className = '', overl
       <style>{`
         @keyframes kenBurns {
           from { transform: scale(1); }
-          to   { transform: scale(1.08); }
+          to   { transform: scale(1.12); }
         }
       `}</style>
 
@@ -64,7 +64,7 @@ export function BannerSlideshow({ images, interval = 5000, className = '', overl
               backgroundImage: `url(${src})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              animation: `kenBurns ${interval + 2000}ms ease-in-out forwards`,
+              animation: `kenBurns ${Math.round((interval + 2000) / 1.5)}ms ease-in-out forwards`,
               animationPlayState: i === active ? 'running' : 'paused',
             }}
           />

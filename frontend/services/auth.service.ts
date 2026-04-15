@@ -46,6 +46,14 @@ class AuthService {
     await api.post('/auth/resend-verification', { email });
   }
 
+  async forgotPassword(email: string): Promise<void> {
+    await api.post('/auth/forgot-password', { email });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    await api.post('/auth/reset-password', { token, newPassword });
+  }
+
   saveTokens(accessToken: string, refreshToken: string) {
     if (typeof window !== 'undefined') {
       localStorage.setItem('accessToken', accessToken);

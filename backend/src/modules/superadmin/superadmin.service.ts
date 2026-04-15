@@ -163,6 +163,50 @@ export class SuperAdminService {
     });
   }
 
+  async changeAdminEmail(tenantId: string, newEmail: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { tenantId, role: UserRole.ADMIN },
+    });
+    if (!user) throw new NotFoundException('Admin user not found');
+
+    const emailLower = newEmail.toLowerCase();
+    const conflict = await this.prisma.user.findFirst({
+      where: { email: emailLower, id: { not: user.id } },
+    });
+    if (conflict) throw new ConflictException(`Email '${emailLower}' is already in use`);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email: emailLower,
+        normalizedEmail: emailLower.replace(/\./g, '').replace(/\+.*@/, '@'),
+        emailVerified: true,
+      },
+    });
+  }
+
+  async changeTenantPlan(tenantId: string, plan: 'BASIC' | 'ORDERING') {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (tenant.slug === 'platform') throw new ConflictException('Cannot modify platform tenant');
+
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { plan: plan as any },
+    });
+
+    // Update Stripe subscription if one exists
+    if (tenant.stripeSubscriptionId) {
+      try {
+        await this.billing.changePlan(tenantId, plan === 'ORDERING' ? 'ordering' : 'basic');
+      } catch (err) {
+        this.logger.warn(`Failed to update Stripe subscription for tenant ${tenantId}: ${err.message}`);
+      }
+    }
+  }
+
   async applyTemplateToTenant(tenantId: string, clearExisting = false) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new NotFoundException('Tenant not found');
@@ -184,6 +228,53 @@ export class SuperAdminService {
     if (!tenant) throw new NotFoundException('Tenant not found');
     if (tenant.slug === 'platform') throw new ConflictException('Cannot modify platform tenant');
     await this.prisma.tenant.update({ where: { id: tenantId }, data: { status } });
+  }
+
+  async getPricing() {
+    const platform = await this.prisma.tenant.findUnique({ where: { slug: 'platform' } });
+    const settings = (platform?.themeSettings as any) || {};
+    return {
+      registrationFee: settings.registrationFee ?? 299,
+      basicMonthly: settings.basicMonthly ?? 49,
+      orderingMonthly: settings.orderingMonthly ?? 99,
+    };
+  }
+
+  async setPricing(registrationFee: number, basicMonthly: number, orderingMonthly: number) {
+    const platform = await this.prisma.tenant.findUnique({ where: { slug: 'platform' } });
+    if (!platform) throw new NotFoundException('Platform tenant not found');
+    const existing = (platform.themeSettings as any) || {};
+    await this.prisma.tenant.update({
+      where: { slug: 'platform' },
+      data: {
+        themeSettings: { ...existing, registrationFee, basicMonthly, orderingMonthly },
+      },
+    });
+  }
+
+  async getTenantPricingOverride(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    const settings = (tenant.themeSettings as any) || {};
+    return settings.pricingOverride ?? null;
+  }
+
+  async setTenantPricingOverride(
+    tenantId: string,
+    override: { registrationFee?: number; basicMonthly?: number; orderingMonthly?: number } | null,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    const existing = (tenant.themeSettings as any) || {};
+    if (override === null) {
+      delete existing.pricingOverride;
+    } else {
+      existing.pricingOverride = override;
+    }
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { themeSettings: existing },
+    });
   }
 
   async getStats() {

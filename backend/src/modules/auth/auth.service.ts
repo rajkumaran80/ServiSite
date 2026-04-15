@@ -223,6 +223,67 @@ export class AuthService {
     };
   }
 
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({
+      where: { email: email.toLowerCase() },
+    });
+    if (!user) return; // Silently succeed — don't leak whether email exists
+
+    const token = randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordResetToken: token, passwordResetExpiry: expiry },
+    });
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const resetUrl = `${frontendUrl}/auth/reset-password?token=${token}`;
+
+    await this.emailService.send(
+      user.email,
+      'Reset your ServiSite password',
+      `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+        <h2 style="color:#1d4ed8">Reset your password</h2>
+        <p>We received a request to reset the password for your ServiSite account.</p>
+        <p style="text-align:center;margin:32px 0">
+          <a href="${resetUrl}" style="background:#1d4ed8;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px">
+            Reset Password
+          </a>
+        </p>
+        <p style="color:#6b7280;font-size:14px">This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.</p>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+        <p style="color:#9ca3af;font-size:12px">ServiSite · support@servisite.com</p>
+      </div>`,
+    );
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { passwordResetToken: token },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired reset link');
+    }
+
+    if (user.passwordResetExpiry && user.passwordResetExpiry < new Date()) {
+      throw new BadRequestException('Reset link has expired. Please request a new one.');
+    }
+
+    const passwordHash = await this.hashPassword(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+      },
+    });
+  }
+
   async resendVerificationEmail(email: string): Promise<void> {
     const user = await this.prisma.user.findFirst({
       where: { email: email.toLowerCase() },
