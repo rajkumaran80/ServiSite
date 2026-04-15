@@ -1,5 +1,4 @@
 import React from 'react';
-import Link from 'next/link';
 import type { Tenant } from '../../types/tenant.types';
 
 interface FooterProps {
@@ -105,21 +104,42 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
 
   return (
     <footer className="bg-gray-900 text-gray-400 text-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid sm:grid-cols-2 gap-8">
 
-          {/* Brand */}
-          <div className="space-y-3">
+          {/* Left — Brand + Contact + Social */}
+          <div className="space-y-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
                 style={{ backgroundColor: primaryColor }}>
                 {tenant.name.charAt(0).toUpperCase()}
               </div>
-              <span className="text-white font-bold text-base">{tenant.name}</span>
+              <span className="text-white font-bold">{tenant.name}</span>
             </div>
-            <p className="text-gray-500 text-xs capitalize">{tenant.type.replace('_', ' ').toLowerCase()}</p>
 
-            {/* Social icons */}
+            <ul className="space-y-1.5">
+              {phone && (
+                <li>
+                  <a href={`tel:${phone}`} className="hover:text-white transition-colors flex items-center gap-2">
+                    <span>📞</span> {phone}
+                  </a>
+                </li>
+              )}
+              {contact?.email && (
+                <li>
+                  <a href={`mailto:${contact.email}`} className="hover:text-white transition-colors flex items-center gap-2">
+                    <span>✉️</span> {contact.email}
+                  </a>
+                </li>
+              )}
+              {address && (
+                <li className="flex items-start gap-2">
+                  <span className="flex-shrink-0">📍</span>
+                  <span>{address}</span>
+                </li>
+              )}
+            </ul>
+
             {socialLinks && Object.values(socialLinks).some(Boolean) && (
               <div className="flex items-center gap-2 pt-1">
                 {Object.entries(socialLinks).filter(([, v]) => v).map(([key, url]) =>
@@ -134,51 +154,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
             )}
           </div>
 
-          {/* Quick Links */}
-          <div className="space-y-3">
-            <h4 className="text-white font-semibold text-sm">Quick Links</h4>
-            <ul className="space-y-2">
-              {[
-                { href: '/', label: 'Home' },
-                { href: '/menu', label: tenant.type === 'RESTAURANT' || tenant.type === 'CAFE' ? 'Menu' : 'Services' },
-                { href: '/gallery', label: 'Gallery' },
-                { href: '/contact', label: 'Contact' },
-              ].map(({ href, label }) => (
-                <li key={href}>
-                  <Link href={href} className="text-gray-400 hover:text-white transition-colors">{label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div className="space-y-3">
-            <h4 className="text-white font-semibold text-sm">Contact</h4>
-            <ul className="space-y-2">
-              {phone && (
-                <li>
-                  <a href={`tel:${phone}`} className="hover:text-white transition-colors flex items-center gap-2">
-                    <span className="text-xs">📞</span> {phone}
-                  </a>
-                </li>
-              )}
-              {contact?.email && (
-                <li>
-                  <a href={`mailto:${contact.email}`} className="hover:text-white transition-colors flex items-center gap-2">
-                    <span className="text-xs">✉️</span> {contact.email}
-                  </a>
-                </li>
-              )}
-              {address && (
-                <li className="flex items-start gap-2">
-                  <span className="text-xs mt-0.5 flex-shrink-0">📍</span>
-                  <span>{address}</span>
-                </li>
-              )}
-            </ul>
-          </div>
-
-          {/* Opening Hours */}
+          {/* Right — Opening Hours */}
           {hoursGroups.length > 0 && (
             <div className="space-y-3">
               <h4 className="text-white font-semibold text-sm">Opening Hours</h4>
@@ -194,7 +170,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
           )}
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
+        <div className="border-t border-gray-800 mt-6 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-600">
           <p>© {year} {tenant.name}. All rights reserved.</p>
           <p>Powered by <a href="https://servisite.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-400 transition-colors">ServiSite</a></p>
         </div>
