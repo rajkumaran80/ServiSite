@@ -29,6 +29,7 @@ param vapidSubject string
 param twilioAccountSid string
 param twilioWhatsappFrom string = 'whatsapp:+14155238886'
 param superadminAlertEmail string
+param mediaCdnUrl string = ''
 
 // Helper: extract Key Vault name from URI (e.g. https://servisiteprodkv.vault.azure.net/)
 var kvName = split(split(keyVaultUri, '/')[2], '.')[0]
@@ -89,6 +90,7 @@ resource backend 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'AZURE_STORAGE_CONTAINER_NAME', value: 'servisite-media' }
         { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
         { name: 'AZURE_STORAGE_SAS_EXPIRY_HOURS', value: '24' }
+        { name: 'AZURE_CDN_URL', value: mediaCdnUrl }
         // ── JWT ───────────────────────────────────────────────────────────────
         { name: 'JWT_ACCESS_EXPIRY', value: '15m' }
         { name: 'JWT_REFRESH_EXPIRY', value: '7d' }

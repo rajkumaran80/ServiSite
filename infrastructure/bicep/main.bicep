@@ -92,15 +92,12 @@ param twilioWhatsappFrom string = 'whatsapp:+14155238886'
 @description('Email address for superadmin platform alerts')
 param superadminAlertEmail string = 'admin@servisite.co.uk'
 
-@description('Stripe publishable key (pk_live_...) — baked into frontend Docker image')
-param nextPublicStripePublishableKey string
+@description('Azure Front Door CDN URL for media delivery (e.g. https://servisitemedia-xxxx.azurefd.net)')
+param mediaCdnUrl string = ''
 
 @description('Google Places API key — for fetching Google Reviews on tenant home pages')
 @secure()
 param googlePlacesApiKey string
-
-@description('Google OAuth client ID for frontend — same value as googleClientId')
-param nextPublicGoogleClientId string
 
 @description('Azure Container Registry login server (e.g. servisite.azurecr.io)')
 param acrLoginServer string
@@ -211,8 +208,7 @@ module appservice 'modules/appservice.bicep' = {
     twilioAccountSid: twilioAccountSid
     twilioWhatsappFrom: twilioWhatsappFrom
     superadminAlertEmail: superadminAlertEmail
-    nextPublicGoogleClientId: nextPublicGoogleClientId
-    nextPublicStripePublishableKey: nextPublicStripePublishableKey
+    mediaCdnUrl: mediaCdnUrl
   }
 }
 
