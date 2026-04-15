@@ -3,6 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
 import { SuperAdminService } from './superadmin.service';
+import { CloudflareService } from '../tenant/cloudflare.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TenantType, TenantStatus } from '@prisma/client';
 
@@ -11,7 +12,10 @@ import { TenantType, TenantStatus } from '@prisma/client';
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 @ApiBearerAuth()
 export class SuperAdminController {
-  constructor(private readonly service: SuperAdminService) {}
+  constructor(
+    private readonly service: SuperAdminService,
+    private readonly cloudflare: CloudflareService,
+  ) {}
 
   @Get('stats')
   @ApiOperation({ summary: 'Platform stats' })
@@ -46,6 +50,20 @@ export class SuperAdminController {
   ) {
     await this.service.setTenantPricingOverride(id, body && Object.keys(body).length > 0 ? body : null);
     return { success: true, message: 'Tenant pricing override updated' };
+  }
+
+  @Post('cloudflare/rate-limiting')
+  @ApiOperation({ summary: 'Apply rate limiting rules to Cloudflare zone' })
+  async setupRateLimiting() {
+    const result = await this.cloudflare.setupRateLimiting();
+    return { data: result, success: true, message: `${result.rulesApplied} rate limiting rules applied` };
+  }
+
+  @Get('cloudflare/rate-limiting')
+  @ApiOperation({ summary: 'Get current Cloudflare rate limiting rules' })
+  async getRateLimiting() {
+    const rules = await this.cloudflare.getRateLimitingRules();
+    return { data: rules, success: true };
   }
 
   @Get('tenants')

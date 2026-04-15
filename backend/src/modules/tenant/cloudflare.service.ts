@@ -294,4 +294,85 @@ export class CloudflareService {
       this.logger.warn(`Failed to delete Cloudflare custom hostname ${id}: ${JSON.stringify(data.errors)}`);
     }
   }
+
+  // ── Rate Limiting ─────────────────────────────────────────────────────────
+
+  /**
+   * Set up rate limiting rules on the ServiSite zone.
+   * Safe to call multiple times — replaces the entire ruleset each time.
+   *
+   * Rules applied:
+   *  - Auth endpoints (login, forgot-password, reset-password): 10 req / 60s per IP → block 10 min
+   *  - Registration endpoint: 5 req / 60s per IP → block 1 hour
+   *  - API global: 300 req / 60s per IP → block 1 min
+   */
+  async setupRateLimiting(): Promise<{ rulesApplied: number }> {
+    if (!this.apiToken || !this.zoneId) {
+      throw new Error('Cloudflare credentials not configured');
+    }
+
+    const rules = [
+      {
+        description: 'Auth endpoints — brute force protection',
+        expression: '(http.request.uri.path matches "^/api/v1/auth/(login|forgot-password|reset-password|resend-verification)$")',
+        ratelimit: {
+          characteristics: ['ip.src'],
+          period: 60,
+          requests_per_period: 10,
+          mitigation_timeout: 600, // block for 10 minutes
+        },
+        action: 'block',
+      },
+      {
+        description: 'Registration endpoint — signup abuse protection',
+        expression: '(http.request.uri.path eq "/api/v1/tenants/register" or http.request.uri.path eq "/api/v1/auth/register")',
+        ratelimit: {
+          characteristics: ['ip.src'],
+          period: 60,
+          requests_per_period: 5,
+          mitigation_timeout: 3600, // block for 1 hour
+        },
+        action: 'block',
+      },
+      {
+        description: 'API global rate limit',
+        expression: '(http.request.uri.path matches "^/api/")',
+        ratelimit: {
+          characteristics: ['ip.src'],
+          period: 60,
+          requests_per_period: 300,
+          mitigation_timeout: 60,
+        },
+        action: 'block',
+      },
+    ];
+
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.zoneId}/rulesets/phases/http_ratelimit/entrypoint`,
+      {
+        method: 'PUT',
+        headers: this.headers,
+        body: JSON.stringify({ rules }),
+      },
+    );
+
+    const data = await res.json() as any;
+    if (!data.success) {
+      throw new Error(`Cloudflare rate limit setup error: ${JSON.stringify(data.errors)}`);
+    }
+
+    this.logger.log(`Rate limiting configured: ${rules.length} rules applied to zone ${this.zoneId}`);
+    return { rulesApplied: rules.length };
+  }
+
+  /** Get current rate limiting rules on the zone. */
+  async getRateLimitingRules(): Promise<any[]> {
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.zoneId}/rulesets/phases/http_ratelimit/entrypoint`,
+      { headers: this.headers },
+    );
+    const data = await res.json() as any;
+    if (!data.success) return [];
+    return data.result?.rules ?? [];
+  }
 }

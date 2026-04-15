@@ -59,6 +59,16 @@ class SuperAdminService {
     return res.data.data;
   }
 
+  async setupRateLimiting(): Promise<{ rulesApplied: number }> {
+    const res = await api.post<{ data: { rulesApplied: number } }>('/superadmin/cloudflare/rate-limiting');
+    return res.data.data;
+  }
+
+  async getRateLimitingRules(): Promise<any[]> {
+    const res = await api.get<{ data: any[] }>('/superadmin/cloudflare/rate-limiting');
+    return res.data.data;
+  }
+
   async getPricing(): Promise<{ registrationFee: number; basicMonthly: number; orderingMonthly: number }> {
     const res = await api.get<{ data: any }>('/superadmin/pricing');
     return res.data.data;

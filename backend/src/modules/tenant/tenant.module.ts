@@ -11,6 +11,6 @@ import { NotificationsModule } from '../../common/notifications/notifications.mo
   imports: [AuthModule, BillingModule, NotificationsModule],
   controllers: [TenantController],
   providers: [TenantService, CloudflareService, AzureAppServiceService],
-  exports: [TenantService],
+  exports: [TenantService, CloudflareService],
 })
 export class TenantModule {}

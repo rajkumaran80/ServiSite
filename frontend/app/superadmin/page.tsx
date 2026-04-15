@@ -429,6 +429,76 @@ function DeleteTenantModal({
   );
 }
 
+// ─── Cloudflare Card ──────────────────────────────────────────────────────────
+
+function CloudflareCard() {
+  const [applying, setApplying] = useState(false);
+  const [rules, setRules] = useState<any[] | null>(null);
+  const [loadingRules, setLoadingRules] = useState(false);
+
+  const handleApply = async () => {
+    if (!confirm('Apply rate limiting rules to Cloudflare? This will replace any existing rules in the http_ratelimit phase.')) return;
+    setApplying(true);
+    try {
+      const result = await superAdminService.setupRateLimiting();
+      toast.success(`${result.rulesApplied} rate limiting rules applied to Cloudflare`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to apply rules');
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleCheck = async () => {
+    setLoadingRules(true);
+    try {
+      const r = await superAdminService.getRateLimitingRules();
+      setRules(r);
+    } catch {
+      toast.error('Failed to fetch rules');
+    } finally {
+      setLoadingRules(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Cloudflare Rate Limiting</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Auth: 10 req/min · Registration: 5 req/min · API: 300 req/min — all per IP</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={handleCheck} disabled={loadingRules}
+            className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl text-sm font-medium transition-colors disabled:opacity-50">
+            {loadingRules ? 'Loading...' : 'Check Rules'}
+          </button>
+          <button onClick={handleApply} disabled={applying}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors">
+            {applying ? 'Applying...' : 'Apply Rules'}
+          </button>
+        </div>
+      </div>
+      {rules !== null && (
+        <div className="mt-2 bg-gray-50 rounded-xl p-4 text-xs font-mono text-gray-700 overflow-x-auto max-h-48 overflow-y-auto">
+          {rules.length === 0
+            ? <span className="text-gray-400">No rate limiting rules configured</span>
+            : rules.map((r, i) => (
+                <div key={i} className="mb-2 pb-2 border-b border-gray-200 last:border-0">
+                  <span className="font-semibold text-gray-900">{r.description || `Rule ${i + 1}`}</span>
+                  <div className="text-gray-500 mt-0.5">{r.expression}</div>
+                  <div className="text-green-700 mt-0.5">
+                    {r.ratelimit?.requests_per_period} req/{r.ratelimit?.period}s → block {r.ratelimit?.mitigation_timeout}s
+                  </div>
+                </div>
+              ))
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Pricing Config Card ──────────────────────────────────────────────────────
 
 function PricingCard() {
@@ -804,6 +874,9 @@ export default function SuperAdminPage() {
             </div>
           ))}
         </div>
+
+        {/* Cloudflare */}
+        <CloudflareCard />
 
         {/* Global Pricing */}
         <PricingCard />
