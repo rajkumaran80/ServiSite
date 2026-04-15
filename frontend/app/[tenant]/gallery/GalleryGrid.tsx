@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import type { GalleryImage } from '../../../types/tenant.types';
 
-function isVideo(url: string) {
-  return /\.(mp4|webm|mov)(\?|$)/i.test(url);
+function isVideoItem(item: GalleryImage) {
+  // Prefer the stored mediaType field (reliable); fall back to URL sniffing for legacy rows.
+  if (item.mediaType) return item.mediaType === 'video';
+  return /\.(mp4|webm|mov)(\?|$)/i.test(item.url);
 }
 
 function Lightbox({
@@ -18,17 +20,18 @@ function Lightbox({
   onClose: () => void;
 }) {
   const [current, setCurrent] = useState(index);
+  const [buffering, setBuffering] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const prev = useCallback(() => setCurrent((c) => (c - 1 + items.length) % items.length), [items.length]);
   const next = useCallback(() => setCurrent((c) => (c + 1) % items.length), [items.length]);
 
-  // Reset video when slide changes
+  // When slide changes to a video, reset + autoplay
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.load();
-      videoRef.current.play().catch(() => {});
-    }
+    if (!videoRef.current) return;
+    setBuffering(true);
+    videoRef.current.load();
+    videoRef.current.play().catch(() => {});
   }, [current]);
 
   useEffect(() => {
@@ -42,7 +45,7 @@ function Lightbox({
   }, [onClose, prev, next]);
 
   const item = items[current];
-  const itemIsVideo = isVideo(item.url);
+  const itemIsVideo = isVideoItem(item);
 
   return (
     <div
@@ -75,13 +78,26 @@ function Lightbox({
         onClick={(e) => e.stopPropagation()}
       >
         {itemIsVideo ? (
-          <video
-            ref={videoRef}
-            src={item.url}
-            controls
-            autoPlay
-            className="max-h-[80vh] max-w-full rounded-xl object-contain"
-          />
+          <div className="relative w-full flex items-center justify-center">
+            {buffering && (
+              <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+              </div>
+            )}
+            <video
+              ref={videoRef}
+              key={item.url}
+              src={item.url}
+              controls
+              autoPlay
+              preload="auto"
+              playsInline
+              className="max-h-[80vh] max-w-full rounded-xl object-contain"
+              onCanPlay={() => setBuffering(false)}
+              onWaiting={() => setBuffering(true)}
+              onPlaying={() => setBuffering(false)}
+            />
+          </div>
         ) : (
           <div className="relative max-h-[80vh] max-w-full">
             <img
@@ -131,7 +147,7 @@ export default function GalleryGrid({ images, tenantName }: { images: GalleryIma
     <>
       <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
         {images.map((image, idx) => {
-          const itemIsVideo = isVideo(image.url);
+          const itemIsVideo = isVideoItem(image);
           return (
             <div
               key={image.id}
@@ -141,6 +157,7 @@ export default function GalleryGrid({ images, tenantName }: { images: GalleryIma
               <div className="relative overflow-hidden">
                 {itemIsVideo ? (
                   <div className="relative bg-black">
+                    {/* preload="metadata" fetches just enough to show the first frame */}
                     <video
                       src={image.url}
                       muted

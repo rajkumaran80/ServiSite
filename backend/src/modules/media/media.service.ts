@@ -49,6 +49,7 @@ export class MediaService implements OnModuleInit {
   private readonly logger = new Logger(MediaService.name);
   private blobServiceClient: BlobServiceClient;
   private containerName: string;
+  private cdnUrl: string | null;
 
   constructor(
     private readonly configService: ConfigService,
@@ -63,6 +64,9 @@ export class MediaService implements OnModuleInit {
       'AZURE_STORAGE_CONTAINER_NAME',
       'servisite-media',
     );
+    // Optional CDN endpoint, e.g. https://servisitemedia.azureedge.net
+    // When set, blob URLs are rewritten to CDN URLs for faster delivery.
+    this.cdnUrl = configService.get<string>('AZURE_CDN_URL', '') || null;
 
     if (connectionString) {
       this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
@@ -158,10 +162,7 @@ export class MediaService implements OnModuleInit {
       },
     });
 
-    const url = blockBlobClient.url;
-
-    // Generate SAS URL for time-limited access (optional - for private containers)
-    // const sasUrl = await this.generateSasUrl(blobName);
+    const url = this.toCdnUrl(blockBlobClient.url);
 
     this.logger.log(`Uploaded file: ${blobName} for tenant: ${tenantId}`);
 
@@ -397,12 +398,31 @@ export class MediaService implements OnModuleInit {
     );
 
     return {
-      url: blockBlobClient.url,
+      url: this.toCdnUrl(blockBlobClient.url),
       blobName,
       mediaType: isImage ? 'image' : 'video',
       contentType,
       size: optimizedSize,
     };
+  }
+
+  /**
+   * Rewrite a blob.core.windows.net URL to the CDN endpoint when AZURE_CDN_URL is set.
+   * Example: https://account.blob.core.windows.net/container/blob
+   *       -> https://servisitemedia.azureedge.net/container/blob
+   */
+  private toCdnUrl(blobUrl: string): string {
+    if (!this.cdnUrl) return blobUrl;
+    try {
+      const u = new URL(blobUrl);
+      const cdn = new URL(this.cdnUrl);
+      u.hostname = cdn.hostname;
+      u.protocol = cdn.protocol;
+      u.port = cdn.port;
+      return u.toString();
+    } catch {
+      return blobUrl;
+    }
   }
 
   async deleteGalleryBlob(blobName: string, fileSize: number, tenantId: string): Promise<void> {

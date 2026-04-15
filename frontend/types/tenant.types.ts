@@ -63,6 +63,7 @@ export interface GalleryImage {
   url: string;
   caption: string | null;
   sortOrder: number;
+  mediaType?: string;
   createdAt: string;
 }
 

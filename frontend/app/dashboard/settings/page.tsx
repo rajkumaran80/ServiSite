@@ -448,6 +448,7 @@ export default function SettingsPage() {
 
       {/* Business Settings */}
       {activeSection === 'business' && (
+        <>
         <form onSubmit={tenantForm.handleSubmit(handleSaveBusiness)} className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
             <h2 className="font-semibold text-gray-900">Business Information</h2>
@@ -711,6 +712,7 @@ export default function SettingsPage() {
             Save Opening Times
           </button>
         </div>
+        </>
       )}
 
       {/* Branding */}
