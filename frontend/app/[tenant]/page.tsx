@@ -572,12 +572,39 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                   </div>
                 )}
               </div>
-              <div className="flex flex-col items-center justify-center">
-                <Link href="/contact"
-                  className="inline-flex items-center gap-2 border border-white/20 hover:border-white/50 text-white/70 hover:text-white text-sm px-5 py-3 rounded-xl transition-colors">
-                  View Contact Page →
-                </Link>
-              </div>
+              {/* Opening Hours */}
+              {(() => {
+                const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+                const SHORT: Record<string,string> = { monday:'Mon',tuesday:'Tue',wednesday:'Wed',thursday:'Thu',friday:'Fri',saturday:'Sat',sunday:'Sun' };
+                const raw = (tenant.contactInfo as any)?.openingHours as Record<string,any> | null;
+                if (!raw || Object.keys(raw).length === 0) return null;
+                const fmt = (t: string) => { if (!t) return ''; const [h,m] = t.split(':').map(Number); const ap = h>=12?'pm':'am'; const h12 = h===0?12:h>12?h-12:h; return m===0?`${h12}${ap}`:`${h12}:${String(m).padStart(2,'0')}${ap}`; };
+                const parsed: Record<string,{open:string;close:string;closed:boolean}> = {};
+                for (const d of DAYS) { const v = raw[d]; if (!v) continue; if (typeof v==='object') parsed[d]=v; else parsed[d]={ open:v, close:'', closed: v.toLowerCase()==='closed' }; }
+                const days = DAYS.filter(d => d in parsed);
+                if (days.length === 0) return null;
+                const key = (d: string) => { const e=parsed[d]; return e.closed?'closed':`${e.open}|${e.close}`; };
+                const groups: {days:string[];k:string}[] = [];
+                for (const d of days) { const k=key(d); const last=groups[groups.length-1]; if (last&&last.k===k) last.days.push(d); else groups.push({days:[d],k}); }
+                return (
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-widest mb-5" style={{ color: primaryColor }}>Opening Hours</p>
+                    <div className="space-y-2">
+                      {groups.map(({days:gd,k}) => {
+                        const label = gd.length===1 ? SHORT[gd[0]] : `${SHORT[gd[0]]} – ${SHORT[gd[gd.length-1]]}`;
+                        const e = parsed[gd[0]];
+                        const hrs = k==='closed' ? 'Closed' : e.close ? `${fmt(e.open)} – ${fmt(e.close)}` : e.open;
+                        return (
+                          <div key={label} className="flex justify-between items-center gap-8 py-2 border-b border-white/10 last:border-0">
+                            <span className="text-white/60 text-sm">{label}</span>
+                            <span className={`text-sm font-medium ${k==='closed'?'text-red-400':'text-white'}`}>{hrs}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </section>
