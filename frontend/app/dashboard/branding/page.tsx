@@ -16,6 +16,8 @@ import {
   getAllTemplates,
   getPageTemplate,
   getBusinessPreset,
+  resolveDesignTokens,
+  type DesignTokens,
 } from '../../../config/page-templates';
 import { revalidateTenantCache } from '../settings/actions';
 
@@ -28,13 +30,85 @@ type BrandingForm = z.infer<typeof brandingSchema>;
 
 const FONTS = ['Inter', 'Playfair Display', 'Montserrat', 'Quicksand', 'Roboto', 'Georgia', 'system-ui'];
 
-type Tab = 'template' | 'banner' | 'logo' | 'colors';
+interface ColorPalette {
+  name: string;
+  primary: string;
+  secondary: string;
+}
+
+const COLOR_PALETTES: ColorPalette[] = [
+  { name: 'Ocean Blue',    primary: '#1D4ED8', secondary: '#1E40AF' },
+  { name: 'Sky',           primary: '#0EA5E9', secondary: '#0284C7' },
+  { name: 'Midnight',      primary: '#1E293B', secondary: '#0F172A' },
+  { name: 'Emerald',       primary: '#059669', secondary: '#047857' },
+  { name: 'Forest',        primary: '#166534', secondary: '#14532D' },
+  { name: 'Sage',          primary: '#4ADE80', secondary: '#16A34A' },
+  { name: 'Crimson',       primary: '#DC2626', secondary: '#991B1B' },
+  { name: 'Rose',          primary: '#E11D48', secondary: '#BE123C' },
+  { name: 'Coral',         primary: '#F97316', secondary: '#EA580C' },
+  { name: 'Amber',         primary: '#D97706', secondary: '#B45309' },
+  { name: 'Gold',          primary: '#C4A35A', secondary: '#A0843E' },
+  { name: 'Bronze',        primary: '#BE8A60', secondary: '#A0714A' },
+  { name: 'Purple',        primary: '#7C3AED', secondary: '#6D28D9' },
+  { name: 'Violet',        primary: '#A855F7', secondary: '#7C3AED' },
+  { name: 'Pink',          primary: '#EC4899', secondary: '#DB2777' },
+  { name: 'Teal',          primary: '#0D9488', secondary: '#0F766E' },
+  { name: 'Slate',         primary: '#475569', secondary: '#334155' },
+  { name: 'Charcoal',      primary: '#374151', secondary: '#1F2937' },
+  { name: 'Warm Brown',    primary: '#92400E', secondary: '#78350F' },
+  { name: 'Near Black',    primary: '#09090B', secondary: '#27272A' },
+];
+
+type Tab = 'template' | 'banner' | 'logo' | 'colors' | 'style';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'template', label: 'Template', icon: '🎨' },
-  { id: 'banner',   label: 'Banner',   icon: '🖼️' },
+  { id: 'template', label: 'Template',   icon: '🎨' },
+  { id: 'banner',   label: 'Banner',     icon: '🖼️' },
   { id: 'logo',     label: 'Logo & Font', icon: '✏️' },
-  { id: 'colors',   label: 'Colors',   icon: '🎭' },
+  { id: 'colors',   label: 'Colors',     icon: '🎭' },
+  { id: 'style',    label: 'Style',      icon: '✦' },
+];
+
+const RADIUS_OPTIONS = [
+  { label: 'Sharp',   value: '0px' },
+  { label: 'Soft',    value: '8px' },
+  { label: 'Rounded', value: '16px' },
+  { label: 'Pill',    value: '24px' },
+];
+
+const TYPOGRAPHY_STYLES = [
+  {
+    id: 'elegant',
+    label: 'Elegant',
+    tagline: 'Fine dining & steakhouse',
+    font: 'Playfair Display',
+    preview: 'La Maison',
+    style: { fontFamily: "'Playfair Display', Georgia, serif", fontStyle: 'italic' as const },
+  },
+  {
+    id: 'modern',
+    label: 'Modern',
+    tagline: 'Trendy café & brunch',
+    font: 'Montserrat',
+    preview: 'Urban Grind',
+    style: { fontFamily: "'Montserrat', system-ui, sans-serif", fontWeight: 800 },
+  },
+  {
+    id: 'cozy',
+    label: 'Cozy',
+    tagline: 'Local bakery & coffee shop',
+    font: 'Quicksand',
+    preview: 'The Corner Bake',
+    style: { fontFamily: "'Quicksand', system-ui, sans-serif", fontWeight: 600 },
+  },
+  {
+    id: 'classic',
+    label: 'Classic',
+    tagline: 'Traditional & timeless',
+    font: 'Georgia',
+    preview: 'The Old Tavern',
+    style: { fontFamily: "Georgia, serif" },
+  },
 ];
 
 export default function BrandingPage() {
@@ -47,6 +121,11 @@ export default function BrandingPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('grande');
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [showAllTemplates, setShowAllTemplates] = useState(false);
+
+  // Design token state
+  const [designTokens, setDesignTokens] = useState<DesignTokens>({ radius: '16px', glassEffect: false });
+  const [fontStyle, setFontStyle] = useState<string>('modern');
+  const [isSavingStyle, setIsSavingStyle] = useState(false);
 
   // Media state
   const [logoUrl, setLogoUrl] = useState('');
@@ -68,6 +147,8 @@ export default function BrandingPage() {
       setTenant(t);
       const ts = t.themeSettings as any || {};
       setSelectedTemplate(ts.pageTemplate || 'grande');
+      setDesignTokens(resolveDesignTokens(ts.pageTemplate, ts.designTokens));
+      setFontStyle(ts.fontStyle || 'modern');
       setLogoUrl(t.logo || '');
       const stored = ts.bannerImages;
       setBannerUrls(Array.isArray(stored) && stored.length ? stored : t.banner ? [t.banner] : []);
@@ -132,6 +213,30 @@ export default function BrandingPage() {
       toast.error('Failed to save');
     } finally {
       setIsSavingMedia(false);
+    }
+  };
+
+  const handleSaveStyle = async () => {
+    if (!tenant) return;
+    setIsSavingStyle(true);
+    try {
+      const ts = tenant.themeSettings as any || {};
+      const selectedTypo = TYPOGRAPHY_STYLES.find((t) => t.id === fontStyle);
+      const updated = await tenantService.update(tenant.id, {
+        themeSettings: {
+          ...ts,
+          designTokens,
+          fontStyle,
+          fontFamily: selectedTypo?.font || ts.fontFamily,
+        },
+      });
+      setTenant(updated);
+      await revalidateTenantCache(tenant.slug);
+      toast.success('Style saved');
+    } catch {
+      toast.error('Failed to save style');
+    } finally {
+      setIsSavingStyle(false);
     }
   };
 
@@ -421,84 +526,229 @@ export default function BrandingPage() {
 
       {/* ── COLORS TAB ────────────────────────────────────────────────────── */}
       {activeTab === 'colors' && (
-        <form onSubmit={form.handleSubmit(handleSaveBrandingColors)} className="space-y-6">
+        <div className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
-            <h2 className="font-semibold text-gray-900 mb-1">Brand Colors</h2>
-            <p className="text-sm text-gray-500">
-              These override the template's default colours. Changing the template resets these to the industry preset.
-            </p>
-
-            <div className="grid sm:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Primary Color</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    {...form.register('primaryColor')}
-                    className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5 bg-white"
-                  />
-                  <input
-                    type="text"
-                    value={form.watch('primaryColor')}
-                    onChange={(e) => form.setValue('primaryColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="#3B82F6"
-                  />
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Used for buttons, links and accents</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Secondary Color</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    {...form.register('secondaryColor')}
-                    className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5 bg-white"
-                  />
-                  <input
-                    type="text"
-                    value={form.watch('secondaryColor')}
-                    onChange={(e) => form.setValue('secondaryColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="#1E40AF"
-                  />
-                </div>
-                <p className="text-xs text-gray-400 mt-1">Used for hover states and gradients</p>
-              </div>
+            <div>
+              <h2 className="font-semibold text-gray-900 mb-1">Brand Colour</h2>
+              <p className="text-sm text-gray-500">
+                Pick a palette — it sets your primary and accent colours automatically. Changing the template resets this to the industry default.
+              </p>
             </div>
 
-            {/* Live preview swatch */}
-            <div className="rounded-xl overflow-hidden border border-gray-100 mt-2">
-              <div className="h-12 flex items-center justify-between px-5"
-                style={{ backgroundColor: form.watch('primaryColor') }}>
-                <span className="text-white text-sm font-semibold">Preview navbar</span>
-                <div className="flex gap-1.5">
-                  {[1,2,3].map(i => <div key={i} className="w-10 h-1.5 bg-white/40 rounded" />)}
-                </div>
-              </div>
-              <div className="h-16 flex items-center gap-3 px-5 bg-white border-t border-gray-100">
-                <div className="px-4 py-1.5 rounded-lg text-white text-sm font-medium"
-                  style={{ backgroundColor: form.watch('primaryColor') }}>
-                  {getBusinessPreset(tenant?.type)?.ctaLabel || 'Book Now'}
-                </div>
-                <div className="px-4 py-1.5 rounded-lg text-sm font-medium border"
-                  style={{ color: form.watch('primaryColor'), borderColor: form.watch('primaryColor') + '40' }}>
-                  Learn More
-                </div>
-              </div>
+            {/* Palette grid */}
+            <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+              {COLOR_PALETTES.map((palette) => {
+                const isSelected = form.watch('primaryColor').toLowerCase() === palette.primary.toLowerCase();
+                return (
+                  <button
+                    key={palette.primary}
+                    type="button"
+                    title={palette.name}
+                    onClick={() => {
+                      form.setValue('primaryColor', palette.primary);
+                      form.setValue('secondaryColor', palette.secondary);
+                    }}
+                    className={`group relative flex flex-col items-center gap-1.5 transition-all`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full border-4 transition-all ${
+                        isSelected
+                          ? 'border-gray-900 scale-110 shadow-lg'
+                          : 'border-transparent hover:border-gray-300 hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: palette.primary }}
+                    >
+                      {isSelected && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[9px] text-gray-500 leading-tight text-center hidden sm:block">{palette.name}</span>
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Selected palette name + swatch strip */}
+            {(() => {
+              const selected = COLOR_PALETTES.find(
+                (p) => p.primary.toLowerCase() === form.watch('primaryColor').toLowerCase()
+              );
+              return selected ? (
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="flex gap-1">
+                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: selected.primary }} />
+                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: selected.secondary }} />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{selected.name}</span>
+                  <span className="text-xs text-gray-400 font-mono">{selected.primary}</span>
+                </div>
+              ) : null;
+            })()}
+
+            {/* Live preview — smart contrast */}
+            {(() => {
+              const pc = form.watch('primaryColor');
+              const { mainText, secondaryText, buttonBg, buttonText, isLight } = (() => {
+                const clean = pc.replace('#', '');
+                const r = parseInt(clean.slice(0, 2), 16);
+                const g = parseInt(clean.slice(2, 4), 16);
+                const b = parseInt(clean.slice(4, 6), 16);
+                const light = (0.299 * r + 0.587 * g + 0.114 * b) > 153;
+                return {
+                  mainText: light ? '#1A1A1A' : '#FFFFFF',
+                  secondaryText: light ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.7)',
+                  buttonBg: light ? '#111111' : '#FFFFFF',
+                  buttonText: light ? '#FFFFFF' : '#111111',
+                  isLight: light,
+                };
+              })();
+              return (
+                <div className="rounded-xl overflow-hidden border border-gray-100">
+                  <div className="h-14 flex items-center justify-between px-5" style={{ backgroundColor: pc }}>
+                    <span className="text-sm font-bold" style={{ color: mainText }}>Your Café Name</span>
+                    <div className="flex gap-3">
+                      {['Menu', 'About', 'Contact'].map(l => (
+                        <span key={l} className="text-xs font-medium" style={{ color: secondaryText }}>{l}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-16 flex items-center gap-3 px-5 bg-white border-t border-gray-100">
+                    <div className="px-4 py-1.5 rounded-lg text-sm font-semibold"
+                      style={{ backgroundColor: buttonBg, color: buttonText }}>
+                      {getBusinessPreset(tenant?.type)?.ctaLabel || 'Book Now'}
+                    </div>
+                    <div className="px-4 py-1.5 rounded-lg text-sm font-medium border"
+                      style={{ color: pc, borderColor: pc + '50' }}>
+                      Learn More
+                    </div>
+                    <span className="ml-auto text-xs text-gray-400">
+                      {isLight ? '🌤 Light → dark text' : '🌙 Dark → white text'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           <button
-            type="submit"
+            type="button"
             disabled={isSavingMedia}
+            onClick={form.handleSubmit(handleSaveBrandingColors)}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
           >
             {isSavingMedia && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            Save Colors
+            Save Colour
           </button>
-        </form>
+        </div>
+      )}
+
+      {/* ── STYLE TAB ─────────────────────────────────────────────────────── */}
+      {activeTab === 'style' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-7">
+            <div>
+              <h2 className="font-semibold text-gray-900">Fine-tune the Look</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Applied on top of your template — changes take effect instantly on your site.</p>
+            </div>
+
+            {/* Typography Style */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Typography Style</label>
+              <p className="text-xs text-gray-400 mb-3">Sets the heading font across your whole site. Each style is curated to match a type of venue.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {TYPOGRAPHY_STYLES.map((typo) => (
+                  <button
+                    key={typo.id}
+                    type="button"
+                    onClick={() => setFontStyle(typo.id)}
+                    className={`flex flex-col items-start gap-2 p-4 rounded-xl border-2 text-left transition-all ${
+                      fontStyle === typo.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-lg leading-tight text-gray-800" style={typo.style}>{typo.preview}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">{typo.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{typo.tagline}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Corner Radius */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Corner Radius</label>
+              <div className="flex gap-2 flex-wrap">
+                {RADIUS_OPTIONS.map(({ label, value }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setDesignTokens((t) => ({ ...t, radius: value }))}
+                    className={`flex flex-col items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                      designTokens.radius === value
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    <div
+                      className="w-10 h-10 bg-gray-200"
+                      style={{ borderRadius: value }}
+                    />
+                    {label}
+                    <span className="text-xs text-gray-400 font-mono">{value}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Glass Effect */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-700">Glass Cards</p>
+                <p className="text-xs text-gray-400 mt-0.5">Frosted glass look on menu/service cards. Works best on dark or coloured backgrounds.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDesignTokens((t) => ({ ...t, glassEffect: !t.glassEffect }))}
+                className={`relative w-12 h-6 rounded-full transition-colors flex-shrink-0 ${
+                  designTokens.glassEffect ? 'bg-blue-600' : 'bg-gray-300'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  designTokens.glassEffect ? 'translate-x-6' : ''
+                }`} />
+              </button>
+            </div>
+
+            {/* Glass preview */}
+            {designTokens.glassEffect && (
+              <div className="rounded-xl p-4 bg-gradient-to-br from-blue-600 to-purple-700">
+                <div className="rounded-lg p-4" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.22)' }}>
+                  <div className="w-full h-24 rounded bg-white/10 mb-2" />
+                  <div className="h-3 w-2/3 rounded bg-white/40 mb-1.5" />
+                  <div className="h-3 w-1/3 rounded bg-white/25" />
+                </div>
+                <p className="text-white/60 text-xs mt-2 text-center">Glass card preview</p>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            disabled={isSavingStyle}
+            onClick={handleSaveStyle}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            {isSavingStyle && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Save Style
+          </button>
+        </div>
       )}
 
     </div>

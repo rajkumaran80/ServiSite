@@ -76,6 +76,65 @@ const WhatsAppIcon = () => (
   </svg>
 );
 
+// ── HERO IDENTITY ───────────────────────────────────────────────────────────
+// Shows logo if uploaded; otherwise renders a decorated typographic name.
+const HeroIdentity: React.FC<{
+  tenant: Tenant;
+  primaryColor: string;
+  fontFamily: string;
+  dark?: boolean;   // true = white text (dark bg), false = dark text (light bg)
+  center?: boolean; // centre-align everything
+}> = ({ tenant, primaryColor, fontFamily, dark = true, center = false }) => {
+  const textColor = dark ? '#ffffff' : '#1c1008';
+  const subColor = dark ? 'rgba(255,255,255,0.5)' : `${primaryColor}99`;
+  const align = center ? 'items-center justify-center' : 'items-center';
+
+  if (tenant.logo) {
+    return (
+      <div className={`mb-6 flex ${center ? 'justify-center' : ''}`}>
+        <img
+          src={tenant.logo}
+          alt={`${tenant.name} logo`}
+          className="h-20 w-auto object-contain drop-shadow-lg"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mb-6 select-none ${center ? 'text-center' : ''}`}>
+      {/* Eyebrow */}
+      {tenant.contactInfo?.city && (
+        <div className={`flex ${align} gap-2 mb-3`}>
+          {!center && <div className="h-px w-6 opacity-50" style={{ backgroundColor: primaryColor }} />}
+          <span className="text-[0.65rem] font-bold tracking-[0.3em] uppercase" style={{ color: subColor }}>
+            {tenant.contactInfo.city}
+          </span>
+          {!center && <div className="h-px w-6 opacity-50" style={{ backgroundColor: primaryColor }} />}
+          {center && <div className="h-px w-6 opacity-50" style={{ backgroundColor: primaryColor }} />}
+        </div>
+      )}
+      {/* Main name */}
+      <h1
+        className="font-black leading-[1.0] tracking-tight"
+        style={{
+          fontFamily: `'${fontFamily}', Georgia, serif`,
+          color: textColor,
+          fontSize: 'clamp(2.6rem, 6vw, 5rem)',
+        }}
+      >
+        {tenant.name}
+      </h1>
+      {/* Decorated rule */}
+      <div className={`flex ${align} gap-2 mt-3`}>
+        <div className="h-[2px] w-10 rounded-full" style={{ backgroundColor: primaryColor }} />
+        <span className="text-xs" style={{ color: primaryColor }}>✦</span>
+        <div className="h-px w-5 rounded-full opacity-40" style={{ backgroundColor: primaryColor }} />
+      </div>
+    </div>
+  );
+};
+
 export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, heroStyle = 'dark', primaryColor, fontFamily, socialLinks }) => {
   const tenantBase = ``;
   const ctaLabel = 'View Menu';
@@ -106,17 +165,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         {!hasBanners && (
           <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, #0f172a 0%, ${primaryColor}cc 60%, #0f172a 100%)` }} />
         )}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full">
+        <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-24 w-full">
           <div className="max-w-2xl">
             <span className="inline-block text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest mb-5"
               style={{ backgroundColor: `${primaryColor}bb` }}>
               {typeLabel[tenant.type] || 'Business'}
             </span>
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.05] mb-4 tracking-tight"
-              style={fontFamily === 'Playfair Display' ? { fontFamily: `'Playfair Display', Georgia, serif` } : undefined}>
-              {tenant.name}
-            </h1>
-            <div className="w-20 h-1 rounded-full mb-6" style={{ backgroundColor: primaryColor }} />
+            <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
             {tenant.contactInfo?.city && (
               <p className="text-white/60 text-sm mb-8 flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -170,20 +225,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             </span>
             <div className="h-px w-16 opacity-50" style={{ backgroundColor: primaryColor }} />
           </div>
-          <h1
-            className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight mb-6"
-            style={{ fontFamily: `'${fontFamily}', Georgia, serif`, letterSpacing: '-0.02em' }}
-          >
-            {tenant.name}
-          </h1>
-          <p className="text-white/60 text-base mb-2 italic" style={{ fontFamily: `'${fontFamily}', Georgia, serif` }}>
-            {tenant.contactInfo?.city || 'Fine Dining Experience'}
-          </p>
-          <div className="flex items-center justify-center gap-3 my-8">
-            <div className="h-px flex-1 max-w-[80px]" style={{ backgroundColor: primaryColor }} />
-            <span className="text-xl" style={{ color: primaryColor }}>✦</span>
-            <div className="h-px flex-1 max-w-[80px]" style={{ backgroundColor: primaryColor }} />
-          </div>
+          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} center={true} />
           <div className="flex flex-wrap justify-center gap-4">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3.5 rounded-none border-2 transition-all hover:scale-[1.02] tracking-widest uppercase text-sm"
@@ -208,7 +250,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
   if (heroStyle === 'minimal') {
     return (
       <section className="relative overflow-hidden bg-white border-b-4" style={{ borderColor: primaryColor }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid lg:grid-cols-2 min-h-[560px]">
             <div className="flex flex-col justify-center py-20 pr-0 lg:pr-12">
               <div className="flex items-center gap-3 mb-6">
@@ -217,17 +259,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   {typeLabel[tenant.type] || 'Restaurant'}
                 </span>
               </div>
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-gray-950 leading-[0.95] tracking-tight mb-8">
-                {tenant.name}
-              </h1>
-              {tenant.contactInfo?.city && (
-                <p className="text-gray-400 text-sm mb-8 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {tenant.contactInfo.city}
-                </p>
-              )}
+              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-black px-7 py-3.5 text-base transition-all hover:opacity-90"
@@ -283,22 +315,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         <div className="absolute inset-0 pointer-events-none" style={{
           background: `radial-gradient(ellipse 60% 60% at 20% 50%, ${primaryColor}22 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 80% 30%, ${primaryColor}15 0%, transparent 60%)`
         }} />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-28 w-full">
+        <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-28 w-full">
           <p className="text-xs font-black uppercase tracking-[0.35em] mb-6" style={{ color: primaryColor }}>
             — {typeLabel[tenant.type] || 'Business'} —
           </p>
-          <h1
-            className="text-6xl sm:text-7xl lg:text-8xl font-black text-white leading-[0.9] tracking-tight mb-8"
-            style={{ textShadow: `0 0 40px ${primaryColor}88, 0 0 80px ${primaryColor}44` }}
-          >
-            {tenant.name}
-          </h1>
-          <div className="flex items-center gap-4 mb-8">
-            <div className="h-px w-24" style={{ backgroundColor: primaryColor, boxShadow: `0 0 8px ${primaryColor}` }} />
-            {tenant.contactInfo?.city && (
-              <span className="text-white/50 text-sm tracking-widest">{tenant.contactInfo.city}</span>
-            )}
-          </div>
+          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
           <div className="flex flex-wrap gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 font-bold px-8 py-3.5 rounded-sm text-black text-base transition-all hover:scale-[1.03]"
@@ -336,7 +357,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             overlayStyle={{ background: 'rgba(255,255,255,0.88)' }}
           />
         )}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full">
+        <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-24 w-full">
           <div className="flex items-center gap-6 mb-10">
             <div className="w-10 h-0.5" style={{ backgroundColor: primaryColor }} />
             <span className="text-xs font-black uppercase tracking-[0.3em] text-gray-400">
@@ -349,12 +370,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </>
             )}
           </div>
-          <h1 className="text-7xl sm:text-8xl lg:text-9xl font-black leading-[0.88] tracking-tighter mb-10 text-gray-950">
-            {tenant.name.split(' ').map((word, i) => (
-              <span key={i} className="block">{word}</span>
-            ))}
-          </h1>
-          <div className="w-24 h-1.5 mb-10 rounded-full" style={{ backgroundColor: primaryColor }} />
+          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
           <div className="flex flex-wrap gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-black px-8 py-4 text-base transition-all hover:opacity-90"
@@ -406,17 +422,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             <span className="text-white/80 text-xs font-black uppercase tracking-[0.3em]">{typeLabel[tenant.type] || 'Business'}</span>
             <div className="h-px w-10 bg-white/50" />
           </div>
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight mb-5 drop-shadow-lg">
-            {tenant.name}
-          </h1>
-          {tenant.contactInfo?.city && (
-            <p className="text-white/70 text-base mb-10 flex items-center justify-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              {tenant.contactInfo.city}
-            </p>
-          )}
+          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} center={true} />
           <div className="flex flex-wrap justify-center gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 bg-white font-black px-8 py-3.5 rounded-2xl text-base transition-all hover:scale-[1.03] shadow-xl"
@@ -454,7 +460,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         <div className="h-3 w-full bg-gray-900" />
         <div className="h-1.5 w-full" style={{ backgroundColor: primaryColor }} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid lg:grid-cols-2 min-h-[520px]">
             {/* Left: text */}
             <div className="flex flex-col justify-center py-16 pr-0 lg:pr-12">
@@ -465,15 +471,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 </span>
                 <div className="w-8 h-0.5 bg-gray-900" />
               </div>
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-gray-900 leading-[0.95] tracking-tight mb-4">
-                {tenant.name}
-              </h1>
-              <div className="flex items-center gap-2 mb-8">
-                <div className="w-14 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
-                {tenant.contactInfo?.city && (
-                  <span className="text-sm font-medium text-gray-500">{tenant.contactInfo.city}</span>
-                )}
-              </div>
+              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-black px-7 py-3.5 text-base transition-all hover:opacity-90"
@@ -529,7 +527,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         <div className="absolute inset-0 pointer-events-none opacity-30"
           style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #c8a97044 1px, transparent 0)', backgroundSize: '28px 28px' }} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid lg:grid-cols-2 min-h-[600px] items-center gap-10">
             {/* Left: text */}
             <div className="py-20">
@@ -539,21 +537,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   {typeLabel[tenant.type] || 'Salon'}
                 </span>
               </div>
-              <h1
-                className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-[1.05] mb-5"
-                style={{ fontFamily: `'${fontFamily}', Georgia, serif`, letterSpacing: '-0.02em' }}
-              >
-                {tenant.name}
-              </h1>
-              <div className="w-16 h-px mb-6" style={{ backgroundColor: primaryColor }} />
-              {tenant.contactInfo?.city && (
-                <p className="text-gray-500 text-sm mb-10 flex items-center gap-2">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {tenant.contactInfo.city}
-                </p>
-              )}
+              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3.5 text-sm uppercase tracking-widest transition-all hover:opacity-90"
@@ -613,7 +597,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         <div className="absolute top-0 bottom-0 left-0 w-[42%] pointer-events-none hidden lg:block"
           style={{ background: `linear-gradient(108deg, ${primaryColor}22 0%, ${primaryColor}08 100%)`, clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0 100%)' }} />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full">
+        <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-24 w-full">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 border" style={{ borderColor: primaryColor }}>
               <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }} />
@@ -621,18 +605,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 {typeLabel[tenant.type] || 'Gym'}
               </span>
             </div>
-            <h1
-              className="text-5xl sm:text-7xl lg:text-8xl font-black text-white leading-[0.88] tracking-tighter mb-6"
-              style={{ textShadow: `4px 4px 0 ${primaryColor}44` }}
-            >
-              {tenant.name}
-            </h1>
-            <div className="flex items-center gap-3 mb-8">
-              <div className="h-1 w-20 rounded-full" style={{ backgroundColor: primaryColor }} />
-              {tenant.contactInfo?.city && (
-                <span className="text-white/50 text-sm uppercase tracking-widest">{tenant.contactInfo.city}</span>
-              )}
-            </div>
+            <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
             <div className="flex flex-wrap gap-3">
               <Link href={ctaHref}
                 className="inline-flex items-center gap-2 font-black px-8 py-4 text-white text-base transition-all hover:opacity-90 uppercase tracking-wide"
@@ -671,7 +644,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         <div className="absolute -bottom-10 -left-10 w-56 h-56 rounded-full opacity-10 pointer-events-none"
           style={{ backgroundColor: primaryColor }} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="grid lg:grid-cols-2 min-h-[560px] items-center gap-10">
             {/* Left: text */}
             <div className="py-20">
@@ -681,18 +654,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               >
                 {typeLabel[tenant.type] || 'Café'}
               </span>
-              <h1
-                className="text-5xl sm:text-6xl font-bold leading-[1.1] mb-4"
-                style={{ fontFamily: `'${fontFamily}', Georgia, serif`, color: '#3d2b1f' }}
-              >
-                {tenant.name}
-              </h1>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-1 rounded-full" style={{ backgroundColor: primaryColor }} />
-                {tenant.contactInfo?.city && (
-                  <p className="text-sm font-medium" style={{ color: `${primaryColor}99` }}>{tenant.contactInfo.city}</p>
-                )}
-              </div>
+              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-bold px-7 py-3.5 rounded-full transition-all hover:scale-[1.02] shadow-lg text-base"
@@ -766,21 +728,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           {/* Thin colour rule */}
           <div className="w-14 h-0.5 mb-6" style={{ backgroundColor: primaryColor }} />
 
-          <h1
-            className="text-6xl sm:text-7xl lg:text-8xl font-black text-white leading-[0.9] tracking-tight mb-6"
-            style={{ fontFamily: `'${fontFamily}', Georgia, serif` }}
-          >
-            {tenant.name}
-          </h1>
+          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
 
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-            <div>
-              {tenant.contactInfo?.city && (
-                <p className="text-white/50 text-sm tracking-widest uppercase mb-1">
-                  {tenant.contactInfo.address ? `${tenant.contactInfo.address}, ` : ''}{tenant.contactInfo.city}
-                </p>
-              )}
-            </div>
+            <div />
             <div className="flex flex-wrap gap-3 flex-shrink-0">
               <Link href={ctaHref}
                 className="inline-flex items-center gap-2 text-black font-black px-7 py-3 text-sm uppercase tracking-wider transition-all hover:opacity-90"
@@ -821,17 +772,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           <p className="relative text-white/60 text-xs font-black uppercase tracking-[0.35em] mb-6">
             {typeLabel[tenant.type] || 'Restaurant'}
           </p>
-          <h1 className="relative text-5xl sm:text-6xl font-black text-white leading-[1.0] tracking-tight mb-6">
-            {tenant.name}
-          </h1>
-          {tenant.contactInfo?.city && (
-            <p className="relative text-white/65 text-sm mb-10 flex items-center gap-2">
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              {tenant.contactInfo.city}
-            </p>
-          )}
+          <div className="relative">
+            <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
+          </div>
           <div className="relative flex flex-col sm:flex-row gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center justify-center gap-2 bg-white font-black px-7 py-3.5 text-base transition-all hover:opacity-90"
@@ -903,15 +846,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
             </div>
 
-            <h1 className="text-6xl sm:text-7xl lg:text-8xl font-black text-white leading-[0.88] tracking-tighter mb-4">
-              {tenant.name}
-            </h1>
-
-            {tenant.contactInfo?.city && (
-              <p className="text-white/40 text-xs uppercase tracking-[0.25em] mb-8">
-                {tenant.contactInfo.city}
-              </p>
-            )}
+            <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
 
             <div className="flex flex-wrap gap-3">
               <Link href={ctaHref}
@@ -953,37 +888,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         <div className="absolute top-0 right-[38%] bottom-0 w-px pointer-events-none hidden lg:block"
           style={{ background: `linear-gradient(to bottom, transparent, ${primaryColor}40, transparent)` }} />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 w-full">
           <div className="grid lg:grid-cols-[1fr_auto] gap-16 items-center">
             {/* Text */}
             <div className="py-16">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-black uppercase tracking-wider"
-                  style={{ backgroundColor: primaryColor }}>
-                  {tenant.name.charAt(0)}
-                </div>
+              <div className="flex items-center gap-3 mb-6">
                 <span className="text-xs font-black uppercase tracking-[0.3em] text-gray-400">
                   {typeLabel[tenant.type] || 'Restaurant'}
                 </span>
               </div>
-
-              <h1 className="text-6xl sm:text-7xl lg:text-8xl font-black text-gray-950 leading-[0.88] tracking-tighter mb-8">
-                {tenant.name.split(' ').map((word, i) => (
-                  <span key={i} className={`block ${i % 2 === 1 ? 'ml-12' : ''}`}
-                    style={i % 2 === 1 ? { WebkitTextStroke: `2px ${primaryColor}`, color: 'transparent' } : {}}>
-                    {word}
-                  </span>
-                ))}
-              </h1>
-
-              {tenant.contactInfo?.city && (
-                <p className="text-gray-400 text-sm mb-10 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {tenant.contactInfo.city}
-                </p>
-              )}
+              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
 
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
@@ -1042,24 +956,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         <div className="absolute inset-y-0 left-0 w-full lg:w-[62%] opacity-10 pointer-events-none"
           style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '20px 20px' }} />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 w-full">
           <div className="grid lg:grid-cols-[5fr_4fr] min-h-[640px] items-center gap-12">
             {/* Left: white text on colour */}
             <div className="py-20">
               <p className="text-white/60 text-xs font-black uppercase tracking-[0.35em] mb-8">
                 {typeLabel[tenant.type] || 'Restaurant'} · Est. {new Date().getFullYear()}
               </p>
-              <h1 className="text-6xl sm:text-7xl lg:text-8xl font-black text-white leading-[0.9] tracking-tighter mb-6 drop-shadow-sm">
-                {tenant.name}
-              </h1>
-              {tenant.contactInfo?.city && (
-                <p className="text-white/60 text-sm mb-10 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {tenant.contactInfo.city}
-                </p>
-              )}
+              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 bg-white font-black px-8 py-4 text-base transition-all hover:opacity-90 shadow-xl"
@@ -1116,7 +1020,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         </div>
       )}
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full">
+      <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-24 w-full">
         <div className="max-w-xl">
           <span
             className="inline-block text-xs font-black px-3 py-1.5 rounded-full uppercase tracking-widest mb-5"
@@ -1124,15 +1028,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           >
             {typeLabel[tenant.type] || 'Restaurant'}
           </span>
-          <h1 className="text-5xl sm:text-6xl font-black leading-tight mb-4 text-gray-900">
-            {tenant.name}
-          </h1>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-1 rounded-full" style={{ backgroundColor: primaryColor }} />
-            {tenant.contactInfo?.city && (
-              <p className="text-gray-500 text-sm">{tenant.contactInfo.city}</p>
-            )}
-          </div>
+          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
           <div className="flex flex-wrap gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-bold px-7 py-3.5 rounded-2xl transition-all hover:scale-[1.02] shadow-lg text-base"

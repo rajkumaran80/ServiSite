@@ -4,7 +4,7 @@ import Navbar from '../../components/tenant/Navbar';
 import Footer from '../../components/tenant/Footer';
 import WhatsAppButton from '../../components/tenant/WhatsAppButton';
 import JsonLd from '../../components/tenant/JsonLd';
-import { getPageTemplate } from '../../config/page-templates';
+import { getPageTemplate, resolveDesignTokens } from '../../config/page-templates';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.co.uk';
@@ -109,6 +109,12 @@ export default async function TenantLayout({
   const primaryRgb = hexToRgb(primaryColor);
   const secondaryRgb = hexToRgb(secondaryColor);
 
+  // Resolve design tokens: saved overrides → template defaults
+  const tokens = resolveDesignTokens(
+    (theme as any).pageTemplate,
+    (theme as any).designTokens,
+  );
+
   const canonicalUrl = (tenant as any).customDomain
     ? `https://${(tenant as any).customDomain}`
     : `https://${tenant.slug}.${APP_DOMAIN}`;
@@ -125,6 +131,18 @@ export default async function TenantLayout({
           --body-font: ${buildFontStack(bodyFont)};
           --surface: ${surfaceColor};
           --accent: ${primaryColor};
+          --radius: ${tokens.radius};
+        }
+        .item-card {
+          border-radius: var(--radius);
+          overflow: hidden;
+          ${tokens.glassEffect ? `
+          background: rgba(255,255,255,0.12) !important;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255,255,255,0.22) !important;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+          ` : ''}
         }
       ` }} />
       <div

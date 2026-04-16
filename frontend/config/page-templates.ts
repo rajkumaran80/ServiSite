@@ -1,5 +1,46 @@
 export type BusinessType = 'RESTAURANT' | 'CAFE' | 'BARBER_SHOP' | 'SALON' | 'GYM' | 'REPAIR_SHOP' | 'OTHER';
 
+// ── DESIGN TOKENS ─────────────────────────────────────────────────────────────
+// Per-tenant overrides injected as CSS variables. Applied on top of template defaults.
+export interface DesignTokens {
+  /** Card / button corner radius */
+  radius: string;
+  /** Glassmorphism card effect */
+  glassEffect: boolean;
+}
+
+export const FALLBACK_TOKENS: DesignTokens = {
+  radius: '16px',
+  glassEffect: false,
+};
+
+/** Per-template sensible defaults — overridden by any saved designTokens */
+const TEMPLATE_TOKENS: Record<string, DesignTokens> = {
+  grande:       { radius: '0px',  glassEffect: false },
+  boutique:     { radius: '20px', glassEffect: false },
+  professional: { radius: '8px',  glassEffect: false },
+  urban:        { radius: '4px',  glassEffect: true  },
+  minimalist:   { radius: '0px',  glassEffect: false },
+  cinematic:    { radius: '0px',  glassEffect: false },
+  classic:      { radius: '8px',  glassEffect: false },
+  cozy:         { radius: '20px', glassEffect: false },
+};
+
+export function getTemplateTokenDefaults(templateId?: string | null): DesignTokens {
+  return TEMPLATE_TOKENS[templateId ?? ''] ?? FALLBACK_TOKENS;
+}
+
+export function resolveDesignTokens(
+  templateId?: string | null,
+  saved?: Partial<DesignTokens> | null,
+): DesignTokens {
+  const defaults = getTemplateTokenDefaults(templateId);
+  return {
+    radius:      saved?.radius      ?? defaults.radius,
+    glassEffect: saved?.glassEffect ?? defaults.glassEffect,
+  };
+}
+
 // ── TEMPLATE LAYER ────────────────────────────────────────────────────────────
 // 5 master structural templates. Defines layout bones — hero type, hanging
 // effect, card arrangement, typography DNA. Colours are defaults only;
