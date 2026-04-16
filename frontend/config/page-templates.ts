@@ -1,225 +1,65 @@
+export type BusinessType = 'RESTAURANT' | 'CAFE' | 'BARBER_SHOP' | 'SALON' | 'GYM' | 'REPAIR_SHOP' | 'OTHER';
+
+// ── TEMPLATE LAYER ────────────────────────────────────────────────────────────
+// 5 master structural templates. Defines layout bones — hero type, hanging
+// effect, card arrangement, typography DNA. Colours are defaults only;
+// business presets and manual overrides take priority.
 export interface PageTemplate {
-  id: string;
+  id: 'grande' | 'boutique' | 'professional' | 'urban' | 'minimalist';
   name: string;
   tagline: string;
-  primaryColor: string;
-  secondaryColor: string;
-  fontFamily: string;
-  /** Heading / display font (e.g. 'Playfair Display', 'Montserrat') */
-  headingFont: string;
-  /** Body copy font (e.g. 'Inter', 'Quicksand') */
-  bodyFont: string;
-  /** Surface/card background colour for this template */
-  surfaceColor: string;
+  description: string;
+  // Structural
   heroStyle: 'dark' | 'centered' | 'minimal' | 'light' | 'neon' | 'typographic' | 'sunset' | 'vintage' | 'luxe' | 'power' | 'cozy' | 'magazine' | 'split' | 'cinematic' | 'geometric' | 'bold';
   cardStyle: 'grid' | 'large';
-  /** Tailwind gradient for picker preview card */
+  hangingHero: boolean;
+  showLogo?: boolean;
+  showCategoryGrid?: boolean;
+  // Typography DNA
+  fontFamily: string; // kept for legacy code paths (= headingFont)
+  headingFont: string;
+  bodyFont: string;
+  // Default colours — overridden by business preset then manual override
+  primaryColor: string;
+  secondaryColor: string;
+  surfaceColor: string;
+  // Preview card
   previewGradient: string;
   previewTextColor: string;
-  /** When false, hide the letter-avatar in the navbar (text-only branding) */
-  showLogo?: boolean;
-  /** Show menu groups as full-bleed image category cards (Ravensbury-style) */
-  showCategoryGrid?: boolean;
-  /** First content section overlaps the hero — creates a "hanging" layered effect */
-  hangingHero?: boolean;
 }
 
-// ── RESTAURANT ────────────────────────────────────────────────────────────────
-const RESTAURANT_TEMPLATES: PageTemplate[] = [
+// ── PRESET LAYER ──────────────────────────────────────────────────────────────
+// Per-business-type skin: default colours, terminology, CTAs.
+// Applied on top of whichever master template is chosen.
+export interface BusinessPreset {
+  type: BusinessType;
+  label: string;
+  /** 3 template IDs shown first — "Recommended for [Type]" */
+  recommendedTemplates: Array<PageTemplate['id']>;
+  primaryColor: string;
+  secondaryColor: string;
+  /** Hero CTA button label */
+  ctaLabel: string;
+  /** Nav + page heading for the menu/services section */
+  menuLabel: string;
+  /** Individual item noun */
+  menuItemLabel: string;
+  /** Eyebrow above featured section */
+  featuredEyebrow: string;
+  /** Heading for featured section */
+  featuredHeading: string;
+  /** Staff role noun */
+  expertLabel: string;
+}
+
+// ── 5 MASTER TEMPLATES ────────────────────────────────────────────────────────
+
+export const MASTER_TEMPLATES: PageTemplate[] = [
   {
-    id: 'classic',
-    name: 'Classic',
-    tagline: 'Bold dark hero · Red accents · Card grid',
-    primaryColor: '#DC2626',
-    secondaryColor: '#991B1B',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#111827',
-    heroStyle: 'dark',
-    cardStyle: 'grid',
-    hangingHero: true,
-    previewGradient: 'from-red-800 via-gray-900 to-gray-950',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'elegant',
-    name: 'Elegant',
-    tagline: 'Serif font · Warm gold · Refined layout',
-    primaryColor: '#B45309',
-    secondaryColor: '#92400E',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Inter',
-    surfaceColor: '#1C1A14',
-    heroStyle: 'centered',
-    cardStyle: 'large',
-    hangingHero: true,
-    previewGradient: 'from-amber-800 via-amber-900 to-stone-900',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'modern',
-    name: 'Modern',
-    tagline: 'Minimal · Monochrome · Sharp lines',
-    primaryColor: '#18181B',
-    secondaryColor: '#3F3F46',
-    fontFamily: 'Inter',
-    headingFont: 'Inter',
-    bodyFont: 'Inter',
-    surfaceColor: '#18181B',
-    heroStyle: 'minimal',
-    cardStyle: 'grid',
-    previewGradient: 'from-zinc-700 via-zinc-800 to-zinc-950',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'fresh',
-    name: 'Fresh & Natural',
-    tagline: 'Light · Airy · Green tones',
-    primaryColor: '#16A34A',
-    secondaryColor: '#15803D',
-    fontFamily: 'Quicksand',
-    headingFont: 'Quicksand',
-    bodyFont: 'Quicksand',
-    surfaceColor: '#F0FDF4',
-    heroStyle: 'light',
-    cardStyle: 'grid',
-    previewGradient: 'from-emerald-500 via-green-600 to-emerald-800',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'neon',
-    name: 'Neon Night',
-    tagline: 'Dark · Vivid neon · Night-life energy',
-    primaryColor: '#A855F7',
-    secondaryColor: '#7C3AED',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#09090B',
-    heroStyle: 'neon',
-    cardStyle: 'grid',
-    previewGradient: 'from-purple-950 via-gray-950 to-black',
-    previewTextColor: 'text-purple-300',
-    showLogo: false,
-  },
-  {
-    id: 'typographic',
-    name: 'Typographic',
-    tagline: 'White · Giant display type · Text-first',
-    primaryColor: '#0F172A',
-    secondaryColor: '#1E293B',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#FAFAFA',
-    heroStyle: 'typographic',
-    cardStyle: 'large',
-    previewGradient: 'from-white via-gray-50 to-gray-100',
-    previewTextColor: 'text-gray-900',
-    showLogo: false,
-  },
-  {
-    id: 'sunset',
-    name: 'Sunset',
-    tagline: 'Warm gradient · Vibrant · No image needed',
-    primaryColor: '#EA580C',
-    secondaryColor: '#C2410C',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#FFF7F0',
-    heroStyle: 'sunset',
-    cardStyle: 'grid',
-    previewGradient: 'from-orange-400 via-rose-500 to-pink-700',
-    previewTextColor: 'text-white',
-    showLogo: false,
-  },
-  {
-    id: 'magazine',
-    name: 'Magazine',
-    tagline: 'Full-bleed photo · Editorial text at bottom',
-    primaryColor: '#F59E0B',
-    secondaryColor: '#D97706',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Inter',
-    surfaceColor: '#111827',
-    heroStyle: 'magazine',
-    cardStyle: 'large',
-    hangingHero: true,
-    previewGradient: 'from-gray-900 via-gray-800 to-gray-950',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'split',
-    name: 'Split Screen',
-    tagline: 'Colour panel left · Full image right',
-    primaryColor: '#0F766E',
-    secondaryColor: '#0D9488',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#F0FDFA',
-    heroStyle: 'split',
-    cardStyle: 'grid',
-    previewGradient: 'from-teal-700 via-teal-600 to-teal-500',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'cinematic',
-    name: 'Cinematic',
-    tagline: 'Letterbox bars · Panoramic · Film aesthetic',
-    primaryColor: '#E11D48',
-    secondaryColor: '#BE123C',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Inter',
-    surfaceColor: '#0A0A0A',
-    heroStyle: 'cinematic',
-    cardStyle: 'large',
-    hangingHero: true,
-    previewGradient: 'from-black via-gray-900 to-black',
-    previewTextColor: 'text-white',
-    showLogo: false,
-  },
-  {
-    id: 'geometric',
-    name: 'Geometric',
-    tagline: 'Outlined type · Overlapping shapes · Design-forward',
-    primaryColor: '#4F46E5',
-    secondaryColor: '#4338CA',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#F5F5FF',
-    heroStyle: 'geometric',
-    cardStyle: 'grid',
-    previewGradient: 'from-white via-indigo-50 to-white',
-    previewTextColor: 'text-gray-900',
-    showLogo: false,
-  },
-  {
-    id: 'bold',
-    name: 'Bold Colour',
-    tagline: 'Giant colour slab · White text · Framed image',
-    primaryColor: '#7C3AED',
-    secondaryColor: '#6D28D9',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#1A1030',
-    heroStyle: 'bold',
-    cardStyle: 'grid',
-    hangingHero: true,
-    previewGradient: 'from-violet-600 via-violet-700 to-violet-900',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'grand',
-    name: 'Grand',
-    tagline: 'Dark & Gold · Upscale dining · Category showcase',
+    id: 'grande',
+    name: 'The Grande',
+    tagline: 'Luxury · Immersive full-screen hero · Serif elegance',
+    description: 'Full-screen dark hero with rich serif typography and a dramatic hanging content overlay. Best for fine dining and high-end experiences.',
     primaryColor: '#C4A35A',
     secondaryColor: '#A0843E',
     fontFamily: 'Playfair Display',
@@ -228,150 +68,15 @@ const RESTAURANT_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#0A0906',
     heroStyle: 'dark',
     cardStyle: 'large',
-    showCategoryGrid: true,
     hangingHero: true,
     previewGradient: 'from-stone-950 via-gray-900 to-black',
     previewTextColor: 'text-amber-300',
   },
-];
-
-// ── CAFE ──────────────────────────────────────────────────────────────────────
-const CAFE_TEMPLATES: PageTemplate[] = [
   {
-    id: 'cafe-cozy',
-    name: 'Cozy Corner',
-    tagline: 'Warm · Soft tones · Inviting atmosphere',
-    primaryColor: '#92400E',
-    secondaryColor: '#78350F',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Quicksand',
-    surfaceColor: '#FEF3C7',
-    heroStyle: 'cozy',
-    cardStyle: 'grid',
-    hangingHero: true,
-    previewGradient: 'from-amber-100 via-orange-50 to-stone-100',
-    previewTextColor: 'text-amber-900',
-  },
-  {
-    id: 'cafe-espresso',
-    name: 'Espresso',
-    tagline: 'Deep dark roast · Bold typography · No-fuss',
-    primaryColor: '#C2410C',
-    secondaryColor: '#9A3412',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Inter',
-    surfaceColor: '#1C1009',
-    heroStyle: 'dark',
-    cardStyle: 'grid',
-    previewGradient: 'from-stone-900 via-amber-950 to-stone-950',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'cafe-bloom',
-    name: 'Morning Bloom',
-    tagline: 'Soft pink · Light & airy · Feminine',
-    primaryColor: '#DB2777',
-    secondaryColor: '#BE185D',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Quicksand',
-    surfaceColor: '#FFF0F5',
-    heroStyle: 'light',
-    cardStyle: 'grid',
-    previewGradient: 'from-pink-100 via-rose-50 to-fuchsia-100',
-    previewTextColor: 'text-pink-900',
-  },
-  {
-    id: 'cafe-sunset',
-    name: 'Golden Hour',
-    tagline: 'Warm gradient · Sunset vibes · Casual',
-    primaryColor: '#D97706',
-    secondaryColor: '#B45309',
-    fontFamily: 'Quicksand',
-    headingFont: 'Quicksand',
-    bodyFont: 'Quicksand',
-    surfaceColor: '#FFFBF0',
-    heroStyle: 'sunset',
-    cardStyle: 'grid',
-    previewGradient: 'from-yellow-400 via-orange-400 to-amber-600',
-    previewTextColor: 'text-white',
-    showLogo: false,
-  },
-];
-
-// ── BARBER SHOP ───────────────────────────────────────────────────────────────
-const BARBER_TEMPLATES: PageTemplate[] = [
-  {
-    id: 'barber-vintage',
-    name: 'Vintage Cuts',
-    tagline: 'Classic red & white · Retro barber pole',
-    primaryColor: '#DC2626',
-    secondaryColor: '#B91C1C',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Inter',
-    surfaceColor: '#FFF5F5',
-    heroStyle: 'vintage',
-    cardStyle: 'grid',
-    previewGradient: 'from-red-50 via-white to-red-50',
-    previewTextColor: 'text-gray-900',
-  },
-  {
-    id: 'barber-navy',
-    name: 'Classic Shave',
-    tagline: 'Navy & gold · Sharp · Traditional craft',
-    primaryColor: '#1D4ED8',
-    secondaryColor: '#1E40AF',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#0F1B3A',
-    heroStyle: 'dark',
-    cardStyle: 'grid',
-    previewGradient: 'from-blue-900 via-slate-900 to-gray-950',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'barber-urban',
-    name: 'Urban Fade',
-    tagline: 'Black & white · Street-style · Monochrome',
-    primaryColor: '#09090B',
-    secondaryColor: '#27272A',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#09090B',
-    heroStyle: 'minimal',
-    cardStyle: 'grid',
-    previewGradient: 'from-zinc-900 via-zinc-800 to-zinc-950',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'barber-neon',
-    name: 'Neon Fade',
-    tagline: 'Dark · Electric blue glow · Night vibes',
-    primaryColor: '#0EA5E9',
-    secondaryColor: '#0284C7',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#030A15',
-    heroStyle: 'neon',
-    cardStyle: 'grid',
-    previewGradient: 'from-sky-950 via-gray-950 to-black',
-    previewTextColor: 'text-sky-300',
-    showLogo: false,
-  },
-];
-
-// ── SALON ─────────────────────────────────────────────────────────────────────
-const SALON_TEMPLATES: PageTemplate[] = [
-  {
-    id: 'salon-luxe',
-    name: 'Luxe Beauty',
-    tagline: 'Rose gold · Ultra refined · Premium feel',
+    id: 'boutique',
+    name: 'The Boutique',
+    tagline: 'Elegant · Soft pastels · Generous white space',
+    description: 'Light airy hero with overlapping sections and refined typography. Feminine and polished — perfect for salons, bakeries and boutiques.',
     primaryColor: '#BE8A60',
     secondaryColor: '#A0714A',
     fontFamily: 'Playfair Display',
@@ -380,247 +85,210 @@ const SALON_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#FDF8F4',
     heroStyle: 'luxe',
     cardStyle: 'large',
-    hangingHero: true,
+    hangingHero: false,
     previewGradient: 'from-rose-50 via-amber-50 to-stone-100',
     previewTextColor: 'text-stone-800',
   },
   {
-    id: 'salon-glam',
-    name: 'Glam Studio',
-    tagline: 'Deep plum · Sophisticated · Centered hero',
-    primaryColor: '#7C3AED',
-    secondaryColor: '#6D28D9',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Quicksand',
-    surfaceColor: '#1A0A2E',
-    heroStyle: 'centered',
-    cardStyle: 'large',
-    hangingHero: true,
-    previewGradient: 'from-violet-900 via-purple-900 to-fuchsia-950',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'salon-blush',
-    name: 'Chic Blush',
-    tagline: 'Blush pink · Airy & light · Modern feminine',
-    primaryColor: '#E11D48',
-    secondaryColor: '#BE123C',
-    fontFamily: 'Playfair Display',
-    headingFont: 'Playfair Display',
-    bodyFont: 'Quicksand',
-    surfaceColor: '#FFF0F3',
-    heroStyle: 'light',
-    cardStyle: 'grid',
-    previewGradient: 'from-rose-100 via-pink-50 to-fuchsia-50',
-    previewTextColor: 'text-rose-900',
-  },
-  {
-    id: 'salon-minimal',
-    name: 'Clean Studio',
-    tagline: 'White · Gold accent · Swiss minimal',
-    primaryColor: '#CA8A04',
-    secondaryColor: '#A16207',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#FAFAF5',
-    heroStyle: 'typographic',
-    cardStyle: 'large',
-    previewGradient: 'from-white via-yellow-50 to-stone-50',
-    previewTextColor: 'text-gray-900',
-    showLogo: false,
-  },
-];
-
-// ── GYM ───────────────────────────────────────────────────────────────────────
-const GYM_TEMPLATES: PageTemplate[] = [
-  {
-    id: 'gym-power',
-    name: 'Power House',
-    tagline: 'Black & red · Angled · Raw energy',
-    primaryColor: '#DC2626',
-    secondaryColor: '#B91C1C',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#0A0A0A',
-    heroStyle: 'power',
-    cardStyle: 'grid',
-    previewGradient: 'from-red-600 via-gray-950 to-black',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'gym-steel',
-    name: 'Iron Drive',
-    tagline: 'Dark steel · Orange spark · Intense',
-    primaryColor: '#EA580C',
-    secondaryColor: '#C2410C',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#111111',
-    heroStyle: 'dark',
-    cardStyle: 'grid',
-    previewGradient: 'from-orange-700 via-gray-900 to-gray-950',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'gym-neon',
-    name: 'Neon Flex',
-    tagline: 'Black · Electric green · Night training',
-    primaryColor: '#22C55E',
-    secondaryColor: '#16A34A',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#030A05',
-    heroStyle: 'neon',
-    cardStyle: 'grid',
-    previewGradient: 'from-green-950 via-gray-950 to-black',
-    previewTextColor: 'text-green-400',
-    showLogo: false,
-  },
-  {
-    id: 'gym-minimal',
-    name: 'Clean Gains',
-    tagline: 'White · Bold type · No-fuss performance',
-    primaryColor: '#0F172A',
-    secondaryColor: '#1E293B',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#F8FAFC',
-    heroStyle: 'minimal',
-    cardStyle: 'grid',
-    previewGradient: 'from-slate-600 via-slate-800 to-slate-950',
-    previewTextColor: 'text-white',
-  },
-];
-
-// ── REPAIR SHOP ───────────────────────────────────────────────────────────────
-const REPAIR_TEMPLATES: PageTemplate[] = [
-  {
-    id: 'repair-pro',
-    name: 'Pro Service',
-    tagline: 'Navy blue · Trust · Professional grade',
+    id: 'professional',
+    name: 'The Professional',
+    tagline: 'Service-first · Clean lines · Clear CTAs',
+    description: 'Split-panel hero with sharp grid layout and prominent calls-to-action. Built for repair shops, clinics and any business that sells expertise.',
     primaryColor: '#1D4ED8',
     secondaryColor: '#1E40AF',
     fontFamily: 'Montserrat',
     headingFont: 'Montserrat',
     bodyFont: 'Inter',
-    surfaceColor: '#0F1B3A',
-    heroStyle: 'dark',
+    surfaceColor: '#F5F8FF',
+    heroStyle: 'split',
     cardStyle: 'grid',
+    hangingHero: false,
     previewGradient: 'from-blue-800 via-blue-950 to-gray-950',
     previewTextColor: 'text-white',
   },
   {
-    id: 'repair-clean',
-    name: 'Clean & Reliable',
-    tagline: 'White · Blue lines · Clear & trustworthy',
-    primaryColor: '#2563EB',
-    secondaryColor: '#1D4ED8',
+    id: 'urban',
+    name: 'The Urban',
+    tagline: 'Dark mode · Vivid neon accent · Hanging hero',
+    description: 'Dark immersive hero with electric neon accents and a dramatic hanging content reveal. The go-to for barbers, modern cafés and bars.',
+    primaryColor: '#A855F7',
+    secondaryColor: '#7C3AED',
     fontFamily: 'Montserrat',
     headingFont: 'Montserrat',
     bodyFont: 'Inter',
-    surfaceColor: '#F5F8FF',
-    heroStyle: 'minimal',
+    surfaceColor: '#09090B',
+    heroStyle: 'neon',
     cardStyle: 'grid',
-    previewGradient: 'from-blue-100 via-white to-sky-50',
-    previewTextColor: 'text-gray-900',
-  },
-  {
-    id: 'repair-bold',
-    name: 'Bold & Fast',
-    tagline: 'Orange · High contrast · Action-first',
-    primaryColor: '#EA580C',
-    secondaryColor: '#C2410C',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#FFF5F0',
-    heroStyle: 'sunset',
-    cardStyle: 'grid',
-    previewGradient: 'from-orange-500 via-orange-600 to-red-700',
-    previewTextColor: 'text-white',
+    hangingHero: true,
     showLogo: false,
-  },
-];
-
-// ── OTHER / GENERAL ───────────────────────────────────────────────────────────
-const OTHER_TEMPLATES: PageTemplate[] = [
-  {
-    id: 'other-professional',
-    name: 'Professional',
-    tagline: 'Dark navy · Corporate · Trustworthy',
-    primaryColor: '#1E3A8A',
-    secondaryColor: '#1E40AF',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#0F1B3A',
-    heroStyle: 'dark',
-    cardStyle: 'grid',
-    previewGradient: 'from-blue-900 via-slate-900 to-gray-950',
-    previewTextColor: 'text-white',
+    previewGradient: 'from-purple-950 via-gray-950 to-black',
+    previewTextColor: 'text-purple-300',
   },
   {
-    id: 'other-minimal',
-    name: 'Clean Business',
-    tagline: 'White · Charcoal · Swiss precision',
-    primaryColor: '#334155',
-    secondaryColor: '#475569',
+    id: 'minimalist',
+    name: 'The Minimalist',
+    tagline: 'Thin lines · Centred logo · Refined simplicity',
+    description: 'Typography-first white hero with structured layout below. Every element earns its place — perfect for traditional restaurants and private clinics.',
+    primaryColor: '#0F172A',
+    secondaryColor: '#1E293B',
     fontFamily: 'Inter',
     headingFont: 'Inter',
     bodyFont: 'Inter',
-    surfaceColor: '#F8FAFC',
-    heroStyle: 'minimal',
-    cardStyle: 'grid',
-    previewGradient: 'from-slate-500 via-slate-700 to-slate-900',
-    previewTextColor: 'text-white',
-  },
-  {
-    id: 'other-vibrant',
-    name: 'Vibrant',
-    tagline: 'Colourful gradient · Energy · Stand out',
-    primaryColor: '#7C3AED',
-    secondaryColor: '#6D28D9',
-    fontFamily: 'Montserrat',
-    headingFont: 'Montserrat',
-    bodyFont: 'Inter',
-    surfaceColor: '#1A0A3A',
-    heroStyle: 'sunset',
-    cardStyle: 'grid',
-    previewGradient: 'from-violet-500 via-purple-600 to-indigo-700',
-    previewTextColor: 'text-white',
+    surfaceColor: '#FAFAFA',
+    heroStyle: 'typographic',
+    cardStyle: 'large',
+    hangingHero: false,
     showLogo: false,
+    previewGradient: 'from-white via-gray-50 to-gray-100',
+    previewTextColor: 'text-gray-900',
   },
 ];
 
-// ── TEMPLATES_BY_TYPE map ─────────────────────────────────────────────────────
-export const TEMPLATES_BY_TYPE: Record<string, PageTemplate[]> = {
-  RESTAURANT: RESTAURANT_TEMPLATES,
-  CAFE: CAFE_TEMPLATES,
-  BARBER_SHOP: BARBER_TEMPLATES,
-  SALON: SALON_TEMPLATES,
-  GYM: GYM_TEMPLATES,
-  REPAIR_SHOP: REPAIR_TEMPLATES,
-  OTHER: OTHER_TEMPLATES,
+// ── BUSINESS PRESETS ──────────────────────────────────────────────────────────
+
+export const BUSINESS_PRESETS: Record<BusinessType, BusinessPreset> = {
+  RESTAURANT: {
+    type: 'RESTAURANT',
+    label: 'Restaurant',
+    recommendedTemplates: ['grande', 'urban', 'minimalist'],
+    primaryColor: '#DC2626',
+    secondaryColor: '#991B1B',
+    ctaLabel: 'Order Online',
+    menuLabel: 'Menu',
+    menuItemLabel: 'Dish',
+    featuredEyebrow: 'From the Kitchen',
+    featuredHeading: 'Featured Dishes',
+    expertLabel: 'Chef',
+  },
+  CAFE: {
+    type: 'CAFE',
+    label: 'Café',
+    recommendedTemplates: ['boutique', 'grande', 'minimalist'],
+    primaryColor: '#92400E',
+    secondaryColor: '#78350F',
+    ctaLabel: 'Order Online',
+    menuLabel: 'Menu',
+    menuItemLabel: 'Item',
+    featuredEyebrow: 'On the Menu',
+    featuredHeading: "Today's Picks",
+    expertLabel: 'Barista',
+  },
+  BARBER_SHOP: {
+    type: 'BARBER_SHOP',
+    label: 'Barber Shop',
+    recommendedTemplates: ['urban', 'professional', 'minimalist'],
+    primaryColor: '#09090B',
+    secondaryColor: '#27272A',
+    ctaLabel: 'Book Appointment',
+    menuLabel: 'Services',
+    menuItemLabel: 'Service',
+    featuredEyebrow: 'What We Do',
+    featuredHeading: 'Popular Cuts',
+    expertLabel: 'Barber',
+  },
+  SALON: {
+    type: 'SALON',
+    label: 'Salon',
+    recommendedTemplates: ['boutique', 'grande', 'minimalist'],
+    primaryColor: '#BE8A60',
+    secondaryColor: '#A0714A',
+    ctaLabel: 'Book Appointment',
+    menuLabel: 'Services',
+    menuItemLabel: 'Treatment',
+    featuredEyebrow: 'Our Specialities',
+    featuredHeading: 'Popular Treatments',
+    expertLabel: 'Stylist',
+  },
+  GYM: {
+    type: 'GYM',
+    label: 'Gym & Fitness',
+    recommendedTemplates: ['urban', 'professional', 'grande'],
+    primaryColor: '#DC2626',
+    secondaryColor: '#B91C1C',
+    ctaLabel: 'Join Now',
+    menuLabel: 'Programs',
+    menuItemLabel: 'Class',
+    featuredEyebrow: 'Train With Us',
+    featuredHeading: 'Popular Classes',
+    expertLabel: 'Trainer',
+  },
+  REPAIR_SHOP: {
+    type: 'REPAIR_SHOP',
+    label: 'Repair Shop',
+    recommendedTemplates: ['professional', 'minimalist', 'urban'],
+    primaryColor: '#1D4ED8',
+    secondaryColor: '#1E40AF',
+    ctaLabel: 'Request Quote',
+    menuLabel: 'Services',
+    menuItemLabel: 'Service',
+    featuredEyebrow: 'What We Fix',
+    featuredHeading: 'Our Services',
+    expertLabel: 'Technician',
+  },
+  OTHER: {
+    type: 'OTHER',
+    label: 'Business',
+    recommendedTemplates: ['professional', 'minimalist', 'boutique'],
+    primaryColor: '#334155',
+    secondaryColor: '#475569',
+    ctaLabel: 'Get in Touch',
+    menuLabel: 'Services',
+    menuItemLabel: 'Service',
+    featuredEyebrow: 'What We Offer',
+    featuredHeading: 'Our Services',
+    expertLabel: 'Expert',
+  },
 };
 
-/** All templates across all types (for backward-compat lookups) */
-const ALL_TEMPLATES: PageTemplate[] = Object.values(TEMPLATES_BY_TYPE).flat();
+// ── LEGACY ID MIGRATION ───────────────────────────────────────────────────────
+// Maps old 37-template IDs to the nearest master template.
+// Ensures existing tenant savedPageTemplate values still resolve correctly.
+const LEGACY_MAP: Record<string, PageTemplate['id']> = {
+  classic: 'urban', elegant: 'grande', modern: 'minimalist', fresh: 'boutique',
+  neon: 'urban', typographic: 'minimalist', sunset: 'boutique', magazine: 'grande',
+  split: 'professional', cinematic: 'grande', geometric: 'minimalist', bold: 'urban',
+  grand: 'grande', vintage: 'minimalist', luxe: 'boutique', cozy: 'boutique',
+  power: 'urban', light: 'boutique', dark: 'grande', centered: 'grande',
+  'cafe-cozy': 'boutique', 'cafe-espresso': 'urban', 'cafe-bloom': 'boutique', 'cafe-sunset': 'boutique',
+  'barber-vintage': 'minimalist', 'barber-navy': 'professional', 'barber-urban': 'urban', 'barber-neon': 'urban',
+  'salon-luxe': 'boutique', 'salon-glam': 'grande', 'salon-blush': 'boutique', 'salon-minimal': 'minimalist',
+  'gym-power': 'urban', 'gym-steel': 'urban', 'gym-neon': 'urban', 'gym-minimal': 'professional',
+  'repair-pro': 'professional', 'repair-clean': 'professional', 'repair-bold': 'professional',
+  'other-professional': 'professional', 'other-minimal': 'minimalist', 'other-vibrant': 'urban',
+};
 
-/** Return all templates (same for all business types) */
-export function getTemplatesForType(_type?: string | null): PageTemplate[] {
-  return ALL_TEMPLATES;
-}
+// ── PUBLIC API ────────────────────────────────────────────────────────────────
 
-/** Look up a template by id across all types */
 export function getPageTemplate(id?: string | null): PageTemplate {
-  return ALL_TEMPLATES.find((t) => t.id === id) ?? RESTAURANT_TEMPLATES[0];
+  if (!id) return MASTER_TEMPLATES[0];
+  const direct = MASTER_TEMPLATES.find((t) => t.id === id);
+  if (direct) return direct;
+  const migratedId = LEGACY_MAP[id];
+  return MASTER_TEMPLATES.find((t) => t.id === migratedId) ?? MASTER_TEMPLATES[0];
 }
 
-/** @deprecated Use TEMPLATES_BY_TYPE.RESTAURANT or getTemplatesForType('RESTAURANT') */
-export const RESTAURANT_PAGE_TEMPLATES = RESTAURANT_TEMPLATES;
+export function getBusinessPreset(type?: string | null): BusinessPreset {
+  return BUSINESS_PRESETS[(type as BusinessType)] ?? BUSINESS_PRESETS.OTHER;
+}
+
+/** 3 templates recommended for this business type (shown first in picker) */
+export function getRecommendedTemplates(type?: string | null): PageTemplate[] {
+  const preset = getBusinessPreset(type);
+  return preset.recommendedTemplates
+    .map((id) => MASTER_TEMPLATES.find((t) => t.id === id)!)
+    .filter(Boolean);
+}
+
+/** All 5 master templates */
+export function getAllTemplates(): PageTemplate[] {
+  return MASTER_TEMPLATES;
+}
+
+// Backwards-compat aliases
+export function getTemplatesForType(_type?: string | null): PageTemplate[] {
+  return MASTER_TEMPLATES;
+}
+export const RESTAURANT_PAGE_TEMPLATES = MASTER_TEMPLATES;
+export const TEMPLATES_BY_TYPE: Record<string, PageTemplate[]> = Object.fromEntries(
+  ['RESTAURANT', 'CAFE', 'BARBER_SHOP', 'SALON', 'GYM', 'REPAIR_SHOP', 'OTHER'].map((k) => [k, MASTER_TEMPLATES])
+);

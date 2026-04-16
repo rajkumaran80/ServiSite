@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import HeroSection from '../../components/tenant/HeroSection';
-import { getPageTemplate } from '../../config/page-templates';
+import { getPageTemplate, getBusinessPreset } from '../../config/page-templates';
 import ScrollReveal from '../../components/ui/ScrollReveal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -87,18 +87,19 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
 
   const publicUrl = `https://${tenant.slug}.${APP_DOMAIN}`;
   const theme = tenant.themeSettings as any || {};
-  const isRestaurant = tenant.type === 'RESTAURANT' || tenant.type === 'CAFE';
 
   // Resolve template — stored as pageTemplate in themeSettings
   const template = getPageTemplate(theme.pageTemplate);
-  // Allow manual colour overrides to coexist with template defaults
-  const primaryColor = theme.primaryColor || template.primaryColor;
+  // Business preset: industry-appropriate colours, CTAs, terminology
+  const preset = getBusinessPreset(tenant.type);
+  // Colour priority: manual override → preset default → template default
+  const primaryColor = theme.primaryColor || preset.primaryColor || template.primaryColor;
   const fontFamily = theme.fontFamily || template.fontFamily;
   const hangingHero = template.hangingHero ?? false;
 
   const showHomeBlocks = homeBlockEntries.length > 0;
   const socialLinks = theme.socialLinks as { instagram?: string; facebook?: string; tiktok?: string; twitter?: string; youtube?: string } | undefined;
-  // Google reviews take priority; fall back to manually added entries
+// Google reviews take priority; fall back to manually added entries
   const reviewEntries = googleReviews.length > 0 ? googleReviews : manualReviewEntries;
   const reviewsSource: 'google' | 'manual' = googleReviews.length > 0 ? 'google' : 'manual';
   const showReviewsSection = reviewEntries.length > 0 && theme.showReviews !== false;
@@ -212,10 +213,10 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             <div className="flex items-end justify-between mb-10">
               <div>
                 <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>
-                  {isRestaurant ? 'From the Kitchen' : 'Top Picks'}
+                  {preset.featuredEyebrow}
                 </p>
                 <h2 className={`tenant-h2 text-3xl md:text-4xl leading-tight ${template.showCategoryGrid ? 'text-white' : 'text-gray-900'}`}>
-                  {isRestaurant ? 'Featured Dishes' : 'Popular Services'}
+                  {preset.featuredHeading}
                 </h2>
               </div>
               <Link
@@ -223,7 +224,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold"
                 style={{ color: primaryColor }}
               >
-                View full {isRestaurant ? 'menu' : 'list'} →
+                View full {preset.menuLabel.toLowerCase()} →
               </Link>
             </div>
 
@@ -349,7 +350,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               <Link href={`/menu`}
                 className="inline-block text-white font-bold px-8 py-3.5 rounded-xl shadow-lg"
                 style={{ backgroundColor: primaryColor }}>
-                View Full {isRestaurant ? 'Menu' : 'Services'}
+                View Full {preset.menuLabel}
               </Link>
             </div>
           </div>

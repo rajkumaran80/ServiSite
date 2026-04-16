@@ -11,7 +11,7 @@ import { api } from '../../../services/api';
 import ImageUpload from '../../../components/ui/ImageUpload';
 import MultiImageUpload from '../../../components/ui/MultiImageUpload';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
-import { getTemplatesForType, getPageTemplate } from '../../../config/page-templates';
+import { getRecommendedTemplates, getAllTemplates, getPageTemplate, getBusinessPreset, type BusinessPreset } from '../../../config/page-templates';
 import TemplatePreviewModal, { type TemplateColorScheme } from '../../../components/ui/TemplatePreviewModal';
 import { revalidateTenantCache } from './actions';
 
@@ -65,6 +65,7 @@ export default function SettingsPage() {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [templateModalIndex, setTemplateModalIndex] = useState(0);
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
   const [storedTemplateColors, setStoredTemplateColors] = useState<TemplateColorScheme | undefined>(undefined);
   const [activeSection, setActiveSection] = useState<'business' | 'branding' | 'domain'>('business');
   const [customDomain, setCustomDomain] = useState('');
@@ -332,23 +333,26 @@ export default function SettingsPage() {
     setIsSavingTemplate(true);
     try {
       const tmpl = getPageTemplate(templateId);
+      // Preset provides industry-appropriate colour defaults so the site looks
+      // right for their business type immediately after applying a template.
+      const preset = getBusinessPreset(tenant.type);
       const updated = await tenantService.update(tenant.id, {
         themeSettings: {
           pageTemplate: templateId,
-          primaryColor: customColors?.primaryColor ?? tmpl.primaryColor,
-          secondaryColor: customColors?.secondaryColor ?? tmpl.secondaryColor,
-          accentColor: customColors?.accentColor ?? tmpl.primaryColor,
-          surfaceColor: customColors?.surfaceColor ?? (tmpl as any).surfaceColor ?? '#f4f4f5',
+          primaryColor: customColors?.primaryColor ?? preset.primaryColor,
+          secondaryColor: customColors?.secondaryColor ?? preset.secondaryColor,
+          accentColor: customColors?.accentColor ?? preset.primaryColor,
+          surfaceColor: customColors?.surfaceColor ?? tmpl.surfaceColor,
           fontFamily: tmpl.fontFamily,
         },
       });
       setTenant(updated);
       setSelectedTemplate(templateId);
       const appliedColors: TemplateColorScheme = {
-        primaryColor: customColors?.primaryColor ?? tmpl.primaryColor,
-        secondaryColor: customColors?.secondaryColor ?? tmpl.secondaryColor,
-        accentColor: customColors?.accentColor ?? tmpl.primaryColor,
-        surfaceColor: customColors?.surfaceColor ?? '#f4f4f5',
+        primaryColor: customColors?.primaryColor ?? preset.primaryColor,
+        secondaryColor: customColors?.secondaryColor ?? preset.secondaryColor,
+        accentColor: customColors?.accentColor ?? preset.primaryColor,
+        surfaceColor: customColors?.surfaceColor ?? tmpl.surfaceColor,
       };
       setStoredTemplateColors(appliedColors);
       tenantForm.setValue('primaryColor', appliedColors.primaryColor);
@@ -720,144 +724,132 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
             <h2 className="font-semibold text-gray-900 mb-1">Page Template</h2>
-            <p className="text-sm text-gray-500 mb-6">Choose a visual style for your public website. This sets colours, fonts and layout.</p>
+            <p className="text-sm text-gray-500 mb-1">
+              5 master layouts, each perfectly tuned for spacing, typography and shadows.
+              Pick a structure — your brand colours and terminology apply on top automatically.
+            </p>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              {getTemplatesForType(tenant?.type).map((tmpl, idx) => {
-                const isSelected = selectedTemplate === tmpl.id;
-                return (
-                  <div
-                    key={tmpl.id}
-                    className={`rounded-2xl overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
-                      isSelected ? 'border-blue-500 shadow-lg scale-[1.01]' : 'border-transparent hover:border-gray-300'
-                    }`}
-                    onClick={() => {
-                      setTemplateModalIndex(idx);
-                      setIsTemplateModalOpen(true);
-                    }}
-                  >
-                    {/* Visual preview */}
-                    <div className={`bg-gradient-to-br ${tmpl.previewGradient} p-5 h-32 flex flex-col justify-between relative overflow-hidden`}>
-                      {/* Fake nav bar */}
-                      <div className="flex items-center justify-between">
-                        <div className={`w-16 h-2 rounded ${['typographic', 'vintage', 'luxe', 'cozy'].includes(tmpl.heroStyle) ? 'bg-gray-800/50' : 'bg-white/40'}`} />
-                        <div className="flex gap-1.5">
-                          {[1,2,3].map(i => <div key={i} className={`w-8 h-1.5 rounded ${['typographic', 'vintage', 'luxe', 'cozy'].includes(tmpl.heroStyle) ? 'bg-gray-500/40' : 'bg-white/30'}`} />)}
+            {/* Recommended section */}
+            {(() => {
+              const preset = getBusinessPreset(tenant?.type);
+              const recommended = getRecommendedTemplates(tenant?.type);
+              const all = getAllTemplates();
+              const remainingTemplates = all.filter(t => !recommended.find(r => r.id === t.id));
+              const shown = showAllTemplates ? all : recommended;
+
+              return (
+                <>
+                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-4 mt-4">
+                    Recommended for {preset.label}
+                  </p>
+
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    {shown.map((tmpl, idx) => {
+                      const isSelected = selectedTemplate === tmpl.id;
+                      const isRecommended = recommended.some(r => r.id === tmpl.id);
+                      const allIdx = all.findIndex(t => t.id === tmpl.id);
+                      return (
+                        <div
+                          key={tmpl.id}
+                          className={`rounded-2xl overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
+                            isSelected ? 'border-blue-500 shadow-lg scale-[1.01]' : 'border-transparent hover:border-gray-200 hover:shadow-md'
+                          }`}
+                          onClick={() => {
+                            setTemplateModalIndex(allIdx);
+                            setIsTemplateModalOpen(true);
+                          }}
+                        >
+                          {/* Visual preview */}
+                          <div className={`bg-gradient-to-br ${tmpl.previewGradient} p-4 h-28 flex flex-col justify-between relative overflow-hidden`}>
+                            {/* Recommended badge */}
+                            {isRecommended && !showAllTemplates && (
+                              <div className="absolute top-2 right-2 bg-blue-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                                ✓ Recommended
+                              </div>
+                            )}
+                            {/* Fake nav */}
+                            <div className="flex items-center justify-between">
+                              <div className={`w-12 h-1.5 rounded ${['typographic', 'luxe'].includes(tmpl.heroStyle) ? 'bg-gray-800/50' : 'bg-white/40'}`} />
+                              <div className="flex gap-1">
+                                {[1,2,3].map(i => <div key={i} className={`w-6 h-1 rounded ${['typographic', 'luxe'].includes(tmpl.heroStyle) ? 'bg-gray-500/40' : 'bg-white/30'}`} />)}
+                              </div>
+                            </div>
+                            {/* Hero sketch */}
+                            <div>
+                              {tmpl.heroStyle === 'luxe' ? (
+                                <div>
+                                  <div className="w-6 h-px mb-1.5" style={{ backgroundColor: tmpl.primaryColor }} />
+                                  <div className="w-24 h-2.5 bg-gray-700/70 rounded mb-1" />
+                                  <div className="w-8 h-px" style={{ backgroundColor: tmpl.primaryColor }} />
+                                </div>
+                              ) : tmpl.heroStyle === 'typographic' ? (
+                                <div>
+                                  <div className="w-28 h-3.5 bg-gray-800/80 rounded mb-1" />
+                                  <div className="w-20 h-3.5 bg-gray-800/50 rounded mb-1.5" />
+                                  <div className="w-8 h-0.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                                </div>
+                              ) : tmpl.heroStyle === 'neon' ? (
+                                <div>
+                                  <div className="w-24 h-2.5 bg-white/90 rounded mb-1.5" style={{ boxShadow: `0 0 8px ${tmpl.primaryColor}` }} />
+                                  <div className="w-14 h-0.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                                </div>
+                              ) : tmpl.heroStyle === 'split' ? (
+                                <div className="flex -mx-4 -mb-4 h-14 mt-1">
+                                  <div className="flex-1 flex flex-col justify-center px-3" style={{ backgroundColor: tmpl.primaryColor }}>
+                                    <div className="w-14 h-2 bg-white/80 rounded mb-1" />
+                                    <div className="w-10 h-1.5 bg-white/50 rounded" />
+                                  </div>
+                                  <div className="w-2/5 bg-gray-400/40" />
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="w-20 h-2.5 bg-white/80 rounded mb-1" />
+                                  <div className="w-14 h-1.5 bg-white/40 rounded" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Info */}
+                          <div className="bg-white px-3 py-3 flex items-center justify-between">
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-900 text-sm">{tmpl.name}</p>
+                              <p className="text-xs text-gray-400 mt-0.5 truncate">{tmpl.tagline.split(' · ')[0]}</p>
+                            </div>
+                            {isSelected && (
+                              <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
+                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      {/* Fake hero text */}
-                      <div>
-                        {tmpl.heroStyle === 'centered' ? (
-                          <div className="text-center">
-                            <div className="w-24 h-3 bg-white/70 rounded mx-auto mb-1.5" />
-                            <div className="w-16 h-2 bg-white/40 rounded mx-auto" />
-                          </div>
-                        ) : tmpl.heroStyle === 'typographic' ? (
-                          <div>
-                            <div className="w-32 h-4 bg-gray-800/80 rounded mb-1" />
-                            <div className="w-24 h-4 bg-gray-800/60 rounded mb-2" />
-                            <div className="w-10 h-1 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                          </div>
-                        ) : tmpl.heroStyle === 'neon' ? (
-                          <div>
-                            <div className="w-28 h-3 bg-white/90 rounded mb-1.5" style={{ boxShadow: `0 0 6px ${tmpl.primaryColor}` }} />
-                            <div className="w-16 h-1 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                          </div>
-                        ) : tmpl.heroStyle === 'sunset' ? (
-                          <div className="text-center">
-                            <div className="w-24 h-3 bg-white/90 rounded mx-auto mb-1.5 drop-shadow" />
-                            <div className="w-16 h-2 bg-white/50 rounded mx-auto" />
-                          </div>
-                        ) : tmpl.heroStyle === 'vintage' ? (
-                          <div>
-                            <div className="w-24 h-1 mb-0.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                            <div className="w-28 h-3 bg-gray-900/80 rounded mt-1 mb-1.5" />
-                            <div className="w-10 h-1.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                          </div>
-                        ) : tmpl.heroStyle === 'luxe' ? (
-                          <div>
-                            <div className="w-8 h-px mb-2" style={{ backgroundColor: tmpl.primaryColor }} />
-                            <div className="w-28 h-3 bg-gray-700/70 rounded mb-1.5" />
-                            <div className="w-10 h-px" style={{ backgroundColor: tmpl.primaryColor }} />
-                          </div>
-                        ) : tmpl.heroStyle === 'power' ? (
-                          <div>
-                            <div className="w-6 h-1.5 mb-1.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                            <div className="w-28 h-4 bg-white/90 rounded mb-1.5" />
-                            <div className="w-16 h-1 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                          </div>
-                        ) : tmpl.heroStyle === 'cozy' ? (
-                          <div>
-                            <div className="w-20 h-2 rounded-full mb-1.5" style={{ backgroundColor: `${tmpl.primaryColor}50` }} />
-                            <div className="w-28 h-3 bg-amber-900/60 rounded mb-1.5" />
-                            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: tmpl.primaryColor }} />
-                          </div>
-                        ) : tmpl.heroStyle === 'magazine' ? (
-                          <div className="mt-auto pt-4">
-                            <div className="w-8 h-0.5 mb-2" style={{ backgroundColor: tmpl.primaryColor }} />
-                            <div className="w-32 h-4 bg-white/90 rounded mb-1" />
-                            <div className="w-20 h-2.5 bg-white/50 rounded" />
-                          </div>
-                        ) : tmpl.heroStyle === 'split' ? (
-                          <div className="flex h-full -m-5 mt-2">
-                            <div className="flex-1 flex flex-col justify-center px-2 py-2" style={{ backgroundColor: tmpl.primaryColor }}>
-                              <div className="w-16 h-2.5 bg-white/80 rounded mb-1" />
-                              <div className="w-10 h-1.5 bg-white/50 rounded" />
-                            </div>
-                            <div className="w-1/3 bg-gray-400/40 rounded-r" />
-                          </div>
-                        ) : tmpl.heroStyle === 'cinematic' ? (
-                          <div>
-                            <div className="w-6 h-0.5 mb-2 flex gap-0.5">
-                              {[...Array(4)].map((_, i) => <div key={i} className="flex-1 bg-white/40" />)}
-                            </div>
-                            <div className="w-28 h-3.5 bg-white/90 rounded mb-1" />
-                            <div className="w-16 h-1 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                          </div>
-                        ) : tmpl.heroStyle === 'geometric' ? (
-                          <div>
-                            <div className="w-32 h-4 rounded mb-1 border-2" style={{ borderColor: tmpl.primaryColor, backgroundColor: 'transparent' }} />
-                            <div className="w-24 h-4 rounded border-2 ml-4" style={{ borderColor: `${tmpl.primaryColor}60`, backgroundColor: 'transparent' }} />
-                          </div>
-                        ) : tmpl.heroStyle === 'bold' ? (
-                          <div className="flex gap-2 -m-5 mt-2 h-20 items-center">
-                            <div className="flex-[3] h-full flex flex-col justify-center px-3" style={{ backgroundColor: tmpl.primaryColor }}>
-                              <div className="w-16 h-2.5 bg-white/80 rounded mb-1" />
-                              <div className="w-10 h-1.5 bg-white/50 rounded" />
-                            </div>
-                            <div className="flex-[2] h-full bg-gray-300/50 rounded-lg mx-1" />
-                          </div>
-                        ) : (
-                          <div>
-                            <div className="w-24 h-3 bg-white/80 rounded mb-1.5" />
-                            <div className="w-16 h-2 bg-white/40 rounded" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div className="bg-white p-4 flex items-center justify-between">
-                      <div>
-                        <p className="font-bold text-gray-900 text-sm">{tmpl.name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{tmpl.tagline}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* Colour dot */}
-                        <div className="w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: tmpl.primaryColor }} />
-                        {isSelected && (
-                          <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Show all / collapse toggle */}
+                  {!showAllTemplates ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllTemplates(true)}
+                      className="mt-4 text-sm text-gray-500 hover:text-gray-800 underline underline-offset-2 transition-colors"
+                    >
+                      Show {remainingTemplates.length} other template{remainingTemplates.length !== 1 ? 's' : ''} →
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllTemplates(false)}
+                      className="mt-4 text-sm text-gray-500 hover:text-gray-800 underline underline-offset-2 transition-colors"
+                    >
+                      ← Show recommended only
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           <p className="text-sm text-gray-400">Click any template to preview and customise colours before applying.</p>
@@ -1046,7 +1038,7 @@ export default function SettingsPage() {
       {/* Template preview modal */}
       {isTemplateModalOpen && tenant && (
         <TemplatePreviewModal
-          templates={getTemplatesForType(tenant.type)}
+          templates={getAllTemplates()}
           initialIndex={templateModalIndex}
           currentTemplateId={selectedTemplate}
           storedColors={storedTemplateColors}
