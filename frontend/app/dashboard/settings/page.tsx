@@ -8,11 +8,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '../../../store/auth.store';
 import tenantService from '../../../services/tenant.service';
 import { api } from '../../../services/api';
-import ImageUpload from '../../../components/ui/ImageUpload';
-import MultiImageUpload from '../../../components/ui/MultiImageUpload';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
-import { getRecommendedTemplates, getAllTemplates, getPageTemplate, getBusinessPreset, type BusinessPreset } from '../../../config/page-templates';
-import TemplatePreviewModal, { type TemplateColorScheme } from '../../../components/ui/TemplatePreviewModal';
 import { revalidateTenantCache } from './actions';
 
 const tenantSchema = z.object({
@@ -22,11 +18,7 @@ const tenantSchema = z.object({
   currency: z.string().min(1),
   timezone: z.string().min(1),
   locale: z.string().min(1),
-  primaryColor: z.string().min(1),
-  secondaryColor: z.string().min(1),
-  fontFamily: z.string().min(1),
 });
-// Note: primaryColor/secondaryColor kept in schema so handleSaveTemplate can update them via setValue.
 
 const contactSchema = z.object({
   phone: z.string().optional(),
@@ -42,7 +34,6 @@ const contactSchema = z.object({
 type TenantForm = z.infer<typeof tenantSchema>;
 type ContactForm = z.infer<typeof contactSchema>;
 
-const FONTS = ['Inter', 'Playfair Display', 'Roboto', 'Georgia', 'system-ui'];
 const TIMEZONES = [
   'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
   'America/Los_Angeles', 'America/Mexico_City', 'America/Sao_Paulo',
@@ -57,17 +48,9 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingTenant, setIsSavingTenant] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string>('');
-  const [bannerUrls, setBannerUrls] = useState<string[]>([]);
-  const [promoImageUrl, setPromoImageUrl] = useState<string>('');
+  const [activeSection, setActiveSection] = useState<'business' | 'contact' | 'hours' | 'domain' | 'social'>('business');
   const [socialLinks, setSocialLinks] = useState({ instagram: '', facebook: '', tiktok: '', twitter: '', youtube: '' });
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('classic');
-  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [templateModalIndex, setTemplateModalIndex] = useState(0);
-  const [showAllTemplates, setShowAllTemplates] = useState(false);
-  const [storedTemplateColors, setStoredTemplateColors] = useState<TemplateColorScheme | undefined>(undefined);
-  const [activeSection, setActiveSection] = useState<'business' | 'branding' | 'domain'>('business');
+  const [isSavingSocial, setIsSavingSocial] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
@@ -94,9 +77,6 @@ export default function SettingsPage() {
       currency: 'USD',
       timezone: 'UTC',
       locale: 'en',
-      primaryColor: '#3B82F6',
-      secondaryColor: '#1E40AF',
-      fontFamily: 'Inter',
     },
   });
 
@@ -117,28 +97,9 @@ export default function SettingsPage() {
         const currentTenant = tenantRes.data.data;
         if (currentTenant) {
           setTenant(currentTenant);
-          setLogoUrl(currentTenant.logo || '');
-          // Prefer bannerImages array, fall back to single banner field
-          const storedBanners = (currentTenant.themeSettings as any)?.bannerImages;
-          setBannerUrls(
-            Array.isArray(storedBanners) && storedBanners.length > 0
-              ? storedBanners
-              : currentTenant.banner ? [currentTenant.banner] : []
-          );
-          setPromoImageUrl((currentTenant.themeSettings as any)?.promoImageUrl || '');
+          setGooglePlaceId((currentTenant.themeSettings as any)?.googlePlaceId || '');
           const sl = (currentTenant.themeSettings as any)?.socialLinks || {};
           setSocialLinks({ instagram: sl.instagram || '', facebook: sl.facebook || '', tiktok: sl.tiktok || '', twitter: sl.twitter || '', youtube: sl.youtube || '' });
-          setSelectedTemplate((currentTenant.themeSettings as any)?.pageTemplate || 'classic');
-          const ts = currentTenant.themeSettings as any;
-          if (ts?.primaryColor) {
-            setStoredTemplateColors({
-              primaryColor: ts.primaryColor,
-              secondaryColor: ts.secondaryColor || ts.primaryColor,
-              accentColor: ts.accentColor || ts.primaryColor,
-              surfaceColor: ts.surfaceColor || '#f4f4f5',
-            });
-          }
-          setGooglePlaceId((currentTenant.themeSettings as any)?.googlePlaceId || '');
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
@@ -151,9 +112,6 @@ export default function SettingsPage() {
             currency: currentTenant.currency,
             timezone: currentTenant.timezone,
             locale: currentTenant.locale,
-            primaryColor: currentTenant.themeSettings?.primaryColor || '#3B82F6',
-            secondaryColor: currentTenant.themeSettings?.secondaryColor || '#1E40AF',
-            fontFamily: currentTenant.themeSettings?.fontFamily || 'Inter',
           });
         }
 
@@ -259,9 +217,6 @@ export default function SettingsPage() {
     setIsSavingTenant(true);
     try {
       const contactData = contactForm.getValues();
-      const cleanSocialLinks = Object.fromEntries(
-        Object.entries(socialLinks).filter(([, v]) => v.trim())
-      );
       const [updated] = await Promise.all([
         tenantService.update(tenant.id, {
           name: data.name,
@@ -272,7 +227,6 @@ export default function SettingsPage() {
           locale: data.locale,
           themeSettings: {
             googlePlaceId: googlePlaceId.trim() || undefined,
-            socialLinks: Object.keys(cleanSocialLinks).length > 0 ? cleanSocialLinks : undefined,
           },
         }),
         tenantService.updateContact(contactData),
@@ -302,68 +256,6 @@ export default function SettingsPage() {
       toast.error('Failed to save opening times');
     } finally {
       setIsSavingHours(false);
-    }
-  };
-
-  const handleSaveBranding = async (data: TenantForm) => {
-    if (!tenant) return;
-    setIsSavingTenant(true);
-    try {
-      const updated = await tenantService.update(tenant.id, {
-        logo: logoUrl || undefined,
-        themeSettings: {
-          primaryColor: data.primaryColor,
-          secondaryColor: data.secondaryColor,
-          fontFamily: data.fontFamily,
-          pageTemplate: selectedTemplate,
-        },
-      });
-      setTenant(updated);
-      await revalidateTenantCache(tenant.slug);
-      toast.success('Branding saved');
-    } catch {
-      toast.error('Failed to save branding');
-    } finally {
-      setIsSavingTenant(false);
-    }
-  };
-
-  const handleSaveTemplate = async (templateId: string, customColors?: TemplateColorScheme) => {
-    if (!tenant) return;
-    setIsSavingTemplate(true);
-    try {
-      const tmpl = getPageTemplate(templateId);
-      // Preset provides industry-appropriate colour defaults so the site looks
-      // right for their business type immediately after applying a template.
-      const preset = getBusinessPreset(tenant.type);
-      const updated = await tenantService.update(tenant.id, {
-        themeSettings: {
-          pageTemplate: templateId,
-          primaryColor: customColors?.primaryColor ?? preset.primaryColor,
-          secondaryColor: customColors?.secondaryColor ?? preset.secondaryColor,
-          accentColor: customColors?.accentColor ?? preset.primaryColor,
-          surfaceColor: customColors?.surfaceColor ?? tmpl.surfaceColor,
-          fontFamily: tmpl.fontFamily,
-        },
-      });
-      setTenant(updated);
-      setSelectedTemplate(templateId);
-      const appliedColors: TemplateColorScheme = {
-        primaryColor: customColors?.primaryColor ?? preset.primaryColor,
-        secondaryColor: customColors?.secondaryColor ?? preset.secondaryColor,
-        accentColor: customColors?.accentColor ?? preset.primaryColor,
-        surfaceColor: customColors?.surfaceColor ?? tmpl.surfaceColor,
-      };
-      setStoredTemplateColors(appliedColors);
-      tenantForm.setValue('primaryColor', appliedColors.primaryColor);
-      tenantForm.setValue('secondaryColor', appliedColors.secondaryColor);
-      tenantForm.setValue('fontFamily', tmpl.fontFamily);
-      await revalidateTenantCache(tenant.slug);
-      toast.success(`Template "${tmpl.name}" applied!`);
-    } catch {
-      toast.error('Failed to apply template');
-    } finally {
-      setIsSavingTemplate(false);
     }
   };
 
@@ -413,6 +305,25 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveSocial = async () => {
+    if (!tenant) return;
+    setIsSavingSocial(true);
+    try {
+      const clean = Object.fromEntries(Object.entries(socialLinks).filter(([, v]) => v.trim()));
+      const ts = tenant.themeSettings as any || {};
+      const updated = await tenantService.update(tenant.id, {
+        themeSettings: { ...ts, socialLinks: Object.keys(clean).length > 0 ? clean : null },
+      });
+      setTenant(updated);
+      await revalidateTenantCache(tenant.slug);
+      toast.success('Social links saved');
+    } catch {
+      toast.error('Failed to save social links');
+    } finally {
+      setIsSavingSocial(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-4">
@@ -425,16 +336,18 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Site Settings</h1>
-        <p className="text-gray-500 text-sm mt-1">Customize your business page</p>
+        <h1 className="text-2xl font-bold text-gray-900">Site Info</h1>
+        <p className="text-gray-500 text-sm mt-1">Your business details, contact info and opening hours</p>
       </div>
 
       {/* Section Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
         {([
           { key: 'business', label: 'Business' },
-          { key: 'branding', label: 'Branding' },
+          { key: 'contact', label: 'Contact' },
+          { key: 'hours', label: 'Hours' },
           { key: 'domain', label: 'Domain' },
+          { key: 'social', label: 'Social' },
         ] as const).map(({ key, label }) => (
           <button
             key={key}
@@ -484,6 +397,16 @@ export default function SettingsPage() {
               </select>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp Number</label>
+              <input
+                {...tenantForm.register('whatsappNumber')}
+                placeholder="+447911123456"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">Used for the WhatsApp chat button on your site</p>
+            </div>
+
             <div className="grid sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Currency</label>
@@ -516,43 +439,44 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Contact Details */}
+          <button
+            type="submit"
+            disabled={isSavingTenant}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            {isSavingTenant && (
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            )}
+            Save Settings
+          </button>
+        </form>
+        </>
+      )}
+
+      {/* Contact Details */}
+      {activeSection === 'contact' && (
+        <form onSubmit={contactForm.handleSubmit(handleSaveContact)} className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
             <h2 className="font-semibold text-gray-900">Contact Details</h2>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone Number</label>
-                <input
-                  {...tenantForm.register('whatsappNumber')}
-                  placeholder="+447911123456"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => {
-                    tenantForm.setValue('whatsappNumber', e.target.value);
-                    if (!contactForm.getValues('phone')) {
-                      contactForm.setValue('phone', e.target.value);
-                    }
-                  }}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone / WhatsApp</label>
                 <input
                   {...contactForm.register('phone')}
                   placeholder="+447911123456"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-              <input
-                type="email"
-                {...contactForm.register('email')}
-                placeholder="info@yourbusiness.com"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                <input
+                  type="email"
+                  {...contactForm.register('email')}
+                  placeholder="info@yourbusiness.com"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
 
             <div>
@@ -596,10 +520,9 @@ export default function SettingsPage() {
                 placeholder="https://maps.google.com/embed?..."
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="text-xs text-gray-400 mt-1">Go to Google Maps → Share → Embed a map → copy the src URL</p>
+              <p className="text-xs text-gray-400 mt-1">Google Maps → Share → Embed a map → copy the src URL</p>
             </div>
 
-            {/* Google Place ID */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Google Place ID</label>
               <div className="flex gap-2">
@@ -623,87 +546,63 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Social Media Links */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-            <div>
-              <h2 className="font-semibold text-gray-900">Social Media Links</h2>
-              <p className="text-sm text-gray-500 mt-0.5">Shown on your home page and footer. Leave blank to hide.</p>
-            </div>
-            {([
-              { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
-              { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourbusiness' },
-              { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@yourbusiness' },
-              { key: 'twitter', label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
-              { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourbusiness' },
-            ] as const).map(({ key, label, placeholder }) => (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-                <input
-                  type="url"
-                  value={socialLinks[key]}
-                  onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            ))}
-          </div>
-
           <button
             type="submit"
-            disabled={isSavingTenant}
+            disabled={isSavingContact}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
           >
-            {isSavingTenant && (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            )}
-            Save Settings
+            {isSavingContact && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Save Contact
           </button>
         </form>
+      )}
 
-        {/* Opening Times — separate save */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-          <div>
-            <h2 className="font-semibold text-gray-900">Opening Times</h2>
-            <p className="text-sm text-gray-500 mt-0.5">Set your hours for each day. Shown in footer and contact page.</p>
-          </div>
+      {/* Opening Hours */}
+      {activeSection === 'hours' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Opening Times</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Set your hours for each day. Shown in footer and contact page.</p>
+            </div>
 
-          <div className="space-y-3">
-            {DAYS.map((day) => {
-              const h = openingHours[day];
-              return (
-                <div key={day} className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                  <span className="w-24 text-sm font-medium text-gray-700 capitalize flex-shrink-0">{day}</span>
-                  <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={h.closed}
-                      onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], closed: e.target.checked } }))}
-                      className="accent-red-500"
-                    />
-                    <span className="text-xs text-gray-500">Closed</span>
-                  </label>
-                  {!h.closed && (
-                    <>
+            <div className="space-y-3">
+              {DAYS.map((day) => {
+                const h = openingHours[day];
+                return (
+                  <div key={day} className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                    <span className="w-24 text-sm font-medium text-gray-700 capitalize flex-shrink-0">{day}</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0">
                       <input
-                        type="time"
-                        value={h.open}
-                        onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))}
-                        className="flex-1 min-w-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        type="checkbox"
+                        checked={h.closed}
+                        onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], closed: e.target.checked } }))}
+                        className="accent-red-500"
                       />
-                      <span className="text-gray-400 text-sm flex-shrink-0">to</span>
-                      <input
-                        type="time"
-                        value={h.close}
-                        onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))}
-                        className="flex-1 min-w-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </>
-                  )}
-                  {h.closed && <span className="text-sm text-red-400 font-medium">Closed</span>}
-                </div>
-              );
-            })}
+                      <span className="text-xs text-gray-500">Closed</span>
+                    </label>
+                    {!h.closed && (
+                      <>
+                        <input
+                          type="time"
+                          value={h.open}
+                          onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], open: e.target.value } }))}
+                          className="flex-1 min-w-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-400 text-sm flex-shrink-0">to</span>
+                        <input
+                          type="time"
+                          value={h.close}
+                          onChange={(e) => setOpeningHours((prev) => ({ ...prev, [day]: { ...prev[day], close: e.target.value } }))}
+                          className="flex-1 min-w-[120px] px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </>
+                    )}
+                    {h.closed && <span className="text-sm text-red-400 font-medium">Closed</span>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <button
@@ -715,200 +614,6 @@ export default function SettingsPage() {
             {isSavingHours && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             Save Opening Times
           </button>
-        </div>
-        </>
-      )}
-
-      {/* Branding */}
-      {activeSection === 'branding' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="font-semibold text-gray-900 mb-1">Page Template</h2>
-            <p className="text-sm text-gray-500 mb-1">
-              5 master layouts, each perfectly tuned for spacing, typography and shadows.
-              Pick a structure — your brand colours and terminology apply on top automatically.
-            </p>
-
-            {/* Recommended section */}
-            {(() => {
-              const preset = getBusinessPreset(tenant?.type);
-              const recommended = getRecommendedTemplates(tenant?.type);
-              const all = getAllTemplates();
-              const remainingTemplates = all.filter(t => !recommended.find(r => r.id === t.id));
-              const shown = showAllTemplates ? all : recommended;
-
-              return (
-                <>
-                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-4 mt-4">
-                    Recommended for {preset.label}
-                  </p>
-
-                  <div className="grid sm:grid-cols-3 gap-4">
-                    {shown.map((tmpl, idx) => {
-                      const isSelected = selectedTemplate === tmpl.id;
-                      const isRecommended = recommended.some(r => r.id === tmpl.id);
-                      const allIdx = all.findIndex(t => t.id === tmpl.id);
-                      return (
-                        <div
-                          key={tmpl.id}
-                          className={`rounded-2xl overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
-                            isSelected ? 'border-blue-500 shadow-lg scale-[1.01]' : 'border-transparent hover:border-gray-200 hover:shadow-md'
-                          }`}
-                          onClick={() => {
-                            setTemplateModalIndex(allIdx);
-                            setIsTemplateModalOpen(true);
-                          }}
-                        >
-                          {/* Visual preview */}
-                          <div className={`bg-gradient-to-br ${tmpl.previewGradient} p-4 h-28 flex flex-col justify-between relative overflow-hidden`}>
-                            {/* Recommended badge */}
-                            {isRecommended && !showAllTemplates && (
-                              <div className="absolute top-2 right-2 bg-blue-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                                ✓ Recommended
-                              </div>
-                            )}
-                            {/* Fake nav */}
-                            <div className="flex items-center justify-between">
-                              <div className={`w-12 h-1.5 rounded ${['typographic', 'luxe'].includes(tmpl.heroStyle) ? 'bg-gray-800/50' : 'bg-white/40'}`} />
-                              <div className="flex gap-1">
-                                {[1,2,3].map(i => <div key={i} className={`w-6 h-1 rounded ${['typographic', 'luxe'].includes(tmpl.heroStyle) ? 'bg-gray-500/40' : 'bg-white/30'}`} />)}
-                              </div>
-                            </div>
-                            {/* Hero sketch */}
-                            <div>
-                              {tmpl.heroStyle === 'luxe' ? (
-                                <div>
-                                  <div className="w-6 h-px mb-1.5" style={{ backgroundColor: tmpl.primaryColor }} />
-                                  <div className="w-24 h-2.5 bg-gray-700/70 rounded mb-1" />
-                                  <div className="w-8 h-px" style={{ backgroundColor: tmpl.primaryColor }} />
-                                </div>
-                              ) : tmpl.heroStyle === 'typographic' ? (
-                                <div>
-                                  <div className="w-28 h-3.5 bg-gray-800/80 rounded mb-1" />
-                                  <div className="w-20 h-3.5 bg-gray-800/50 rounded mb-1.5" />
-                                  <div className="w-8 h-0.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                                </div>
-                              ) : tmpl.heroStyle === 'neon' ? (
-                                <div>
-                                  <div className="w-24 h-2.5 bg-white/90 rounded mb-1.5" style={{ boxShadow: `0 0 8px ${tmpl.primaryColor}` }} />
-                                  <div className="w-14 h-0.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                                </div>
-                              ) : tmpl.heroStyle === 'split' ? (
-                                <div className="flex -mx-4 -mb-4 h-14 mt-1">
-                                  <div className="flex-1 flex flex-col justify-center px-3" style={{ backgroundColor: tmpl.primaryColor }}>
-                                    <div className="w-14 h-2 bg-white/80 rounded mb-1" />
-                                    <div className="w-10 h-1.5 bg-white/50 rounded" />
-                                  </div>
-                                  <div className="w-2/5 bg-gray-400/40" />
-                                </div>
-                              ) : tmpl.heroStyle === 'cinematic' ? (
-                                <div>
-                                  <div className="h-2 bg-black/60 -mx-4 mb-1" />
-                                  <div className="w-24 h-2.5 bg-white/90 rounded mb-1" />
-                                  <div className="w-14 h-0.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
-                                  <div className="h-2 bg-black/60 -mx-4 mt-1" />
-                                </div>
-                              ) : tmpl.heroStyle === 'cozy' ? (
-                                <div>
-                                  <div className="w-16 h-1.5 rounded-full mb-1.5 opacity-60" style={{ backgroundColor: tmpl.primaryColor }} />
-                                  <div className="w-24 h-2.5 bg-amber-900/60 rounded mb-1" />
-                                  <div className="w-8 h-0.5 rounded-full" style={{ backgroundColor: tmpl.primaryColor }} />
-                                </div>
-                              ) : (
-                                <div>
-                                  <div className="w-20 h-2.5 bg-white/80 rounded mb-1" />
-                                  <div className="w-14 h-1.5 bg-white/40 rounded" />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Info */}
-                          <div className="bg-white px-3 py-3 flex items-center justify-between">
-                            <div className="min-w-0">
-                              <p className="font-bold text-gray-900 text-sm">{tmpl.name}</p>
-                              <p className="text-xs text-gray-400 mt-0.5 truncate">{tmpl.tagline.split(' · ')[0]}</p>
-                            </div>
-                            {isSelected && (
-                              <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
-                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Show all / collapse toggle */}
-                  {!showAllTemplates ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllTemplates(true)}
-                      className="mt-4 text-sm text-gray-500 hover:text-gray-800 underline underline-offset-2 transition-colors"
-                    >
-                      Show {remainingTemplates.length} other template{remainingTemplates.length !== 1 ? 's' : ''} →
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowAllTemplates(false)}
-                      className="mt-4 text-sm text-gray-500 hover:text-gray-800 underline underline-offset-2 transition-colors"
-                    >
-                      ← Show recommended only
-                    </button>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-
-          <p className="text-sm text-gray-400">Click any template to preview and customise colours before applying.</p>
-
-          {/* Images & Font */}
-          <form onSubmit={tenantForm.handleSubmit(handleSaveBranding)} className="space-y-6 mt-6">
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
-              <h2 className="font-semibold text-gray-900">Images & Font</h2>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Font Family</label>
-                <select
-                  {...tenantForm.register('fontFamily')}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  {FONTS.map((f) => (
-                    <option key={f} value={f} style={{ fontFamily: f }}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Logo</label>
-                <ImageUpload
-                  currentUrl={logoUrl}
-                  mediaType="logo"
-                  onUpload={(url) => setLogoUrl(url)}
-                  aspectRatio="square"
-                />
-              </div>
-
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSavingTenant}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
-            >
-              {isSavingTenant && (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              )}
-              Save Branding
-            </button>
-          </form>
         </div>
       )}
 
@@ -1048,21 +753,47 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Template preview modal */}
-      {isTemplateModalOpen && tenant && (
-        <TemplatePreviewModal
-          templates={getAllTemplates()}
-          initialIndex={templateModalIndex}
-          currentTemplateId={selectedTemplate}
-          storedColors={storedTemplateColors}
-          isSaving={isSavingTemplate}
-          onApply={async (templateId, colors) => {
-            await handleSaveTemplate(templateId, colors);
-            setIsTemplateModalOpen(false);
-          }}
-          onClose={() => setIsTemplateModalOpen(false)}
-        />
+      {/* Social Media Links */}
+      {activeSection === 'social' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Social Media Links</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Shown in the footer and contact section. Leave blank to hide.</p>
+            </div>
+
+            {([
+              { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
+              { key: 'facebook',  label: 'Facebook',  placeholder: 'https://facebook.com/yourbusiness' },
+              { key: 'tiktok',    label: 'TikTok',    placeholder: 'https://tiktok.com/@yourbusiness' },
+              { key: 'twitter',   label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
+              { key: 'youtube',   label: 'YouTube',   placeholder: 'https://youtube.com/@yourbusiness' },
+            ] as const).map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+                <input
+                  type="url"
+                  value={socialLinks[key]}
+                  onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            disabled={isSavingSocial}
+            onClick={handleSaveSocial}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            {isSavingSocial && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Save Social Links
+          </button>
+        </div>
       )}
+
     </div>
   );
 }
