@@ -20,6 +20,8 @@ export interface PageTemplate {
   showLogo?: boolean;
   /** Show menu groups as full-bleed image category cards (Ravensbury-style) */
   showCategoryGrid?: boolean;
+  /** First content section overlaps the hero — creates a "hanging" layered effect */
+  hangingHero?: boolean;
 }
 
 // ── RESTAURANT ────────────────────────────────────────────────────────────────
@@ -36,6 +38,7 @@ const RESTAURANT_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#111827',
     heroStyle: 'dark',
     cardStyle: 'grid',
+    hangingHero: true,
     previewGradient: 'from-red-800 via-gray-900 to-gray-950',
     previewTextColor: 'text-white',
   },
@@ -51,6 +54,7 @@ const RESTAURANT_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#1C1A14',
     heroStyle: 'centered',
     cardStyle: 'large',
+    hangingHero: true,
     previewGradient: 'from-amber-800 via-amber-900 to-stone-900',
     previewTextColor: 'text-white',
   },
@@ -144,6 +148,7 @@ const RESTAURANT_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#111827',
     heroStyle: 'magazine',
     cardStyle: 'large',
+    hangingHero: true,
     previewGradient: 'from-gray-900 via-gray-800 to-gray-950',
     previewTextColor: 'text-white',
   },
@@ -174,6 +179,7 @@ const RESTAURANT_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#0A0A0A',
     heroStyle: 'cinematic',
     cardStyle: 'large',
+    hangingHero: true,
     previewGradient: 'from-black via-gray-900 to-black',
     previewTextColor: 'text-white',
     showLogo: false,
@@ -206,6 +212,7 @@ const RESTAURANT_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#1A1030',
     heroStyle: 'bold',
     cardStyle: 'grid',
+    hangingHero: true,
     previewGradient: 'from-violet-600 via-violet-700 to-violet-900',
     previewTextColor: 'text-white',
   },
@@ -222,6 +229,7 @@ const RESTAURANT_TEMPLATES: PageTemplate[] = [
     heroStyle: 'dark',
     cardStyle: 'large',
     showCategoryGrid: true,
+    hangingHero: true,
     previewGradient: 'from-stone-950 via-gray-900 to-black',
     previewTextColor: 'text-amber-300',
   },
@@ -241,6 +249,7 @@ const CAFE_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#FEF3C7',
     heroStyle: 'cozy',
     cardStyle: 'grid',
+    hangingHero: true,
     previewGradient: 'from-amber-100 via-orange-50 to-stone-100',
     previewTextColor: 'text-amber-900',
   },
@@ -371,6 +380,7 @@ const SALON_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#FDF8F4',
     heroStyle: 'luxe',
     cardStyle: 'large',
+    hangingHero: true,
     previewGradient: 'from-rose-50 via-amber-50 to-stone-100',
     previewTextColor: 'text-stone-800',
   },
@@ -386,6 +396,7 @@ const SALON_TEMPLATES: PageTemplate[] = [
     surfaceColor: '#1A0A2E',
     heroStyle: 'centered',
     cardStyle: 'large',
+    hangingHero: true,
     previewGradient: 'from-violet-900 via-purple-900 to-fuchsia-950',
     previewTextColor: 'text-white',
   },

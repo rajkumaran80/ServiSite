@@ -81,6 +81,48 @@ function groupOpeningHours(raw: Record<string, any>): Array<{ label: string; hou
   });
 }
 
+interface LiveStatus {
+  open: boolean;
+  label: string;
+}
+
+function getLiveStatus(openingHours: Record<string, any>): LiveStatus | null {
+  if (!openingHours || Object.keys(openingHours).length === 0) return null;
+  const now = new Date();
+  const dayName = DAYS[now.getDay() === 0 ? 6 : now.getDay() - 1]; // Mon=0 … Sun=6
+  const raw = openingHours[dayName];
+  if (!raw) return null;
+
+  let entry: HoursEntry;
+  if (typeof raw === 'object' && 'open' in raw) {
+    entry = raw as HoursEntry;
+  } else if (typeof raw === 'string') {
+    if (raw.toLowerCase() === 'closed') return { open: false, label: 'Closed today' };
+    entry = { open: raw, close: '', closed: false };
+  } else {
+    return null;
+  }
+
+  if (entry.closed) return { open: false, label: 'Closed today' };
+  if (!entry.open) return null;
+
+  const toMins = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return isNaN(h) ? -1 : h * 60 + (m || 0);
+  };
+
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const openMins = toMins(entry.open);
+  const closeMins = entry.close ? toMins(entry.close) : -1;
+
+  if (openMins < 0) return null;
+
+  if (cur < openMins) return { open: false, label: `Opens ${fmt24(entry.open)}` };
+  if (closeMins > 0 && cur >= closeMins) return { open: false, label: `Closed · Opens ${fmt24(entry.open)} tomorrow` };
+  if (closeMins > 0) return { open: true, label: `Open · Closes ${fmt24(entry.close)}` };
+  return { open: true, label: 'Open now' };
+}
+
 export const Footer: React.FC<FooterProps> = ({ tenant }) => {
   const year = new Date().getFullYear();
   const contact = tenant.contactInfo;
@@ -93,6 +135,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
     : null;
 
   const hoursGroups = groupOpeningHours((contact as any)?.openingHours || {});
+  const liveStatus = getLiveStatus((contact as any)?.openingHours || {});
 
   const SOCIAL_ICONS: Record<string, React.ReactNode> = {
     instagram: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>,
@@ -105,9 +148,9 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
   return (
     <footer className="bg-gray-900 text-gray-400 text-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid sm:grid-cols-2 gap-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
 
-          {/* Left — Brand + Contact + Social */}
+          {/* Col 1 — Brand + tagline + social */}
           <div className="space-y-4">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
@@ -116,30 +159,9 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
               </div>
               <span className="text-white font-bold">{tenant.name}</span>
             </div>
-
-            <ul className="space-y-1.5">
-              {phone && (
-                <li>
-                  <a href={`tel:${phone}`} className="hover:text-white transition-colors flex items-center gap-2">
-                    <span>📞</span> {phone}
-                  </a>
-                </li>
-              )}
-              {contact?.email && (
-                <li>
-                  <a href={`mailto:${contact.email}`} className="hover:text-white transition-colors flex items-center gap-2">
-                    <span>✉️</span> {contact.email}
-                  </a>
-                </li>
-              )}
-              {address && (
-                <li className="flex items-start gap-2">
-                  <span className="flex-shrink-0">📍</span>
-                  <span>{address}</span>
-                </li>
-              )}
-            </ul>
-
+            {(tenant as any).description && (
+              <p className="text-gray-500 text-xs leading-relaxed line-clamp-3">{(tenant as any).description}</p>
+            )}
             {socialLinks && Object.values(socialLinks).some(Boolean) && (
               <div className="flex items-center gap-2 pt-1">
                 {Object.entries(socialLinks).filter(([, v]) => v).map(([key, url]) =>
@@ -154,10 +176,51 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
             )}
           </div>
 
-          {/* Right — Opening Hours */}
+          {/* Col 2 — Contact details */}
+          {(phone || contact?.email || address) && (
+            <div className="space-y-3">
+              <h4 className="text-white font-semibold text-sm">Contact</h4>
+              <ul className="space-y-1.5">
+                {phone && (
+                  <li>
+                    <a href={`tel:${phone}`} className="hover:text-white transition-colors flex items-center gap-2">
+                      <span>📞</span> {phone}
+                    </a>
+                  </li>
+                )}
+                {contact?.email && (
+                  <li>
+                    <a href={`mailto:${contact.email}`} className="hover:text-white transition-colors flex items-center gap-2">
+                      <span>✉️</span> {contact.email}
+                    </a>
+                  </li>
+                )}
+                {address && (
+                  <li className="flex items-start gap-2">
+                    <span className="flex-shrink-0">📍</span>
+                    <span>{address}</span>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {/* Col 3 — Opening Hours + live badge */}
           {hoursGroups.length > 0 && (
             <div className="space-y-3">
-              <h4 className="text-white font-semibold text-sm">Opening Hours</h4>
+              <div className="flex items-center gap-3">
+                <h4 className="text-white font-semibold text-sm">Opening Hours</h4>
+                {liveStatus && (
+                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    liveStatus.open
+                      ? 'bg-green-500/15 text-green-400 border border-green-500/25'
+                      : 'bg-red-500/15 text-red-400 border border-red-500/25'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${liveStatus.open ? 'bg-green-400' : 'bg-red-400'}`} />
+                    {liveStatus.label}
+                  </span>
+                )}
+              </div>
               <ul className="space-y-1.5">
                 {hoursGroups.map(({ label, hours }) => (
                   <li key={label} className="flex justify-between gap-3">

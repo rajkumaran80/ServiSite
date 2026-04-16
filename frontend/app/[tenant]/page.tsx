@@ -94,6 +94,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   // Allow manual colour overrides to coexist with template defaults
   const primaryColor = theme.primaryColor || template.primaryColor;
   const fontFamily = theme.fontFamily || template.fontFamily;
+  const hangingHero = template.hangingHero ?? false;
 
   const showHomeBlocks = homeBlockEntries.length > 0;
   const socialLinks = theme.socialLinks as { instagram?: string; facebook?: string; tiktok?: string; twitter?: string; youtube?: string } | undefined;
@@ -112,15 +113,20 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
 
   return (
     <div className="bg-white">
-      {/* Hero */}
-      <HeroSection
-        tenant={tenant}
-        bannerImages={bannerImages}
-        heroStyle={template.heroStyle}
-        primaryColor={primaryColor}
-        fontFamily={fontFamily}
-        socialLinks={socialLinks}
-      />
+      {/* Hero — tall wrapper for hanging templates */}
+      <div className={hangingHero ? '[&>section]:min-h-[85vh]' : ''}>
+        <HeroSection
+          tenant={tenant}
+          bannerImages={bannerImages}
+          heroStyle={template.heroStyle}
+          primaryColor={primaryColor}
+          fontFamily={fontFamily}
+          socialLinks={socialLinks}
+        />
+      </div>
+
+      {/* Content — overlaps hero on hanging templates */}
+      <div className={hangingHero ? 'relative z-10 -mt-16 rounded-t-[40px] overflow-hidden bg-white' : ''}>
 
       {/* Menu Groups — category showcase grid (Grand template) or pill nav */}
       {menuGroups.length > 0 && (
@@ -288,17 +294,17 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                       className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm flex-shrink-0 hover:shadow-xl transition-all duration-300 block"
                       style={{ width: '65vw', maxWidth: '260px' }}
                     >
-                      <div className="relative bg-gray-100 overflow-hidden" style={{ height: 180 }}>
+                      <div className="relative bg-gray-100 overflow-hidden" style={{ aspectRatio: '3/2' }}>
                         {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
+                          <div className="absolute inset-0 flex items-center justify-center text-5xl">🍽️</div>
                         )}
                         {item.isPopular && (
                           <span className="absolute top-3 left-3 bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">⭐ Popular</span>
                         )}
-                        <div className="absolute bottom-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-xl shadow-lg backdrop-blur-sm"
-                          style={{ backgroundColor: `${primaryColor}e6` }}>
+                        <div className="absolute bottom-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-xl"
+                          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.18)' }}>
                           {formatPrice(item.price, tenant.currency || 'GBP')}
                         </div>
                       </div>
@@ -314,17 +320,17 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                     <Link href={`/menu#item-${item.id}`}
                       className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 block"
                     >
-                      <div className="relative h-52 bg-gray-100 overflow-hidden">
+                      <div className="relative bg-gray-100 overflow-hidden" style={{ aspectRatio: '3/2' }}>
                         {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-5xl">🍽️</div>
+                          <div className="absolute inset-0 flex items-center justify-center text-5xl">🍽️</div>
                         )}
                         {item.isPopular && (
                           <span className="absolute top-3 left-3 bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-1 rounded-full">⭐ Popular</span>
                         )}
-                        <div className="absolute bottom-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-xl shadow-lg backdrop-blur-sm"
-                          style={{ backgroundColor: `${primaryColor}e6` }}>
+                        <div className="absolute bottom-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-xl"
+                          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.18)' }}>
                           {formatPrice(item.price, tenant.currency || 'GBP')}
                         </div>
                       </div>
@@ -360,7 +366,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               <section key={entry.id} className={`py-16 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                   {hasImage ? (
-                    <div className="grid lg:grid-cols-2 gap-12 items-center">
+                    <div className="grid lg:grid-cols-[58%_42%] gap-8 items-center">
                       <ScrollReveal delay={0} className={imagePos === 'left' ? 'lg:order-2' : 'lg:order-1'}>
                         <div>
                           {entry.data?.subtitle && (
@@ -374,7 +380,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                         </div>
                       </ScrollReveal>
                       <ScrollReveal delay={80} className={imagePos === 'left' ? 'lg:order-1' : 'lg:order-2'}>
-                        <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100">
+                        <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100 shadow-xl">
                           <img src={entry.imageUrl} alt={entry.title || ''} className="absolute inset-0 w-full h-full object-cover" />
                         </div>
                       </ScrollReveal>
@@ -586,6 +592,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
         </section>
       )}
 
+      </div> {/* end hanging content wrapper */}
     </div>
   );
 }
