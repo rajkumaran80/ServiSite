@@ -146,3 +146,67 @@ html {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* ── Rich public-site typography ─────────────────────────────────────────────
+   Applied to tenant-facing pages for a premium, attractive appearance.
+   Uses Playfair Display for display headings; adds depth via text-shadow.
+────────────────────────────────────────────────────────────────────────────── */
+
+/* Display heading — Playfair Display with subtle depth shadow */
+.tenant-h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Same but for dark backgrounds */
+.tenant-h2-light {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Section eyebrow label — decorative left-bar accent */
+.tenant-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.tenant-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 28px;
+  height: 2px;
+  border-radius: 2px;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+/* Gradient text — uses inline style for --grad-from/to set per-element */
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Decorative section divider dot-line */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, currentColor, transparent);
+  opacity: 0.2;
+}

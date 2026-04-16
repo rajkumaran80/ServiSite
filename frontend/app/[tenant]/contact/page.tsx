@@ -77,8 +77,8 @@ export default async function ContactPage({ params }: { params: { tenant: string
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Contact Us</h1>
-          <p className="text-gray-500 mt-2">We'd love to hear from you</p>
+          <h1 className="tenant-h2 text-3xl md:text-4xl text-gray-900">Contact Us</h1>
+          <p className="text-gray-500 mt-2">We&apos;d love to hear from you</p>
         </div>
       </div>
 
