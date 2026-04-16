@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display, Roboto } from 'next/font/google';
+import { Inter, Playfair_Display, Roboto, Montserrat, Quicksand } from 'next/font/google';
 import './globals.css';
 
 const inter = Inter({
@@ -18,6 +18,18 @@ const roboto = Roboto({
   subsets: ['latin'],
   weight: ['300', '400', '500', '700'],
   variable: '--font-roboto',
+  display: 'swap',
+});
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  variable: '--font-montserrat',
+  display: 'swap',
+});
+
+const quicksand = Quicksand({
+  subsets: ['latin'],
+  variable: '--font-quicksand',
   display: 'swap',
 });
 
@@ -52,7 +64,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} ${roboto.variable}`}
+      className={`${inter.variable} ${playfair.variable} ${roboto.variable} ${montserrat.variable} ${quicksand.variable}`}
     >
       <body className="antialiased">{children}</body>
     </html>

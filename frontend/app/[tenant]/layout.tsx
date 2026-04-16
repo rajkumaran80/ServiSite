@@ -4,6 +4,7 @@ import Navbar from '../../components/tenant/Navbar';
 import Footer from '../../components/tenant/Footer';
 import WhatsAppButton from '../../components/tenant/WhatsAppButton';
 import JsonLd from '../../components/tenant/JsonLd';
+import { getPageTemplate } from '../../config/page-templates';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.co.uk';
@@ -86,10 +87,23 @@ export default async function TenantLayout({
   const secondaryColor = (theme as any).secondaryColor || '#1E40AF';
   const fontFamily = (theme as any).fontFamily ?? 'Inter';
 
+  // Resolve template to get font pairs and surface colour
+  const template = getPageTemplate((theme as any).pageTemplate);
+  const headingFont = template.headingFont;
+  const bodyFont = template.bodyFont;
+  const surfaceColor = template.surfaceColor;
+
   function hexToRgb(hex: string): string {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     if (!result) return '59 130 246';
     return `${parseInt(result[1], 16)} ${parseInt(result[2], 16)} ${parseInt(result[3], 16)}`;
+  }
+
+  function buildFontStack(name: string): string {
+    if (name === 'Playfair Display') return "'Playfair Display', Georgia, serif";
+    if (name === 'Montserrat') return "'Montserrat', system-ui, sans-serif";
+    if (name === 'Quicksand') return "'Quicksand', system-ui, sans-serif";
+    return "'Inter', system-ui, sans-serif";
   }
 
   const primaryRgb = hexToRgb(primaryColor);
@@ -107,6 +121,10 @@ export default async function TenantLayout({
           --color-primary: ${primaryRgb};
           --color-secondary: ${secondaryRgb};
           --font-family: '${fontFamily}', system-ui, sans-serif;
+          --heading-font: ${buildFontStack(headingFont)};
+          --body-font: ${buildFontStack(bodyFont)};
+          --surface: ${surfaceColor};
+          --accent: ${primaryColor};
         }
       ` }} />
       <div

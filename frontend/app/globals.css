@@ -34,7 +34,7 @@
   }
 
   body {
-    font-family: var(--font-family);
+    font-family: var(--body-font, var(--font-family));
     color: rgb(17 24 39);
     background: rgb(255 255 255);
   }
@@ -152,9 +152,9 @@ html {
    Uses Playfair Display for display headings; adds depth via text-shadow.
 ────────────────────────────────────────────────────────────────────────────── */
 
-/* Display heading — Playfair Display with subtle depth shadow */
+/* Display heading — uses template heading font with subtle depth shadow */
 .tenant-h2 {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--heading-font, 'Playfair Display', Georgia, serif);
   font-weight: 800;
   letter-spacing: -0.02em;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -162,7 +162,7 @@ html {
 
 /* Same but for dark backgrounds */
 .tenant-h2-light {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--heading-font, 'Playfair Display', Georgia, serif);
   font-weight: 800;
   letter-spacing: -0.02em;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
