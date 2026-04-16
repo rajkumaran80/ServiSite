@@ -801,6 +801,19 @@ export default function SettingsPage() {
                                   </div>
                                   <div className="w-2/5 bg-gray-400/40" />
                                 </div>
+                              ) : tmpl.heroStyle === 'cinematic' ? (
+                                <div>
+                                  <div className="h-2 bg-black/60 -mx-4 mb-1" />
+                                  <div className="w-24 h-2.5 bg-white/90 rounded mb-1" />
+                                  <div className="w-14 h-0.5 rounded" style={{ backgroundColor: tmpl.primaryColor }} />
+                                  <div className="h-2 bg-black/60 -mx-4 mt-1" />
+                                </div>
+                              ) : tmpl.heroStyle === 'cozy' ? (
+                                <div>
+                                  <div className="w-16 h-1.5 rounded-full mb-1.5 opacity-60" style={{ backgroundColor: tmpl.primaryColor }} />
+                                  <div className="w-24 h-2.5 bg-amber-900/60 rounded mb-1" />
+                                  <div className="w-8 h-0.5 rounded-full" style={{ backgroundColor: tmpl.primaryColor }} />
+                                </div>
                               ) : (
                                 <div>
                                   <div className="w-20 h-2.5 bg-white/80 rounded mb-1" />

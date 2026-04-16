@@ -5,7 +5,7 @@ export type BusinessType = 'RESTAURANT' | 'CAFE' | 'BARBER_SHOP' | 'SALON' | 'GY
 // effect, card arrangement, typography DNA. Colours are defaults only;
 // business presets and manual overrides take priority.
 export interface PageTemplate {
-  id: 'grande' | 'boutique' | 'professional' | 'urban' | 'minimalist';
+  id: string;
   name: string;
   tagline: string;
   description: string;
@@ -35,7 +35,7 @@ export interface BusinessPreset {
   type: BusinessType;
   label: string;
   /** 3 template IDs shown first — "Recommended for [Type]" */
-  recommendedTemplates: Array<PageTemplate['id']>;
+  recommendedTemplates: string[];
   primaryColor: string;
   secondaryColor: string;
   /** Hero CTA button label */
@@ -142,6 +142,58 @@ export const MASTER_TEMPLATES: PageTemplate[] = [
     previewGradient: 'from-white via-gray-50 to-gray-100',
     previewTextColor: 'text-gray-900',
   },
+  {
+    id: 'cinematic',
+    name: 'Cinematic',
+    tagline: 'Letterbox bars · Panoramic · Film aesthetic',
+    description: 'Widescreen letterbox hero with cinematic overlay bars and a dramatic hanging reveal. Turns your space into a film still.',
+    primaryColor: '#E11D48',
+    secondaryColor: '#BE123C',
+    fontFamily: 'Playfair Display',
+    headingFont: 'Playfair Display',
+    bodyFont: 'Inter',
+    surfaceColor: '#0A0A0A',
+    heroStyle: 'cinematic',
+    cardStyle: 'large',
+    hangingHero: true,
+    showLogo: false,
+    previewGradient: 'from-black via-gray-900 to-black',
+    previewTextColor: 'text-white',
+  },
+  {
+    id: 'classic',
+    name: 'Classic',
+    tagline: 'Bold dark hero · High-contrast · Timeless',
+    description: 'Strong full-bleed dark hero with bold typography and vivid accent colour. Works for any business that wants to make an immediate impact.',
+    primaryColor: '#DC2626',
+    secondaryColor: '#991B1B',
+    fontFamily: 'Montserrat',
+    headingFont: 'Montserrat',
+    bodyFont: 'Inter',
+    surfaceColor: '#111827',
+    heroStyle: 'dark',
+    cardStyle: 'grid',
+    hangingHero: true,
+    previewGradient: 'from-red-800 via-gray-900 to-gray-950',
+    previewTextColor: 'text-white',
+  },
+  {
+    id: 'cozy',
+    name: 'Cozy Corner',
+    tagline: 'Warm amber · Soft serif · Inviting atmosphere',
+    description: 'Warm, soft-toned hero with Playfair Display headings and Quicksand body text. The most welcoming template on the platform.',
+    primaryColor: '#92400E',
+    secondaryColor: '#78350F',
+    fontFamily: 'Playfair Display',
+    headingFont: 'Playfair Display',
+    bodyFont: 'Quicksand',
+    surfaceColor: '#FEF3C7',
+    heroStyle: 'cozy',
+    cardStyle: 'grid',
+    hangingHero: false,
+    previewGradient: 'from-amber-100 via-orange-50 to-stone-100',
+    previewTextColor: 'text-amber-900',
+  },
 ];
 
 // ── BUSINESS PRESETS ──────────────────────────────────────────────────────────
@@ -150,7 +202,7 @@ export const BUSINESS_PRESETS: Record<BusinessType, BusinessPreset> = {
   RESTAURANT: {
     type: 'RESTAURANT',
     label: 'Restaurant',
-    recommendedTemplates: ['grande', 'urban', 'minimalist'],
+    recommendedTemplates: ['grande', 'cinematic', 'classic'],
     primaryColor: '#DC2626',
     secondaryColor: '#991B1B',
     ctaLabel: 'Order Online',
@@ -163,7 +215,7 @@ export const BUSINESS_PRESETS: Record<BusinessType, BusinessPreset> = {
   CAFE: {
     type: 'CAFE',
     label: 'Café',
-    recommendedTemplates: ['boutique', 'grande', 'minimalist'],
+    recommendedTemplates: ['cozy', 'boutique', 'minimalist'],
     primaryColor: '#92400E',
     secondaryColor: '#78350F',
     ctaLabel: 'Order Online',
@@ -176,7 +228,7 @@ export const BUSINESS_PRESETS: Record<BusinessType, BusinessPreset> = {
   BARBER_SHOP: {
     type: 'BARBER_SHOP',
     label: 'Barber Shop',
-    recommendedTemplates: ['urban', 'professional', 'minimalist'],
+    recommendedTemplates: ['urban', 'classic', 'professional'],
     primaryColor: '#09090B',
     secondaryColor: '#27272A',
     ctaLabel: 'Book Appointment',
@@ -202,7 +254,7 @@ export const BUSINESS_PRESETS: Record<BusinessType, BusinessPreset> = {
   GYM: {
     type: 'GYM',
     label: 'Gym & Fitness',
-    recommendedTemplates: ['urban', 'professional', 'grande'],
+    recommendedTemplates: ['urban', 'classic', 'professional'],
     primaryColor: '#DC2626',
     secondaryColor: '#B91C1C',
     ctaLabel: 'Join Now',
@@ -243,13 +295,14 @@ export const BUSINESS_PRESETS: Record<BusinessType, BusinessPreset> = {
 // ── LEGACY ID MIGRATION ───────────────────────────────────────────────────────
 // Maps old 37-template IDs to the nearest master template.
 // Ensures existing tenant savedPageTemplate values still resolve correctly.
-const LEGACY_MAP: Record<string, PageTemplate['id']> = {
-  classic: 'urban', elegant: 'grande', modern: 'minimalist', fresh: 'boutique',
+const LEGACY_MAP: Record<string, string> = {
+  // Old 37-template IDs → nearest master or restored template
+  elegant: 'grande', modern: 'minimalist', fresh: 'boutique',
   neon: 'urban', typographic: 'minimalist', sunset: 'boutique', magazine: 'grande',
-  split: 'professional', cinematic: 'grande', geometric: 'minimalist', bold: 'urban',
-  grand: 'grande', vintage: 'minimalist', luxe: 'boutique', cozy: 'boutique',
+  split: 'professional', geometric: 'minimalist', bold: 'urban',
+  grand: 'grande', vintage: 'minimalist', luxe: 'boutique',
   power: 'urban', light: 'boutique', dark: 'grande', centered: 'grande',
-  'cafe-cozy': 'boutique', 'cafe-espresso': 'urban', 'cafe-bloom': 'boutique', 'cafe-sunset': 'boutique',
+  'cafe-cozy': 'cozy', 'cafe-espresso': 'classic', 'cafe-bloom': 'boutique', 'cafe-sunset': 'boutique',
   'barber-vintage': 'minimalist', 'barber-navy': 'professional', 'barber-urban': 'urban', 'barber-neon': 'urban',
   'salon-luxe': 'boutique', 'salon-glam': 'grande', 'salon-blush': 'boutique', 'salon-minimal': 'minimalist',
   'gym-power': 'urban', 'gym-steel': 'urban', 'gym-neon': 'urban', 'gym-minimal': 'professional',
