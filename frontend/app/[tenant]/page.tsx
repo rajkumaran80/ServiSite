@@ -4,6 +4,7 @@ import HeroSection from '../../components/tenant/HeroSection';
 import { getPageTemplate, getBusinessPreset, resolveDesignTokens } from '../../config/page-templates';
 import ScrollReveal from '../../components/ui/ScrollReveal';
 import { generateTheme, getColorGroup } from '../../lib/theme';
+import HomeSectionImage from '../../components/tenant/HomeSectionImage';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
@@ -102,13 +103,14 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   const hangingHero = template.hangingHero ?? false;
   const designTokens = resolveDesignTokens(theme.pageTemplate, theme.designTokens);
   const glassEffect = designTokens.glassEffect;
+  const cardRadius = designTokens.radius || '12px';
 
   const smartTheme = generateTheme(primaryColor);
   const colorGroup = getColorGroup(primaryColor);
   const showHomeBlocks = homeBlockEntries.length > 0;
   const socialLinks = theme.socialLinks as { instagram?: string; facebook?: string; tiktok?: string; twitter?: string; youtube?: string } | undefined;
 // Google reviews take priority; fall back to manually added entries
-  const reviewEntries = googleReviews.length > 0 ? googleReviews : manualReviewEntries;
+  const reviewEntries = (googleReviews.length > 0 ? googleReviews : manualReviewEntries).slice(0, 4);
   const reviewsSource: 'google' | 'manual' = googleReviews.length > 0 ? 'google' : 'manual';
   const showReviewsSection = reviewEntries.length > 0 && theme.showReviews !== false;
 
@@ -248,8 +250,8 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               {featuredItems.map((item: any, idx: number) => (
                 <ScrollReveal key={item.id} delay={idx * 40}>
                 <Link href={`/menu#item-${item.id}`}
-                  className="item-card group relative bg-gray-100 block transition-shadow duration-300"
-                  style={{ aspectRatio: '1/1', boxShadow: `0 4px 16px ${smartTheme.tileShadow}` }}
+                  className="item-card group relative bg-gray-100 block transition-shadow duration-300 overflow-hidden"
+                  style={{ aspectRatio: '1/1', boxShadow: `0 4px 16px ${smartTheme.tileShadow}`, borderRadius: cardRadius }}
                 >
                   {item.imageUrl ? (
                     <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -326,58 +328,147 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             const defaultBodyColor = isDark ? (bodyColor ?? '#E5E7EB') : undefined;
             const defaultHeadingColor = isDark ? (headingColor ?? '#FFFFFF') : undefined;
 
-            const inner = hasImage ? (
-              // ── Text + Image ────────────────────────────────────────────────
-              <>
-                {/* ── Mobile: float image, all text wraps around it naturally ── */}
-                <div className="lg:hidden p-6 overflow-hidden">
-                  <div
-                    className={`relative rounded-2xl overflow-hidden shadow-sm ${imagePos === 'right' ? 'float-right ml-4 mb-2' : 'float-left mr-4 mb-2'}`}
-                    style={{ width: '44%', aspectRatio: '1 / 1' }}
-                  >
-                    <img src={entry.imageUrl} alt={entry.title || ''} className="absolute inset-0 w-full h-full object-cover" />
+            const hasDescription = !!entry.data?.description?.trim();
+            // Image-only (no description) always uses centre layout regardless of imagePos
+            const effectivePos = hasImage && !hasDescription ? 'center' : imagePos;
+
+            const imgBg = isDark ? 'transparent' : '#f8f8f8';
+            const hasTitle = !!entry.title?.trim();
+            const hasText = hasTitle || !!entry.data?.subtitle || hasDescription;
+
+            const inner = hasImage && effectivePos === 'center' ? (
+              // ── Centre layout: image on top, text centred below ─────────────
+              <ScrollReveal delay={0}>
+                {hasText ? (
+                  // With text: fixed height container, image contained
+                  <HomeSectionImage
+                    src={entry.imageUrl}
+                    alt={entry.title || ''}
+                    className="w-full h-full object-contain"
+                    wrapperClassName="relative overflow-hidden w-full"
+                    wrapperStyle={{ maxHeight: 420, height: '56vw', backgroundColor: imgBg }}
+                  />
+                ) : (
+                  // Image only: natural dimensions, no gaps
+                  <HomeSectionImage
+                    natural
+                    src={entry.imageUrl}
+                    alt={entry.title || ''}
+                    className="w-full h-auto block rounded-2xl"
+                  />
+                )}
+                {hasText && (
+                  <div className={`text-center ${useCard ? 'py-10 px-8 lg:px-20' : 'py-8'}`}>
+                    {entry.data?.subtitle && (
+                      <p className="tenant-eyebrow mb-3 justify-center" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
+                    )}
+                    {hasTitle && (
+                      <h2
+                        className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'}
+                        style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}
+                      >
+                        {entry.title}
+                      </h2>
+                    )}
+                    {hasDescription && (
+                      <>
+                        <div className="w-10 h-px mb-5 mx-auto" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                        <p
+                          className={`${bodyClasses.replace('text-sm', 'text-base')} max-w-2xl mx-auto`}
+                          style={defaultBodyColor ? { color: defaultBodyColor } : {}}
+                        >
+                          {entry.data.description}
+                        </p>
+                      </>
+                    )}
                   </div>
+                )}
+              </ScrollReveal>
+            ) : hasImage ? (
+              // ── Left / Right layout ─────────────────────────────────────────
+              <>
+                {/* ── Mobile: float image if there's text, else full-width ── */}
+                <div className="lg:hidden p-6 overflow-hidden">
+                  {hasText ? (
+                    <HomeSectionImage
+                      src={entry.imageUrl}
+                      alt={entry.title || ''}
+                      className="w-full h-full object-contain"
+                      wrapperClassName={`relative rounded-2xl overflow-hidden shadow-sm ${effectivePos === 'right' ? 'float-right ml-4 mb-2' : 'float-left mr-4 mb-2'}`}
+                      wrapperStyle={{ width: '44%', aspectRatio: '4 / 3', backgroundColor: imgBg }}
+                    />
+                  ) : (
+                    <HomeSectionImage
+                      natural
+                      src={entry.imageUrl}
+                      alt={entry.title || ''}
+                      className="w-full h-auto block rounded-2xl"
+                    />
+                  )}
                   {entry.data?.subtitle && (
                     <p className="tenant-eyebrow mb-2 text-[0.6rem]" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
                   )}
-                  <h2 className={headingClasses} style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}>
-                    {entry.title}
-                  </h2>
-                  <div className="w-8 h-px my-3" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
-                  {entry.data?.description && (
-                    <p className={bodyClasses} style={defaultBodyColor ? { color: defaultBodyColor } : {}}>
-                      {entry.data.description}
-                    </p>
+                  {hasTitle && (
+                    <h2 className={headingClasses} style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}>
+                      {entry.title}
+                    </h2>
+                  )}
+                  {hasDescription && (
+                    <>
+                      <div className="w-8 h-px my-3" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                      <p className={bodyClasses} style={defaultBodyColor ? { color: defaultBodyColor } : {}}>
+                        {entry.data.description}
+                      </p>
+                    </>
                   )}
                   <div className="clear-both" />
                 </div>
 
                 {/* ── Desktop: full side-by-side ────────────────────────── */}
-                <div className={`hidden lg:grid lg:grid-cols-2 ${!useCard ? 'gap-10 items-center' : ''}`}>
+                <div className={`hidden lg:grid ${hasText ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} ${!useCard ? 'gap-10 items-center' : ''}`}>
                   <ScrollReveal
                     delay={80}
-                    className={imagePos === 'left' ? 'lg:order-1' : 'lg:order-2'}
+                    className={hasText ? (effectivePos === 'left' ? 'lg:order-1' : 'lg:order-2') : ''}
                   >
-                    <div className="relative overflow-hidden w-full" style={{ minHeight: 340, height: '100%' }}>
-                      <img src={entry.imageUrl} alt={entry.title || ''} className="absolute inset-0 w-full h-full object-cover" />
-                    </div>
+                    {hasText ? (
+                      <HomeSectionImage
+                        src={entry.imageUrl}
+                        alt={entry.title || ''}
+                        className="w-full h-full object-cover"
+                        wrapperClassName="relative overflow-hidden w-full"
+                        wrapperStyle={{ minHeight: 340, height: '100%' }}
+                      />
+                    ) : (
+                      <HomeSectionImage
+                        natural
+                        src={entry.imageUrl}
+                        alt={entry.title || ''}
+                        className="w-full h-auto block rounded-2xl"
+                      />
+                    )}
                   </ScrollReveal>
 
-                  <ScrollReveal
-                    delay={0}
-                    className={`flex flex-col justify-center p-10 lg:p-12 ${imagePos === 'left' ? 'lg:order-2' : 'lg:order-1'}`}
-                  >
-                    {entry.data?.subtitle && (
-                      <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
-                    )}
-                    <h2 className={headingClasses} style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}>
-                      {entry.title}
-                    </h2>
-                    <div className="w-10 h-px mb-5" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
-                    <p className={bodyClasses} style={defaultBodyColor ? { color: defaultBodyColor } : {}}>
-                      {entry.data?.description}
-                    </p>
-                  </ScrollReveal>
+                  {hasText && (
+                    <ScrollReveal
+                      delay={0}
+                      className={`flex flex-col justify-center p-10 lg:p-12 ${effectivePos === 'left' ? 'lg:order-2' : 'lg:order-1'}`}
+                    >
+                      {entry.data?.subtitle && (
+                        <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
+                      )}
+                      {hasTitle && (
+                        <h2 className={headingClasses} style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}>
+                          {entry.title}
+                        </h2>
+                      )}
+                      {hasDescription && <div className="w-10 h-px mb-5" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />}
+                      {hasDescription && (
+                        <p className={bodyClasses} style={defaultBodyColor ? { color: defaultBodyColor } : {}}>
+                          {entry.data.description}
+                        </p>
+                      )}
+                    </ScrollReveal>
+                  )}
                 </div>
               </>
             ) : (
@@ -387,27 +478,31 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                   {entry.data?.subtitle && (
                     <p className="tenant-eyebrow mb-4 justify-center" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
                   )}
-                  <h2
-                    className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'}
-                    style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}
-                  >
-                    {entry.title}
-                  </h2>
-                  <div className="w-10 h-px mb-6 mx-auto" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
-                  {entry.data?.description && (
-                    <p
-                      className={`${bodyClasses.replace('text-sm', 'text-base')} max-w-2xl mx-auto ${gid === 'prestige' || gid === 'artisan' ? 'italic' : ''}`}
-                      style={defaultBodyColor ? { color: defaultBodyColor } : {}}
+                  {hasTitle && (
+                    <h2
+                      className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'}
+                      style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}
                     >
-                      &ldquo;{entry.data.description}&rdquo;
-                    </p>
+                      {entry.title}
+                    </h2>
+                  )}
+                  {hasDescription && (
+                    <>
+                      <div className="w-10 h-px mb-6 mx-auto" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                      <p
+                        className={`${bodyClasses.replace('text-sm', 'text-base')} max-w-2xl mx-auto ${gid === 'prestige' || gid === 'artisan' ? 'italic' : ''}`}
+                        style={defaultBodyColor ? { color: defaultBodyColor } : {}}
+                      >
+                        &ldquo;{entry.data.description}&rdquo;
+                      </p>
+                    </>
                   )}
                 </div>
               </ScrollReveal>
             );
 
             return (
-              <section key={entry.id} className="py-16" style={{ backgroundColor: sectionBg }}>
+              <section key={entry.id} className="py-8" style={{ backgroundColor: sectionBg }}>
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                   {useCard ? (
                     <div className={cardClass} style={cardStyle}>{inner}</div>
@@ -427,7 +522,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               <p className="tenant-eyebrow mb-3 justify-center" style={{ color: primaryColor }}>Reviews</p>
               <h2 className="section-heading tenant-h2 text-3xl md:text-4xl text-gray-900">What Our Customers Say</h2>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {reviewEntries.map((entry: any, idx: number) => {
                 const isGoogle = reviewsSource === 'google';
                 const authorName: string = isGoogle ? entry.authorName : entry.title;

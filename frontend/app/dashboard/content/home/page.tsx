@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../../../../services/api';
 import { ImageUpload } from '../../../../components/ui/ImageUpload';
-import MultiImageUpload from '../../../../components/ui/MultiImageUpload';
 import tenantService from '../../../../services/tenant.service';
 import { revalidateTenantCache } from '../../settings/actions';
 
@@ -65,7 +64,7 @@ function SectionModal({
         </div>
         <div className="px-6 py-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Section Title <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Section Title</label>
             <input className={base} placeholder="e.g. About Our Menu" value={form.title} onChange={(e) => set('title', e.target.value)} />
           </div>
           <div>
@@ -73,11 +72,12 @@ function SectionModal({
             <input className={base} placeholder="e.g. Fresh ingredients every day" value={form.subtitle} onChange={(e) => set('subtitle', e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Body Text <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Body Text</label>
             <textarea rows={4} className={`${base} resize-y`} placeholder="Write your section content here…" value={form.description} onChange={(e) => set('description', e.target.value)} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+            <p className="text-xs text-gray-400 mb-1.5">Add body text, an image, or both — at least one is required.</p>
             <ImageUpload
               currentUrl={form.imageUrl}
               mediaType="misc"
@@ -89,16 +89,20 @@ function SectionModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Image Position</label>
               <div className="flex gap-3">
-                {(['left', 'right'] as const).map((pos) => (
+                {([
+                  { value: 'left',   label: 'Left' },
+                  { value: 'center', label: 'Centre' },
+                  { value: 'right',  label: 'Right' },
+                ] as const).map(({ value, label }) => (
                   <button
-                    key={pos}
+                    key={value}
                     type="button"
-                    onClick={() => set('imagePosition', pos)}
-                    className={`flex-1 py-2 rounded-xl border-2 text-sm font-medium capitalize transition-colors ${
-                      form.imagePosition === pos ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    onClick={() => set('imagePosition', value)}
+                    className={`flex-1 py-2 rounded-xl border-2 text-sm font-medium transition-colors ${
+                      form.imagePosition === value ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'
                     }`}
                   >
-                    {pos}
+                    {label}
                   </button>
                 ))}
               </div>
@@ -121,12 +125,8 @@ function SectionModal({
 export default function HomeManagePage() {
   const [isLoading, setIsLoading] = useState(true);
 
-  // Hero images
   const [tenantId, setTenantId] = useState<string>('');
   const [tenantSlug, setTenantSlug] = useState<string>('');
-  const [bannerUrls, setBannerUrls] = useState<string[]>([]);
-  const [promoImageUrl, setPromoImageUrl] = useState<string>('');
-  const [isSavingImages, setIsSavingImages] = useState(false);
 
   // Google Reviews toggle
   const [showReviews, setShowReviews] = useState(true);
@@ -158,13 +158,6 @@ export default function HomeManagePage() {
         if (t) {
           setTenantId(t.id);
           setTenantSlug(t.slug);
-          const storedBanners = t.themeSettings?.bannerImages;
-          setBannerUrls(
-            Array.isArray(storedBanners) && storedBanners.length > 0
-              ? storedBanners
-              : t.banner ? [t.banner] : []
-          );
-          setPromoImageUrl(t.themeSettings?.promoImageUrl || '');
           setShowReviews(t.themeSettings?.showReviews !== false);
         }
       } catch {
@@ -193,26 +186,6 @@ export default function HomeManagePage() {
     }
   };
 
-  const handleSaveImages = async () => {
-    if (!tenantId) return;
-    setIsSavingImages(true);
-    try {
-      await tenantService.update(tenantId, {
-        banner: bannerUrls[0] || undefined,
-        themeSettings: {
-          bannerImages: bannerUrls.length > 0 ? bannerUrls : undefined,
-          promoImageUrl: promoImageUrl || undefined,
-        },
-      });
-      await revalidateTenantCache(tenantSlug);
-      toast.success('Images saved');
-    } catch {
-      toast.error('Failed to save images');
-    } finally {
-      setIsSavingImages(false);
-    }
-  };
-
   const openAdd = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
@@ -232,8 +205,8 @@ export default function HomeManagePage() {
   };
 
   const handleSave = async () => {
-    if (!form.title.trim()) { toast.error('Title is required'); return; }
-    if (!form.description.trim()) { toast.error('Body text is required'); return; }
+    if (!form.title.trim() && !form.imageUrl) { toast.error('Add a title, an image, or both'); return; }
+    if (!form.title.trim() && !form.description.trim() && !form.imageUrl) { toast.error('Add at least an image or some text'); return; }
     setSavingSection(true);
     try {
       const payload = {
@@ -311,41 +284,6 @@ export default function HomeManagePage() {
           <h1 className="text-2xl font-bold text-gray-900">Home Page</h1>
           <p className="text-gray-500 text-sm mt-1">Control which sections appear on your home page</p>
         </div>
-      </div>
-
-      {/* Hero Images */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">Hero & Promo Images</h2>
-          <p className="text-sm text-gray-400 mt-0.5">Images shown at the top and mid-section of your home page</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Banner Images</label>
-          <p className="text-xs text-gray-400 mb-2">Full-width hero images — add multiple to auto-rotate</p>
-          <MultiImageUpload urls={bannerUrls} onChange={setBannerUrls} />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">About / Promo Section Image</label>
-          <p className="text-xs text-gray-400 mb-2">Shown in the mid-page section — great for an interior, team photo, or product shot</p>
-          <ImageUpload
-            currentUrl={promoImageUrl}
-            mediaType="banner"
-            onUpload={(url) => setPromoImageUrl(url)}
-            aspectRatio="banner"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSaveImages}
-          disabled={isSavingImages}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
-        >
-          {isSavingImages && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-          Save Images
-        </button>
       </div>
 
       {/* Google Reviews toggle */}

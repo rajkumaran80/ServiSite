@@ -5,9 +5,9 @@ import Image from 'next/image';
 import type { GalleryImage } from '../../../types/tenant.types';
 
 function isVideoItem(item: GalleryImage) {
-  // Prefer the stored mediaType field (reliable); fall back to URL sniffing for legacy rows.
-  if (item.mediaType) return item.mediaType === 'video';
-  return /\.(mp4|webm|mov)(\?|$)/i.test(item.url);
+  // URL extension is the ground truth — a .mp4 URL is always a video regardless of stored mediaType
+  if (/\.(mp4|webm|mov|avi|mkv)(\?|#|$)/i.test(item.url)) return true;
+  return item.mediaType === 'video';
 }
 
 function Lightbox({
@@ -26,12 +26,11 @@ function Lightbox({
   const prev = useCallback(() => setCurrent((c) => (c - 1 + items.length) % items.length), [items.length]);
   const next = useCallback(() => setCurrent((c) => (c + 1) % items.length), [items.length]);
 
-  // When slide changes to a video, reset + autoplay
+  // When slide changes to a video, reload it
   useEffect(() => {
     if (!videoRef.current) return;
-    setBuffering(true);
+    setBuffering(false);
     videoRef.current.load();
-    videoRef.current.play().catch(() => {});
   }, [current]);
 
   useEffect(() => {
@@ -87,16 +86,17 @@ function Lightbox({
             <video
               ref={videoRef}
               key={item.url}
-              src={item.url}
               controls
-              autoPlay
               preload="auto"
               playsInline
               className="max-h-[80vh] max-w-full rounded-xl object-contain"
               onCanPlay={() => setBuffering(false)}
               onWaiting={() => setBuffering(true)}
               onPlaying={() => setBuffering(false)}
-            />
+            >
+              <source src={item.url} />
+              Your browser does not support this video format.
+            </video>
           </div>
         ) : (
           <div className="relative max-h-[80vh] max-w-full">
@@ -157,14 +157,17 @@ export default function GalleryGrid({ images, tenantName }: { images: GalleryIma
               <div className="relative overflow-hidden">
                 {itemIsVideo ? (
                   <div className="relative bg-black">
-                    {/* preload="metadata" fetches just enough to show the first frame */}
                     <video
-                      src={image.url}
+                      src={`${image.url}#t=0.1`}
                       muted
                       playsInline
                       preload="metadata"
                       className="w-full object-cover group-hover:opacity-80 transition-opacity"
                       style={{ maxHeight: 320 }}
+                      onLoadedMetadata={(e) => {
+                        // Force browser to seek and render first frame as thumbnail
+                        (e.currentTarget as HTMLVideoElement).currentTime = 0.1;
+                      }}
                     />
                     {/* Play overlay */}
                     <div className="absolute inset-0 flex items-center justify-center">

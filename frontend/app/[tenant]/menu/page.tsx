@@ -717,6 +717,7 @@ function ItemCard({
   onAdd,
   orderingEnabled,
   highlight,
+  cardRadius,
 }: {
   item: MenuItem;
   currency: string;
@@ -724,13 +725,15 @@ function ItemCard({
   onAdd: (e: React.MouseEvent) => void;
   orderingEnabled: boolean;
   highlight?: boolean;
+  cardRadius?: string;
 }) {
   return (
     <div
       id={`item-${item.id}`}
-      className={`group bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all ${
+      className={`group bg-white shadow-sm border overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all ${
         highlight ? 'border-amber-400 ring-2 ring-amber-400 ring-offset-1' : 'border-gray-100'
       }`}
+      style={{ borderRadius: cardRadius || '12px' }}
     >
       <button type="button" onClick={onClick} className="text-left flex-1 flex flex-col">
         {item.imageUrl ? (
@@ -1157,6 +1160,9 @@ export default function MenuPage() {
   const currency = tenant.currency || 'GBP';
   const isRestaurant = tenant.type === 'RESTAURANT';
   const primaryColor = (tenant.themeSettings as any)?.primaryColor || '#3B82F6';
+  const menuGroupStyle: 'pill' | 'rounded' | 'sharp' = (tenant.themeSettings as any)?.menuGroupStyle || 'pill';
+  const cardRadius = (tenant.themeSettings as any)?.designTokens?.radius || '12px';
+  const groupTabRadius = menuGroupStyle === 'pill' ? '999px' : menuGroupStyle === 'rounded' ? '10px' : '0px';
   const orderingEnabled = tenant.plan !== 'BASIC';
   const activeSection = menu.groups.find((s) => s.id === activeTab);
   const hasContent =
@@ -1248,10 +1254,10 @@ export default function MenuPage() {
                       <button
                         key={group.id}
                         onClick={() => handleTabChange(group.id)}
-                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-all ${
                           isActive ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
-                        style={isActive ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}}
+                        style={{ borderRadius: groupTabRadius, ...(isActive ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}) }}
                       >
                         {group.icon && <span className="text-base leading-none">{group.icon}</span>}
                         {group.name}
@@ -1261,10 +1267,10 @@ export default function MenuPage() {
                   {menu.uncategorized.length > 0 && (
                     <button
                       onClick={() => handleTabChange('uncategorized')}
-                      className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      className={`flex-shrink-0 px-4 py-2 text-sm font-medium transition-all ${
                         activeTab === 'uncategorized' ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
-                      style={activeTab === 'uncategorized' ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}}
+                      style={{ borderRadius: groupTabRadius, ...(activeTab === 'uncategorized' ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}) }}
                     >
                       Other
                     </button>
@@ -1485,6 +1491,7 @@ export default function MenuPage() {
                                     onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
                                     orderingEnabled={orderingEnabled}
                                     highlight={item.id === highlightItemId}
+                                    cardRadius={cardRadius}
                                   />
                                 </div>
                               ))}
@@ -1547,6 +1554,7 @@ export default function MenuPage() {
                             onAdd={(e) => { e.stopPropagation(); handleAddToCart(item); }}
                             orderingEnabled={orderingEnabled}
                             highlight={item.id === highlightItemId}
+                            cardRadius={cardRadius}
                           />
                         </div>
                       ))}

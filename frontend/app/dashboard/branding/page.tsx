@@ -85,9 +85,9 @@ type Tab = 'template' | 'banner' | 'logo' | 'colors' | 'style';
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'template', label: 'Template',   icon: '🎨' },
   { id: 'banner',   label: 'Banner',     icon: '🖼️' },
-  { id: 'logo',     label: 'Logo & Font', icon: '✏️' },
+  { id: 'logo',     label: 'Logo',        icon: '✏️' },
   { id: 'colors',   label: 'Colors',     icon: '🎭' },
-  { id: 'style',    label: 'Style',      icon: '✦' },
+  { id: 'style',    label: 'Menu Style', icon: '✦' },
 ];
 
 const RADIUS_OPTIONS = [
@@ -139,7 +139,8 @@ export default function BrandingPage() {
   const [activeTab, setActiveTab] = useState<Tab>('template');
 
   // Template state
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('grande');
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('grande');  // currently APPLIED
+  const [pendingTemplate, setPendingTemplate] = useState<string>('grande');    // highlighted but not yet saved
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [showAllTemplates, setShowAllTemplates] = useState(false);
 
@@ -148,6 +149,7 @@ export default function BrandingPage() {
   const [fontStyle, setFontStyle] = useState<string>('modern');
   const [textColorOption, setTextColorOption] = useState<'signature' | 'offwhite'>('signature');
   const [footerAccent, setFooterAccent] = useState<'primary' | 'gold' | 'silver'>('primary');
+  const [menuGroupStyle, setMenuGroupStyle] = useState<'pill' | 'rounded' | 'sharp'>('pill');
   const [isSavingStyle, setIsSavingStyle] = useState(false);
 
   // Media state
@@ -170,10 +172,12 @@ export default function BrandingPage() {
       setTenant(t);
       const ts = t.themeSettings as any || {};
       setSelectedTemplate(ts.pageTemplate || 'grande');
+      setPendingTemplate(ts.pageTemplate || 'grande');
       setDesignTokens(resolveDesignTokens(ts.pageTemplate, ts.designTokens));
       setFontStyle(ts.fontStyle || 'modern');
       setTextColorOption(ts.textColorOption || 'signature');
       setFooterAccent(ts.footerAccent || 'primary');
+      setMenuGroupStyle(ts.menuGroupStyle || 'pill');
       setLogoUrl(t.logo || '');
       const stored = ts.bannerImages;
       setBannerUrls(Array.isArray(stored) && stored.length ? stored : t.banner ? [t.banner] : []);
@@ -206,6 +210,7 @@ export default function BrandingPage() {
       });
       setTenant(updated);
       setSelectedTemplate(templateId);
+      setPendingTemplate(templateId);
       form.setValue('primaryColor', preset.primaryColor);
       form.setValue('secondaryColor', preset.secondaryColor);
       form.setValue('fontFamily', tmpl.fontFamily);
@@ -262,6 +267,7 @@ export default function BrandingPage() {
           ...ts,
           designTokens,
           fontStyle,
+          menuGroupStyle,
           fontFamily: selectedTypo?.font || ts.fontFamily,
         },
       });
@@ -357,17 +363,18 @@ export default function BrandingPage() {
 
                   <div className="grid sm:grid-cols-3 gap-4">
                     {shown.map((tmpl) => {
-                      const isSelected = selectedTemplate === tmpl.id;
+                      const isPending  = pendingTemplate === tmpl.id;
+                      const isApplied  = selectedTemplate === tmpl.id;
                       const isRec = recommended.some((r) => r.id === tmpl.id);
                       return (
                         <div
                           key={tmpl.id}
                           className={`rounded-2xl overflow-hidden border-2 cursor-pointer transition-all duration-200 ${
-                            isSelected
+                            isPending
                               ? 'border-blue-500 shadow-lg scale-[1.01]'
                               : 'border-transparent hover:border-gray-200 hover:shadow-md'
                           } ${isSavingTemplate ? 'opacity-60 pointer-events-none' : ''}`}
-                          onClick={() => handleSaveTemplate(tmpl.id)}
+                          onClick={() => setPendingTemplate(tmpl.id)}
                         >
                           {/* Preview swatch */}
                           <div className={`bg-gradient-to-br ${tmpl.previewGradient} p-4 h-28 flex flex-col justify-between relative overflow-hidden`}>
@@ -435,13 +442,14 @@ export default function BrandingPage() {
                               <p className="font-bold text-gray-900 text-sm">{tmpl.name}</p>
                               <p className="text-xs text-gray-400 mt-0.5 truncate">{tmpl.tagline.split(' · ')[0]}</p>
                             </div>
-                            {isSelected && (
-                              <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
-                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                              {isApplied && (
+                                <span className="text-[9px] font-bold uppercase tracking-wide text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">Live</span>
+                              )}
+                              {isPending && !isApplied && (
+                                <span className="text-[9px] font-bold uppercase tracking-wide text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">Selected</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -463,9 +471,15 @@ export default function BrandingPage() {
               );
             })()}
           </div>
-          {isSavingTemplate && (
-            <p className="text-sm text-blue-600 mt-3">Applying template…</p>
-          )}
+          <button
+            type="button"
+            disabled={isSavingTemplate || pendingTemplate === selectedTemplate}
+            onClick={() => handleSaveTemplate(pendingTemplate)}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            {isSavingTemplate && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {isSavingTemplate ? 'Applying…' : pendingTemplate === selectedTemplate ? 'Template Applied' : 'Apply Template'}
+          </button>
         </div>
       )}
 
@@ -484,16 +498,6 @@ export default function BrandingPage() {
               onChange={(urls: string[]) => setBannerUrls(urls)}
             />
 
-            <div className="border-t border-gray-100 pt-5">
-              <h3 className="font-semibold text-gray-900 mb-1 text-sm">Promo / Feature Image</h3>
-              <p className="text-sm text-gray-500 mb-3">Optional image used in home page feature blocks and social sharing.</p>
-              <ImageUpload
-                currentUrl={promoImageUrl}
-                mediaType="banner"
-                onUpload={(url) => setPromoImageUrl(url)}
-                aspectRatio="banner"
-              />
-            </div>
           </div>
 
           <button
@@ -515,46 +519,25 @@ export default function BrandingPage() {
             <div>
               <h3 className="font-semibold text-gray-900 mb-1">Logo</h3>
               <p className="text-sm text-gray-500 mb-3">Shown in the navbar. Square images work best.</p>
-              <ImageUpload
-                currentUrl={logoUrl}
-                mediaType="logo"
-                onUpload={(url) => setLogoUrl(url)}
-                aspectRatio="square"
-              />
-            </div>
-
-            <div className="border-t border-gray-100 pt-5">
-              <h3 className="font-semibold text-gray-900 mb-1">Font Family</h3>
-              <p className="text-sm text-gray-500 mb-3">
-                Override the template's default font. Leave on template default for best results.
-              </p>
-              <select
-                {...form.register('fontFamily')}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {FONTS.map((f) => (
-                  <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
-                ))}
-              </select>
+              <div className="w-36">
+                <ImageUpload
+                  currentUrl={logoUrl}
+                  mediaType="logo"
+                  onUpload={(url) => setLogoUrl(url)}
+                  aspectRatio="square"
+                />
+              </div>
             </div>
           </div>
 
           <button
             type="button"
             disabled={isSavingMedia}
-            onClick={async () => {
-              await handleSaveMedia();
-              // Also persist font
-              const data = form.getValues();
-              if (!tenant) return;
-              const ts = tenant.themeSettings as any || {};
-              await tenantService.update(tenant.id, { themeSettings: { ...ts, fontFamily: data.fontFamily } });
-              await revalidateTenantCache(tenant.slug);
-            }}
+            onClick={handleSaveMedia}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
           >
             {isSavingMedia && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            Save Logo & Font
+            Save Logo
           </button>
         </div>
       )}
@@ -879,44 +862,54 @@ export default function BrandingPage() {
         </div>
       )}
 
-      {/* ── STYLE TAB ─────────────────────────────────────────────────────── */}
+      {/* ── MENU STYLE TAB ────────────────────────────────────────────────── */}
       {activeTab === 'style' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-7">
             <div>
-              <h2 className="font-semibold text-gray-900">Fine-tune the Look</h2>
-              <p className="text-sm text-gray-500 mt-0.5">Applied on top of your template — changes take effect instantly on your site.</p>
+              <h2 className="font-semibold text-gray-900">Menu Style</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Controls how cards and buttons look on your menu and public pages.</p>
             </div>
 
-            {/* Typography Style */}
+            {/* Menu Group Button Style */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Typography Style</label>
-              <p className="text-xs text-gray-400 mb-3">Sets the heading font across your whole site. Each style is curated to match a type of venue.</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {TYPOGRAPHY_STYLES.map((typo) => (
-                  <button
-                    key={typo.id}
-                    type="button"
-                    onClick={() => setFontStyle(typo.id)}
-                    className={`flex flex-col items-start gap-2 p-4 rounded-xl border-2 text-left transition-all ${
-                      fontStyle === typo.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <span className="text-lg leading-tight text-gray-800" style={typo.style}>{typo.preview}</span>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">{typo.label}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{typo.tagline}</p>
-                    </div>
-                  </button>
-                ))}
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Menu Group Buttons</label>
+              <p className="text-xs text-gray-400 mb-3">Style of the category tabs at the top of your menu page (e.g. Starters, Mains, Desserts).</p>
+              <div className="flex gap-3 flex-wrap">
+                {([
+                  { id: 'pill',    label: 'Pill',    radius: '999px', preview: 'Starters' },
+                  { id: 'rounded', label: 'Rounded', radius: '10px',  preview: 'Starters' },
+                  { id: 'sharp',   label: 'Sharp',   radius: '0px',   preview: 'Starters' },
+                ] as const).map((opt) => {
+                  const pc = form.watch('primaryColor');
+                  const isSelected = menuGroupStyle === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setMenuGroupStyle(opt.id)}
+                      className={`flex flex-col items-center gap-2 px-5 py-3 border-2 transition-all ${
+                        isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      style={{ borderRadius: '12px' }}
+                    >
+                      <span
+                        className="text-sm font-semibold text-white px-4 py-1.5"
+                        style={{ backgroundColor: pc, borderRadius: opt.radius }}
+                      >
+                        {opt.preview}
+                      </span>
+                      <span className="text-xs font-medium text-gray-600">{opt.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Corner Radius */}
+            {/* Item Card Corner Radius */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Corner Radius</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Item Card Corners</label>
+              <p className="text-xs text-gray-400 mb-3">Applies to menu item cards in grid view and the Pick of the Day tiles on the home page.</p>
               <div className="flex gap-2 flex-wrap">
                 {RADIUS_OPTIONS.map(({ label, value }) => (
                   <button
@@ -929,10 +922,7 @@ export default function BrandingPage() {
                         : 'border-gray-200 text-gray-600 hover:border-gray-300'
                     }`}
                   >
-                    <div
-                      className="w-10 h-10 bg-gray-200"
-                      style={{ borderRadius: value }}
-                    />
+                    <div className="w-10 h-10 bg-gray-200" style={{ borderRadius: value }} />
                     {label}
                     <span className="text-xs text-gray-400 font-mono">{value}</span>
                   </button>
@@ -940,11 +930,11 @@ export default function BrandingPage() {
               </div>
             </div>
 
-            {/* Glass Effect */}
+            {/* Glass Effect toggle (no preview) */}
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-gray-700">Glass Cards</p>
-                <p className="text-xs text-gray-400 mt-0.5">Frosted glass look on menu/service cards. Works best on dark or coloured backgrounds.</p>
+                <p className="text-xs text-gray-400 mt-0.5">Frosted glass look on menu cards. Works best on dark or coloured backgrounds.</p>
               </div>
               <button
                 type="button"
@@ -958,18 +948,6 @@ export default function BrandingPage() {
                 }`} />
               </button>
             </div>
-
-            {/* Glass preview */}
-            {designTokens.glassEffect && (
-              <div className="rounded-xl p-4 bg-gradient-to-br from-blue-600 to-purple-700">
-                <div className="rounded-lg p-4" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.22)' }}>
-                  <div className="w-full h-24 rounded bg-white/10 mb-2" />
-                  <div className="h-3 w-2/3 rounded bg-white/40 mb-1.5" />
-                  <div className="h-3 w-1/3 rounded bg-white/25" />
-                </div>
-                <p className="text-white/60 text-xs mt-2 text-center">Glass card preview</p>
-              </div>
-            )}
           </div>
 
           <button

@@ -79,16 +79,6 @@ export function EntryListPage({ pageDef, entries, primaryColor }: Props) {
 
   return (
     <div>
-      {/* Page header */}
-      <div
-        className="py-16 px-6 text-center"
-        style={{ background: `linear-gradient(135deg, ${primaryColor}ee, ${primaryColor}99)` }}
-      >
-        <div className="text-5xl mb-4">{pageDef.icon}</div>
-        <h1 className="text-4xl font-bold text-white mb-2">{pageDef.label}</h1>
-        <p className="text-white/75 text-lg">{pageDef.description}</p>
-      </div>
-
       {/* Entries */}
       <div className="max-w-6xl mx-auto px-6 py-12">
         {isEmpty ? (
