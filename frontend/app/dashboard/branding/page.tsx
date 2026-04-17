@@ -530,6 +530,7 @@ export default function BrandingPage() {
                   mediaType="logo"
                   onUpload={(url) => setLogoUrl(url)}
                   aspectRatio="square"
+                  autoCrop
                 />
               </div>
             </div>

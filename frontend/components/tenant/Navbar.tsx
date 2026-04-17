@@ -78,12 +78,12 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
           <div className="flex items-center justify-between h-20">
 
             {/* Logo / Name */}
-            <Link href="/" className="flex items-center gap-3 flex-shrink-0">
+            <Link href="/" className="flex items-center gap-1 flex-shrink-0 mr-8">
               {showLogoImage && (
                 <img
                   src={tenant.logo!}
                   alt={`${tenant.name} logo`}
-                  className="h-24 w-auto object-contain drop-shadow-lg brightness-110 contrast-105"
+                  className="h-14 w-auto object-contain drop-shadow-lg brightness-110 contrast-105 py-1"
                 />
               )}
               {showLogoText && (
@@ -92,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
                     className="font-black leading-none block"
                     style={{
                       fontFamily: 'var(--heading-font, Impact, "Arial Black", Georgia, serif)',
-                      fontSize: 'clamp(1.5rem, 3.5vw, 2rem)',
+                      fontSize: showLogoImage ? 'clamp(1rem, 2vw, 1.4rem)' : 'clamp(1.5rem, 3.5vw, 2rem)',
                       letterSpacing: '0.05em',
                       color: textColor,
                       WebkitTextStroke: light && textColorOption === 'signature' ? '2px rgba(255,255,255,0.5)' : '2.5px rgba(0,0,0,0.55)',

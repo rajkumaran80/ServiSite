@@ -17,6 +17,66 @@ interface ImageUploadProps {
   onFileSelected?: (file: File | null) => void;
   aspectRatio?: 'square' | 'banner' | 'free';
   maxSizeMB?: number;
+  /** Auto-crop transparent/white edges before upload — ideal for logos */
+  autoCrop?: boolean;
+}
+
+/**
+ * Crops an image file to the bounding box of non-transparent, non-white pixels.
+ * Returns a new File with the cropped PNG, or the original if nothing to crop.
+ */
+async function cropToContent(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+
+      const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      let top = height, bottom = 0, left = width, right = 0;
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+          // Skip fully transparent or near-white pixels
+          if (a < 10 || (r > 240 && g > 240 && b > 240 && a > 240)) continue;
+          if (y < top) top = y;
+          if (y > bottom) bottom = y;
+          if (x < left) left = x;
+          if (x > right) right = x;
+        }
+      }
+
+      // Nothing found — return original
+      if (top > bottom || left > right) { resolve(file); return; }
+
+      // Add 4px padding around the content
+      const pad = 4;
+      const cropX = Math.max(0, left - pad);
+      const cropY = Math.max(0, top - pad);
+      const cropW = Math.min(width, right + pad + 1) - cropX;
+      const cropH = Math.min(height, bottom + pad + 1) - cropY;
+
+      const out = document.createElement('canvas');
+      out.width = cropW;
+      out.height = cropH;
+      out.getContext('2d')!.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+      out.toBlob((blob) => {
+        if (!blob) { resolve(file); return; }
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' }));
+      }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
 }
 
 export const ImageUpload: React.FC<ImageUploadProps> = ({
@@ -26,6 +86,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   onFileSelected,
   aspectRatio = 'free',
   maxSizeMB = 10,
+  autoCrop = false,
 }) => {
   const deferred = !!onFileSelected;
   const [isUploading, setIsUploading] = useState(false);
@@ -67,7 +128,8 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
     // Eager mode: upload now
     setIsUploading(true);
     try {
-      const result = await uploadService.uploadFile(file, mediaType);
+      const fileToUpload = autoCrop ? await cropToContent(file) : file;
+      const result = await uploadService.uploadFile(fileToUpload, mediaType);
       onUpload?.(result.url);
       setPreview(result.url);
       URL.revokeObjectURL(objectUrl);
