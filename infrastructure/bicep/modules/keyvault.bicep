@@ -28,6 +28,10 @@ param twilioAuthToken string
 param googleClientId string
 @secure()
 param googlePlacesApiKey string
+@secure()
+param facebookAppSecret string
+@secure()
+param anthropicApiKey string
 
 var kvName = replace('${prefix}-kv', '-', '')  // Key Vault names: alphanumeric only, max 24 chars
 
@@ -119,6 +123,18 @@ resource secretGooglePlacesApiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01'
   parent: kv
   name: 'google-places-api-key'
   properties: { value: googlePlacesApiKey }
+}
+
+resource secretFacebookAppSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'facebook-app-secret'
+  properties: { value: facebookAppSecret }
+}
+
+resource secretAnthropicApiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'anthropic-api-key'
+  properties: { value: anthropicApiKey }
 }
 
 // ── Private Endpoint ──────────────────────────────────────────────────────────

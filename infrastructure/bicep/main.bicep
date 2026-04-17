@@ -99,6 +99,17 @@ param mediaCdnUrl string = ''
 @secure()
 param googlePlacesApiKey string
 
+@description('Facebook App ID (non-secret — visible in OAuth URL)')
+param facebookAppId string = ''
+
+@description('Facebook App Secret')
+@secure()
+param facebookAppSecret string = ''
+
+@description('Anthropic API key for AI post generation')
+@secure()
+param anthropicApiKey string = ''
+
 @description('Azure Container Registry login server (e.g. servisite.azurecr.io)')
 param acrLoginServer string
 
@@ -146,6 +157,8 @@ module keyvault 'modules/keyvault.bicep' = {
     twilioAuthToken: twilioAuthToken
     googleClientId: googleClientId
     googlePlacesApiKey: googlePlacesApiKey
+    facebookAppSecret: facebookAppSecret
+    anthropicApiKey: anthropicApiKey
   }
 }
 
@@ -209,6 +222,7 @@ module appservice 'modules/appservice.bicep' = {
     twilioWhatsappFrom: twilioWhatsappFrom
     superadminAlertEmail: superadminAlertEmail
     mediaCdnUrl: mediaCdnUrl
+    facebookAppId: facebookAppId
   }
 }
 

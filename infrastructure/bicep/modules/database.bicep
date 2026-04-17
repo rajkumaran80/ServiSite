@@ -12,7 +12,7 @@ resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-preview'
   name: '${prefix}-postgres'
   location: location
   sku: {
-    name: 'Standard_B2ms'   // 2 vCPUs, 8 GB — scale up when needed
+    name: 'Standard_B1ms'   // 1 vCPU, 2 GiB RAM — Burstable B1ms
     tier: 'Burstable'
   }
   properties: {
@@ -25,10 +25,10 @@ resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-preview'
     }
     backup: {
       backupRetentionDays: 7
-      geoRedundantBackup: 'Disabled'   // Enable for production HA
+      geoRedundantBackup: 'Disabled'
     }
     highAvailability: {
-      mode: 'Disabled'   // Enable ZoneRedundant for HA
+      mode: 'Disabled'
     }
     network: {
       // Private access — no public connectivity

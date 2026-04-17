@@ -33,6 +33,9 @@ export interface Tenant {
   customDomainTxtValue?: string | null;
   customDomainVerifiedAt?: string | null;
   customDomainNsRecords?: string[];
+  // Facebook integration
+  facebookPageId?: string | null;
+  facebookPageName?: string | null;
   contactInfo?: ContactInfo | null;
   _count?: {
     menuItems: number;

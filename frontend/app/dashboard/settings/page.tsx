@@ -5,11 +5,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { useAuthStore } from '../../../store/auth.store';
 import tenantService from '../../../services/tenant.service';
 import { api } from '../../../services/api';
 import type { Tenant, ContactInfo } from '../../../types/tenant.types';
 import { revalidateTenantCache } from './actions';
+import facebookService, { FacebookConnection } from '../../../services/facebook.service';
 
 const tenantSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(100),
@@ -41,8 +44,10 @@ const TIMEZONES = [
 ];
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'MXN', 'BRL', 'CAD', 'AED', 'JPY'];
 
-export default function SettingsPage() {
+function SettingsPageInner() {
   const { user } = useAuthStore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,6 +56,10 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<'business' | 'contact' | 'hours' | 'domain' | 'social'>('business');
   const [socialLinks, setSocialLinks] = useState({ instagram: '', facebook: '', tiktok: '', twitter: '', youtube: '' });
   const [isSavingSocial, setIsSavingSocial] = useState(false);
+  // Facebook
+  const [fbConnection, setFbConnection] = useState<FacebookConnection | null>(null);
+  const [isConnectingFb, setIsConnectingFb] = useState(false);
+  const [isDisconnectingFb, setIsDisconnectingFb] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
@@ -84,15 +93,30 @@ export default function SettingsPage() {
     resolver: zodResolver(contactSchema),
   });
 
+  // Handle redirect back from Facebook OAuth
+  useEffect(() => {
+    const section = searchParams.get('section');
+    const fb = searchParams.get('fb');
+    if (section === 'social') setActiveSection('social');
+    if (fb === 'connected') {
+      toast.success('Facebook page connected!');
+      facebookService.getConnection().then(setFbConnection).catch(() => {});
+      // Remove query params without full reload
+      router.replace('/dashboard/settings?section=social');
+    }
+  }, []);
+
   useEffect(() => {
     if (!user?.tenantId) return;
 
     const loadData = async () => {
       try {
-        const [tenantRes, contactData] = await Promise.all([
+        const [tenantRes, contactData, fbConn] = await Promise.all([
           api.get<{ data: Tenant }>('/tenant/current'),
           tenantService.getContact(),
+          facebookService.getConnection().catch(() => null),
         ]);
+        setFbConnection(fbConn);
 
         const currentTenant = tenantRes.data.data;
         if (currentTenant) {
@@ -302,6 +326,31 @@ export default function SettingsPage() {
       toast.error('Failed to save contact info');
     } finally {
       setIsSavingContact(false);
+    }
+  };
+
+  const handleConnectFacebook = async () => {
+    setIsConnectingFb(true);
+    try {
+      const url = await facebookService.getAuthUrl();
+      window.location.href = url;
+    } catch {
+      toast.error('Failed to get Facebook authorisation URL');
+      setIsConnectingFb(false);
+    }
+  };
+
+  const handleDisconnectFacebook = async () => {
+    if (!confirm('Disconnect your Facebook page?')) return;
+    setIsDisconnectingFb(true);
+    try {
+      await facebookService.disconnect();
+      setFbConnection(null);
+      toast.success('Facebook disconnected');
+    } catch {
+      toast.error('Failed to disconnect Facebook');
+    } finally {
+      setIsDisconnectingFb(false);
     }
   };
 
@@ -762,6 +811,57 @@ export default function SettingsPage() {
               <p className="text-sm text-gray-500 mt-0.5">Shown in the footer and contact section. Leave blank to hide.</p>
             </div>
 
+            {/* Facebook Page Connection */}
+            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#1877F2' }}>
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">Facebook Page Posting</p>
+                  <p className="text-xs text-gray-500">
+                    {fbConnection
+                      ? `Connected to: ${fbConnection.pageName}`
+                      : 'Authorise ServiSite to post menu items to your Facebook Page'}
+                  </p>
+                </div>
+                {fbConnection ? (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      Connected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleDisconnectFacebook}
+                      disabled={isDisconnectingFb}
+                      className="text-xs text-red-600 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg border border-red-200 hover:border-red-300 transition-colors"
+                    >
+                      {isDisconnectingFb ? 'Disconnecting…' : 'Disconnect'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleConnectFacebook}
+                    disabled={isConnectingFb}
+                    className="flex-shrink-0 flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+                    style={{ background: '#1877F2' }}
+                  >
+                    {isConnectingFb && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    Connect
+                  </button>
+                )}
+              </div>
+              {!fbConnection && (
+                <p className="text-xs text-gray-400 bg-gray-50 rounded-lg p-2.5">
+                  Once connected you can post any menu item directly to your Facebook Page from the Menu section, with AI-generated captions.
+                </p>
+              )}
+            </div>
+
             {([
               { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
               { key: 'facebook',  label: 'Facebook',  placeholder: 'https://facebook.com/yourbusiness' },
@@ -795,5 +895,13 @@ export default function SettingsPage() {
       )}
 
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div className="animate-pulse space-y-4"><div className="h-8 bg-gray-200 rounded w-1/4" /><div className="h-64 bg-gray-200 rounded-xl" /></div>}>
+      <SettingsPageInner />
+    </Suspense>
   );
 }

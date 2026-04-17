@@ -30,6 +30,7 @@ param twilioAccountSid string
 param twilioWhatsappFrom string = 'whatsapp:+14155238886'
 param superadminAlertEmail string
 param mediaCdnUrl string = ''
+param facebookAppId string = ''
 
 // Helper: extract Key Vault name from URI (e.g. https://servisiteprodkv.vault.azure.net/)
 var kvName = split(split(keyVaultUri, '/')[2], '.')[0]
@@ -123,6 +124,10 @@ resource backend 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'TWILIO_AUTH_TOKEN',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=twilio-auth-token)' }
         { name: 'GOOGLE_CLIENT_ID',        value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=google-client-id)' }
         { name: 'GOOGLE_PLACES_API_KEY',   value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=google-places-api-key)' }
+        // ── Facebook & AI ─────────────────────────────────────────────────────
+        { name: 'FACEBOOK_APP_ID',         value: facebookAppId }
+        { name: 'FACEBOOK_APP_SECRET',     value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=facebook-app-secret)' }
+        { name: 'ANTHROPIC_API_KEY',       value: '@Microsoft.KeyVault(VaultName=${kvName};SecretName=anthropic-api-key)' }
         // ── Container ─────────────────────────────────────────────────────────
         { name: 'WEBSITES_PORT', value: '3001' }
         { name: 'DOCKER_REGISTRY_SERVER_URL', value: 'https://${acrLoginServer}' }

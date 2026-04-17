@@ -8,6 +8,8 @@ import menuService from '../../../services/menu.service';
 import uploadService from '../../../services/upload.service';
 import { ImageUpload } from '../../../components/ui/ImageUpload';
 import type { MenuGroup, Category, MenuItem, CreateMenuGroupPayload, CreateCategoryPayload, CreateMenuItemPayload, ItemVariant } from '../../../types/menu.types';
+import facebookService from '../../../services/facebook.service';
+import { FacebookPostModal } from '../../../components/dashboard/FacebookPostModal';
 
 // ─── Small helper components ────────────────────────────────────────────────
 
@@ -804,6 +806,7 @@ export default function DashboardMenuPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [currency, setCurrency] = useState<string>('GBP');
+  const [businessName, setBusinessName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'groups' | 'categories' | 'items'>('groups');
 
@@ -822,19 +825,24 @@ export default function DashboardMenuPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [variantItem, setVariantItem] = useState<MenuItem | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [fbPageConnected, setFbPageConnected] = useState(false);
+  const [fbPostItem, setFbPostItem] = useState<MenuItem | null>(null);
 
   const loadData = async () => {
     try {
-      const [grps, cats, menuItems, tenantRes] = await Promise.all([
+      const [grps, cats, menuItems, tenantRes, fbConn] = await Promise.all([
         menuService.getGroups(),
         menuService.getCategories(),
         menuService.getItems(),
         api.get('/tenant/current'),
+        facebookService.getConnection().catch(() => null),
       ]);
       setGroups(grps);
       setCategories(cats);
       setItems(menuItems);
       setCurrency(tenantRes.data?.data?.currency ?? 'GBP');
+      setBusinessName(tenantRes.data?.data?.name ?? '');
+      setFbPageConnected(!!fbConn?.pageId);
     } catch {
       toast.error('Failed to load menu data');
     } finally {
@@ -1270,6 +1278,19 @@ export default function DashboardMenuPage() {
                       >
                         Sizes
                       </button>
+                      {fbPageConnected && (
+                        <button
+                          onClick={() => setFbPostItem(item)}
+                          className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors"
+                          style={{ borderColor: '#1877F2', color: '#1877F2', background: '#EBF3FD' }}
+                          title="Post to Facebook"
+                        >
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                          </svg>
+                          Post
+                        </button>
+                      )}
                       <button
                         onClick={() => { setEditingItem(item); setShowItemForm(true); }}
                         className="text-gray-400 hover:text-gray-700 p-1 rounded transition-colors"
@@ -1368,6 +1389,15 @@ export default function DashboardMenuPage() {
             setShowImportModal(false);
             await loadData();
           }}
+        />
+      )}
+
+      {fbPostItem && (
+        <FacebookPostModal
+          item={fbPostItem}
+          businessName={businessName}
+          currency={currency}
+          onClose={() => setFbPostItem(null)}
         />
       )}
     </div>
