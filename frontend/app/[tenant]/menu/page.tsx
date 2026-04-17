@@ -1188,6 +1188,18 @@ export default function MenuPage() {
           ? (menuBannerImageUrl || bannerImages[0] || null)
           : (bannerImages[0] || null);
 
+        const overlayStyle = {
+          background: `linear-gradient(to bottom, ${primaryColor}cc, rgba(0,0,0,0.55))`,
+        };
+        const bannerText = (
+          <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
+            <h1 className="text-4xl font-black mb-2" style={{ color: 'var(--heading-on-dark)' }}>
+              {'Our Menu'}
+            </h1>
+            <p className="text-lg" style={{ color: 'var(--body-on-dark)', opacity: 0.85 }}>{tenant.name}</p>
+          </div>
+        );
+
         if (menuBannerType === 'video' && menuVideoUrl) {
           return (
             <div className="relative overflow-hidden" style={{ height: 300 }}>
@@ -1199,13 +1211,8 @@ export default function MenuPage() {
                 playsInline
                 className="absolute inset-0 w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-black/55" />
-              <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
-                <h1 className="text-4xl font-black text-white mb-2">
-                  {'Our Menu'}
-                </h1>
-                <p className="text-white/75 text-lg">{tenant.name}</p>
-              </div>
+              <div className="absolute inset-0" style={overlayStyle} />
+              {bannerText}
             </div>
           );
         }
@@ -1214,13 +1221,8 @@ export default function MenuPage() {
           return (
             <div className="relative overflow-hidden" style={{ height: 300 }}>
               <img src={heroBgImage} alt={tenant.name} className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/55" />
-              <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
-                <h1 className="text-4xl font-black text-white mb-2">
-                  {'Our Menu'}
-                </h1>
-                <p className="text-white/75 text-lg">{tenant.name}</p>
-              </div>
+              <div className="absolute inset-0" style={overlayStyle} />
+              {bannerText}
             </div>
           );
         }
@@ -1232,10 +1234,10 @@ export default function MenuPage() {
             style={{ background: `linear-gradient(135deg, ${primaryColor}ee, ${primaryColor}99)` }}
           >
             <div className="text-5xl mb-4">{isRestaurant ? '🍽️' : '🛠️'}</div>
-            <h1 className="text-4xl font-bold text-white mb-2">
+            <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--heading-on-dark)' }}>
               {'Our Menu'}
             </h1>
-            <p className="text-white/75 text-lg">{tenant.name}</p>
+            <p className="text-lg" style={{ color: 'var(--body-on-dark)', opacity: 0.85 }}>{tenant.name}</p>
           </div>
         );
       })()}
