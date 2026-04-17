@@ -206,16 +206,18 @@ export default async function ContactPage({ params }: { params: { tenant: string
           {/* Map embed or placeholder */}
           <div>
             {mapEmbedUrl ? (
-              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 h-full min-h-[400px] flex flex-col">
-                <iframe
-                  src={mapEmbedUrl}
-                  className="w-full flex-1 min-h-[400px]"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title={`${tenant.name} location`}
-                />
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 h-full flex flex-col">
+                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    src={mapEmbedUrl}
+                    className="absolute inset-0 w-full h-full"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title={`${tenant.name} location`}
+                  />
+                </div>
                 {fullAddress && (
                   <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
                     <p className="text-sm text-gray-500 truncate">{fullAddress}</p>

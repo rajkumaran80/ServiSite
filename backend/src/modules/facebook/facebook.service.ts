@@ -40,9 +40,12 @@ export class FacebookService {
 
   /** Returns the Facebook OAuth dialog URL */
   getAuthUrl(): string {
+    const appId = this.appId;
+    console.log('[Facebook] appId:', appId ? `${appId.slice(0, 6)}...` : 'EMPTY');
+    console.log('[Facebook] redirectUri:', this.redirectUri);
     const scope = 'pages_manage_posts,pages_read_engagement,pages_show_list';
     const params = new URLSearchParams({
-      client_id: this.appId,
+      client_id: appId,
       redirect_uri: this.redirectUri,
       scope,
       response_type: 'code',

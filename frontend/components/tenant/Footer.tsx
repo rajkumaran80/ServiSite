@@ -259,7 +259,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
       <div className="border-t border-gray-800">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-600">
           <p>© {year} {tenant.name}. All rights reserved.</p>
-          <p>Powered by <a href="https://servisite.com" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white transition-colors font-semibold" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: 'normal', textTransform: 'none' }}>ServiSite</a></p>
+          <p>Powered by <a href="https://www.servisite.co.uk" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white transition-colors font-semibold" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: 'normal', textTransform: 'none' }}>ServiSite</a></p>
         </div>
       </div>
     </footer>
