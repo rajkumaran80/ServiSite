@@ -5,6 +5,7 @@ import Footer from '../../components/tenant/Footer';
 import WhatsAppButton from '../../components/tenant/WhatsAppButton';
 import JsonLd from '../../components/tenant/JsonLd';
 import { getPageTemplate, resolveDesignTokens } from '../../config/page-templates';
+import { getColorGroup } from '../../lib/theme';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.co.uk';
@@ -99,15 +100,16 @@ export default async function TenantLayout({
     return `${parseInt(result[1], 16)} ${parseInt(result[2], 16)} ${parseInt(result[3], 16)}`;
   }
 
-  function buildFontStack(name: string): string {
-    if (name === 'Playfair Display') return "'Playfair Display', Georgia, serif";
-    if (name === 'Montserrat') return "'Montserrat', system-ui, sans-serif";
-    if (name === 'Quicksand') return "'Quicksand', system-ui, sans-serif";
-    return "'Inter', system-ui, sans-serif";
-  }
-
   const primaryRgb = hexToRgb(primaryColor);
   const secondaryRgb = hexToRgb(secondaryColor);
+
+  // Colour group — auto-set font and decoration rules
+  const colorGroup = getColorGroup(primaryColor);
+  const resolvedButtonRadius = (theme as any).buttonRadius || colorGroup.buttonRadius;
+
+  // Body text always uses the group's fixed signature colours — not affected by nav text option
+  const resolvedHeadingOnWhite = colorGroup.headingOnWhite;
+  const resolvedBodyOnWhite = colorGroup.bodyOnWhite;
 
   // Resolve design tokens: saved overrides → template defaults
   const tokens = resolveDesignTokens(
@@ -126,28 +128,33 @@ export default async function TenantLayout({
         :root {
           --color-primary: ${primaryRgb};
           --color-secondary: ${secondaryRgb};
-          --font-family: '${fontFamily}', system-ui, sans-serif;
-          --heading-font: ${buildFontStack(headingFont)};
-          --body-font: ${buildFontStack(bodyFont)};
+          --primary-hex: ${primaryColor};
+          --heading-font: ${colorGroup.headingFontStack};
+          --body-font: ${colorGroup.bodyFontStack};
           --surface: ${surfaceColor};
           --accent: ${primaryColor};
           --radius: ${tokens.radius};
+          --btn-radius: ${resolvedButtonRadius};
+          --letter-spacing: ${colorGroup.letterSpacing};
+          --heading-transform: ${colorGroup.uppercaseHeadings ? 'uppercase' : 'none'};
+          --heading-on-white: ${resolvedHeadingOnWhite};
+          --body-on-white: ${resolvedBodyOnWhite};
+          --heading-on-dark: ${colorGroup.headingOnDark};
+          --body-on-dark: ${colorGroup.bodyOnDark};
         }
+        ${tokens.glassEffect ? `
         .item-card {
-          border-radius: var(--radius);
-          overflow: hidden;
-          ${tokens.glassEffect ? `
           background: rgba(255,255,255,0.12) !important;
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255,255,255,0.22) !important;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.18);
-          ` : ''}
         }
+        ` : ''}
       ` }} />
       <div
-        style={{ fontFamily: `'${fontFamily}', system-ui, sans-serif` }}
-        className="min-h-screen flex flex-col bg-white"
+        style={{ fontFamily: colorGroup.bodyFontStack }}
+        className="tenant-site min-h-screen flex flex-col bg-white"
+        data-group={colorGroup.id}
       >
         <Navbar tenant={tenant} />
         <main className="flex-1">{children}</main>

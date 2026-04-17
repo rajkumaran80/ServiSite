@@ -210,3 +210,154 @@ html {
   background: linear-gradient(to right, transparent, currentColor, transparent);
   opacity: 0.2;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TENANT SITE — GROUP THEME SYSTEM
+   All rules scoped to .tenant-site so they never bleed into the admin UI.
+   CSS variables are injected per-tenant by app/[tenant]/layout.tsx.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Fonts ── */
+.tenant-site {
+  font-family: var(--body-font, system-ui, sans-serif);
+}
+
+.tenant-site h1,
+.tenant-site h2,
+.tenant-site h3,
+.tenant-site h4,
+.tenant-site h5,
+.tenant-site h6 {
+  font-family: var(--heading-font, Georgia, serif);
+  letter-spacing: var(--letter-spacing, normal);
+  text-transform: var(--heading-transform, none);
+}
+
+/* ── Heading colours on white/light sections ──
+   Overrides hardcoded text-gray-900 on headings while leaving white text alone */
+.tenant-site h1.text-gray-900,
+.tenant-site h2.text-gray-900,
+.tenant-site h3.text-gray-900,
+.tenant-site h4.text-gray-900,
+.tenant-site h5.text-gray-900,
+.tenant-site h6.text-gray-900 {
+  color: var(--heading-on-white) !important;
+}
+
+/* .section-heading always uses heading-on-white colour regardless of base class */
+.tenant-site .section-heading {
+  font-family: var(--heading-font, Georgia, serif);
+  color: var(--heading-on-white) !important;
+  letter-spacing: var(--letter-spacing, normal);
+  text-transform: var(--heading-transform, none);
+}
+
+/* .tenant-h2 and .tenant-h2-light */
+.tenant-site .tenant-h2 {
+  font-family: var(--heading-font, Georgia, serif);
+  color: var(--heading-on-white) !important;
+}
+.tenant-site .tenant-h2-light {
+  font-family: var(--heading-font, Georgia, serif);
+  /* stays white — explicit override for dark bg */
+  color: #ffffff !important;
+}
+
+/* ── Body text warmth on white sections ── */
+.tenant-site p.text-gray-600,
+.tenant-site p.text-gray-500,
+.tenant-site li.text-gray-600,
+.tenant-site li.text-gray-500 {
+  color: var(--body-on-white) !important;
+}
+
+/* ── On dark/primary sections: use dark-mode heading & body colours ── */
+.tenant-site .bg-gray-900 h1,
+.tenant-site .bg-gray-900 h2,
+.tenant-site .bg-gray-900 h3,
+.tenant-site .bg-gray-950 h1,
+.tenant-site .bg-gray-950 h2,
+.tenant-site .bg-gray-950 h3,
+.tenant-site [style*="background"] h2.section-heading,
+.tenant-site [style*="background"] h2.tenant-h2 {
+  color: var(--heading-on-dark) !important;
+}
+.tenant-site .bg-gray-900 p:not([style*="color"]),
+.tenant-site .bg-gray-950 p:not([style*="color"]) {
+  color: var(--body-on-dark) !important;
+}
+
+/* ── Primary colour overrides — replaces hardcoded blue throughout ── */
+/* Prices, links, accents */
+.tenant-site .text-blue-700,
+.tenant-site .text-blue-600,
+.tenant-site .text-blue-500 {
+  color: var(--primary-hex) !important;
+}
+
+/* Primary buttons */
+.tenant-site .bg-blue-600,
+.tenant-site .bg-blue-700 {
+  background-color: var(--primary-hex) !important;
+  border-radius: var(--btn-radius) !important;
+}
+.tenant-site .hover\:bg-blue-700:hover {
+  background-color: var(--primary-hex) !important;
+  opacity: 0.88;
+}
+
+/* Outline / border blue */
+.tenant-site .border-blue-200,
+.tenant-site .border-blue-300 {
+  border-color: color-mix(in srgb, var(--primary-hex) 35%, transparent) !important;
+}
+.tenant-site .bg-blue-50 {
+  background-color: color-mix(in srgb, var(--primary-hex) 8%, white) !important;
+}
+
+/* ── Button radius from group ── */
+.tenant-site .btn-primary,
+.tenant-site button[class*="rounded-xl"],
+.tenant-site button[class*="rounded-full"],
+.tenant-site a[class*="rounded-full"] {
+  border-radius: var(--btn-radius, 8px);
+}
+
+/* ── Prestige group: gold border on primary buttons, gold divider under headings ── */
+.tenant-site[data-group="prestige"] .bg-blue-600,
+.tenant-site[data-group="prestige"] button[class*="bg-blue"],
+.tenant-site[data-group="prestige"] a[class*="bg-blue"] {
+  border: 1px solid #D4AF37 !important;
+}
+.tenant-site[data-group="prestige"] .section-heading::after,
+.tenant-site[data-group="prestige"] h2.tenant-h2::after {
+  content: '';
+  display: block;
+  width: 3rem;
+  height: 1px;
+  background: #D4AF37;
+  margin-top: 0.6rem;
+}
+
+/* ── Artisan group: italic h3/h4 for handwritten warmth ── */
+.tenant-site[data-group="artisan"] h3,
+.tenant-site[data-group="artisan"] h4 {
+  font-style: italic;
+}
+
+/* ── Modern group: uppercase headings, block card shadow ── */
+.tenant-site[data-group="modern"] .item-card {
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.75) !important;
+}
+
+/* ── Botanical group: pill buttons, circle item cards ── */
+.tenant-site[data-group="botanical"] .item-card,
+.tenant-site[data-group="vibrant"] .item-card {
+  border-radius: 50% !important;
+}
+
+/* ── Item card base ── */
+.tenant-site .item-card {
+  border-radius: var(--radius, 8px);
+  overflow: hidden;
+}

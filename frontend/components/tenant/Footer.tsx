@@ -98,6 +98,11 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
   const year = new Date().getFullYear();
   const contact = tenant.contactInfo;
   const primaryColor = (tenant.themeSettings as any)?.primaryColor || '#3B82F6';
+  const footerAccentSetting: 'primary' | 'gold' | 'silver' = (tenant.themeSettings as any)?.footerAccent || 'primary';
+  const accentColor =
+    footerAccentSetting === 'gold'   ? '#D4AF37' :
+    footerAccentSetting === 'silver' ? '#CBD5E1' :
+    primaryColor;
   const socialLinks = (tenant.themeSettings as any)?.socialLinks as Record<string, string> | undefined;
 
   const phone = tenant.whatsappNumber || contact?.phone;
@@ -128,7 +133,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
 
               {/* Left — Get In Touch */}
               {hasContact && <div>
-                <p className="text-xs font-bold uppercase tracking-[0.15em] mb-2" style={{ color: primaryColor }}>
+                <p className="text-xs font-bold uppercase tracking-[0.15em] mb-2" style={{ color: accentColor }}>
                   Get In Touch
                 </p>
                 <div className="space-y-2.5 mt-4">
@@ -187,7 +192,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
                     className="text-2xl font-black text-center leading-tight tracking-tight"
                     style={{
                       color: 'transparent',
-                      WebkitTextStroke: `1px ${primaryColor}80`,
+                      WebkitTextStroke: `1px ${accentColor}80`,
                       fontFamily: 'var(--heading-font, Georgia, serif)',
                       whiteSpace: 'nowrap',
                     }}
@@ -197,9 +202,9 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
 
                   {/* Decorative divider */}
                   <div className="flex items-center gap-2 w-full">
-                    <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, transparent, ${primaryColor}40)` }} />
-                    <span className="text-[10px]" style={{ color: `${primaryColor}60` }}>✦</span>
-                    <div className="flex-1 h-px" style={{ background: `linear-gradient(to left, transparent, ${primaryColor}40)` }} />
+                    <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, transparent, ${accentColor}40)` }} />
+                    <span className="text-[10px]" style={{ color: `${accentColor}60` }}>✦</span>
+                    <div className="flex-1 h-px" style={{ background: `linear-gradient(to left, transparent, ${accentColor}40)` }} />
                   </div>
 
                   {/* Tagline */}
@@ -216,17 +221,22 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
               {hoursGroups.length > 0 && (
                 <div>
                   <div className="flex items-center justify-end gap-3 mb-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.15em]" style={{ color: primaryColor }}>
+                    <p className="text-xs font-bold uppercase tracking-[0.15em]" style={{ color: accentColor }}>
                       Opening Hours
                     </p>
                     {liveStatus && (
-                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
                         liveStatus.open
                           ? 'bg-green-500/15 text-green-400 border border-green-500/25'
                           : 'bg-red-500/15 text-red-400 border border-red-500/25'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${liveStatus.open ? 'bg-green-400' : 'bg-red-400'}`} />
-                        {liveStatus.label}
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${liveStatus.open ? 'bg-green-400' : 'bg-red-400'}`} />
+                        {liveStatus.label.includes('·') ? (
+                          <>
+                            <span className="hidden sm:inline">{liveStatus.label}</span>
+                            <span className="sm:hidden">{liveStatus.label.split('·')[1].trim()}</span>
+                          </>
+                        ) : liveStatus.label}
                       </span>
                     )}
                   </div>
@@ -249,7 +259,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
       <div className="border-t border-gray-800">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-600">
           <p>© {year} {tenant.name}. All rights reserved.</p>
-          <p>Powered by <a href="https://servisite.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-400 transition-colors">ServiSite</a></p>
+          <p>Powered by <a href="https://servisite.com" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white transition-colors font-semibold" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: 'normal', textTransform: 'none' }}>ServiSite</a></p>
         </div>
       </div>
     </footer>

@@ -16,6 +16,7 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [hoveredLink, setHoveredLink] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 60);
@@ -26,7 +27,22 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
   const themeSettings = (tenant.themeSettings as any) ?? {};
   const primaryColor = themeSettings.primaryColor || '#3B82F6';
   const theme = generateTheme(primaryColor);
-  const { mainText: textColor, secondaryText: textMuted, hoverBg, activeBg, borderColor, isLight: light } = theme;
+  const { hoverBg, activeBg, borderColor, isLight: light } = theme;
+
+  // 'signature' = group's curated colour — on dark bg use headingOnDark (bright), on light bg use headingOnWhite
+  // 'offwhite'  = always the group's light-on-dark colour (cream, white, etc.)
+  const textColorOption: 'signature' | 'offwhite' = themeSettings.textColorOption || 'signature';
+  const sigColour = light
+    ? (theme.group.headingOnWhite === 'var(--primary-hex)' ? primaryColor : theme.group.headingOnWhite)
+    : theme.group.headingOnDark;
+  // Off-White = the group's body-on-dark colour (cream for Prestige, warm light for Artisan, etc.)
+  // This is always distinct from the Signature colour
+  const offColour = theme.group.bodyOnDark;
+
+  const textColor = textColorOption === 'offwhite' ? offColour : sigColour;
+  const textMuted = textColor === '#FFFFFF' || textColor.startsWith('#F') || textColor.startsWith('#D') || textColor.startsWith('#C')
+    ? 'rgba(255,255,255,0.65)'
+    : 'rgba(0,0,0,0.58)';
   const navPages = resolveNavPages(themeSettings.navPages);
   const template = getPageTemplate(themeSettings.pageTemplate);
   const showLogo = template.showLogo !== false;
@@ -75,8 +91,8 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
                       fontSize: 'clamp(1.5rem, 3.5vw, 2rem)',
                       letterSpacing: '0.05em',
                       color: textColor,
-                      WebkitTextStroke: light ? '2px rgba(255,255,255,0.5)' : '2.5px rgba(0,0,0,0.55)',
-                      textShadow: light
+                      WebkitTextStroke: light && textColorOption === 'signature' ? '2px rgba(255,255,255,0.5)' : '2.5px rgba(0,0,0,0.55)',
+                      textShadow: light && textColorOption === 'signature'
                         ? '1px 2px 0px rgba(255,255,255,0.4)'
                         : '2px 3px 0px rgba(0,0,0,0.45), 4px 5px 0px rgba(0,0,0,0.2)',
                       paintOrder: 'stroke fill',
@@ -97,11 +113,13 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
                   key={link.key}
                   href={link.href}
                   className="px-4 py-2 text-sm font-semibold tracking-wide transition-all duration-200 rounded-full"
+                  onMouseEnter={() => setHoveredLink(link.key)}
+                  onMouseLeave={() => setHoveredLink(null)}
                   style={{
                     letterSpacing: '0.04em',
                     fontFamily: 'var(--body-font, system-ui)',
-                    color: isActive(link.href) ? textColor : textMuted,
-                    backgroundColor: isActive(link.href) ? activeBg : 'transparent',
+                    color: isActive(link.href) || hoveredLink === link.key ? textColor : textMuted,
+                    backgroundColor: isActive(link.href) ? activeBg : hoveredLink === link.key ? hoverBg : 'transparent',
                   }}
                 >
                   {link.label}

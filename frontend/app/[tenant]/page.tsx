@@ -3,7 +3,7 @@ import Link from 'next/link';
 import HeroSection from '../../components/tenant/HeroSection';
 import { getPageTemplate, getBusinessPreset, resolveDesignTokens } from '../../config/page-templates';
 import ScrollReveal from '../../components/ui/ScrollReveal';
-import { generateTheme } from '../../lib/theme';
+import { generateTheme, getColorGroup } from '../../lib/theme';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
@@ -104,6 +104,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
   const glassEffect = designTokens.glassEffect;
 
   const smartTheme = generateTheme(primaryColor);
+  const colorGroup = getColorGroup(primaryColor);
   const showHomeBlocks = homeBlockEntries.length > 0;
   const socialLinks = theme.socialLinks as { instagram?: string; facebook?: string; tiktok?: string; twitter?: string; youtube?: string } | undefined;
 // Google reviews take priority; fall back to manually added entries
@@ -229,7 +230,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>
                   {preset.featuredEyebrow}
                 </p>
-                <h2 className={`tenant-h2 text-3xl md:text-4xl leading-tight ${glassEffect || template.showCategoryGrid ? 'text-white' : 'text-gray-900'}`}>
+                <h2 className={`section-heading tenant-h2 text-3xl md:text-4xl leading-tight ${glassEffect || template.showCategoryGrid ? 'text-white' : 'text-gray-900'}`}>
                   {preset.featuredHeading}
                 </h2>
               </div>
@@ -271,7 +272,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
 
             <div className="text-center mt-10 sm:hidden">
               <Link href={`/menu`}
-                className="inline-block text-white font-bold px-8 py-3.5 rounded-xl shadow-lg"
+                className="btn-primary inline-block font-bold px-8 py-3.5 shadow-lg transition-opacity"
                 style={{ backgroundColor: primaryColor }}>
                 View Full {preset.menuLabel}
               </Link>
@@ -280,49 +281,137 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
         </section>
       )}
 
-      {/* Home Blocks — custom content sections */}
+      {/* Home Blocks — group-aware card layout */}
       {showHomeBlocks && (
         <div>
           {homeBlockEntries.map((entry: any, idx: number) => {
             const imagePos = entry.data?.imagePosition || (idx % 2 === 0 ? 'left' : 'right');
             const hasImage = !!entry.imageUrl;
-            return (
-              <section key={entry.id} className={`py-16 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-                  {hasImage ? (
-                    <div className="grid lg:grid-cols-[58%_42%] gap-8 items-center">
-                      <ScrollReveal delay={0} className={imagePos === 'left' ? 'lg:order-2' : 'lg:order-1'}>
-                        <div>
-                          {entry.data?.subtitle && (
-                            <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
-                          )}
-                          <h2 className="tenant-h2 text-3xl text-gray-900 mb-4 leading-tight">
-                            {entry.title}
-                          </h2>
-                          <div className="w-12 h-1 rounded-full mb-5" style={{ backgroundColor: primaryColor }} />
-                          <p className="text-gray-600 leading-relaxed whitespace-pre-line">{entry.data?.description}</p>
-                        </div>
-                      </ScrollReveal>
-                      <ScrollReveal delay={80} className={imagePos === 'left' ? 'lg:order-1' : 'lg:order-2'}>
-                        <div className="relative overflow-hidden aspect-[4/3] bg-gray-100 shadow-xl" style={{ borderRadius: 'var(--radius)' }}>
-                          <img src={entry.imageUrl} alt={entry.title || ''} className="absolute inset-0 w-full h-full object-cover" />
-                        </div>
-                      </ScrollReveal>
-                    </div>
-                  ) : (
-                    <ScrollReveal delay={0}>
-                      <div className="max-w-3xl mx-auto text-center">
-                        {entry.data?.subtitle && (
-                          <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
-                        )}
-                        <h2 className="tenant-h2 text-3xl text-gray-900 mb-4">
-                          {entry.title}
-                        </h2>
-                        <div className="w-12 h-1 rounded-full mb-6 mx-auto" style={{ backgroundColor: primaryColor }} />
-                        <p className="text-gray-600 leading-relaxed whitespace-pre-line">{entry.data?.description}</p>
-                      </div>
-                    </ScrollReveal>
+            const gid = colorGroup.id;
+
+            // ── Section background ──────────────────────────────────────────
+            const sectionBg =
+              gid === 'prestige'                   ? '#080808' :
+              gid === 'modern' && idx % 2 === 0   ? '#1E293B' :
+              gid === 'modern'                     ? '#F1F5F9' :
+              gid === 'artisan'                    ? '#FAF7F2' :
+              gid === 'botanical'                  ? '#EEF4EE' :
+              idx % 2 === 0                        ? '#FAFAFA' : '#FFFFFF';
+
+            // ── Dark card → use group's on-dark text colours inline ─────────
+            const isDark = gid === 'prestige' || (gid === 'modern' && idx % 2 === 0);
+            const headingColor = isDark ? colorGroup.headingOnDark : undefined;
+            const bodyColor    = isDark ? colorGroup.bodyOnDark    : undefined;
+
+            // ── Card style per group ────────────────────────────────────────
+            // prestige  → Elegant Frame: thin gold border, dark interior
+            // modern    → Zebra: no card wrapper, raw content with large gap
+            // others    → Floating Canvas: white rounded card with soft shadow
+            const useCard   = gid !== 'modern';
+            const cardClass = gid === 'prestige'
+              ? 'rounded-3xl overflow-hidden'
+              : 'bg-white rounded-[40px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
+            const cardStyle: React.CSSProperties = gid === 'prestige'
+              ? { border: '1px solid #D4AF37', backgroundColor: '#0f0f0f' }
+              : {};
+
+            // On dark cards the CSS !important rules in globals.css override inline styles,
+            // so we must not apply the class-based colour helpers when we need dark-mode text.
+            const headingClasses = isDark
+              ? 'text-3xl leading-tight mb-4 font-bold'
+              : 'section-heading tenant-h2 text-3xl leading-tight mb-4';
+            const bodyClasses = isDark
+              ? 'leading-relaxed whitespace-pre-line text-sm'
+              : 'leading-relaxed whitespace-pre-line text-sm text-gray-600';
+            const defaultBodyColor = isDark ? (bodyColor ?? '#E5E7EB') : undefined;
+            const defaultHeadingColor = isDark ? (headingColor ?? '#FFFFFF') : undefined;
+
+            const inner = hasImage ? (
+              // ── Text + Image ────────────────────────────────────────────────
+              <>
+                {/* ── Mobile: float image, all text wraps around it naturally ── */}
+                <div className="lg:hidden p-6 overflow-hidden">
+                  <div
+                    className={`relative rounded-2xl overflow-hidden shadow-sm ${imagePos === 'right' ? 'float-right ml-4 mb-2' : 'float-left mr-4 mb-2'}`}
+                    style={{ width: '44%', aspectRatio: '1 / 1' }}
+                  >
+                    <img src={entry.imageUrl} alt={entry.title || ''} className="absolute inset-0 w-full h-full object-cover" />
+                  </div>
+                  {entry.data?.subtitle && (
+                    <p className="tenant-eyebrow mb-2 text-[0.6rem]" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
                   )}
+                  <h2 className={headingClasses} style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}>
+                    {entry.title}
+                  </h2>
+                  <div className="w-8 h-px my-3" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                  {entry.data?.description && (
+                    <p className={bodyClasses} style={defaultBodyColor ? { color: defaultBodyColor } : {}}>
+                      {entry.data.description}
+                    </p>
+                  )}
+                  <div className="clear-both" />
+                </div>
+
+                {/* ── Desktop: full side-by-side ────────────────────────── */}
+                <div className={`hidden lg:grid lg:grid-cols-2 ${!useCard ? 'gap-10 items-center' : ''}`}>
+                  <ScrollReveal
+                    delay={80}
+                    className={imagePos === 'left' ? 'lg:order-1' : 'lg:order-2'}
+                  >
+                    <div className="relative overflow-hidden w-full" style={{ minHeight: 340, height: '100%' }}>
+                      <img src={entry.imageUrl} alt={entry.title || ''} className="absolute inset-0 w-full h-full object-cover" />
+                    </div>
+                  </ScrollReveal>
+
+                  <ScrollReveal
+                    delay={0}
+                    className={`flex flex-col justify-center p-10 lg:p-12 ${imagePos === 'left' ? 'lg:order-2' : 'lg:order-1'}`}
+                  >
+                    {entry.data?.subtitle && (
+                      <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
+                    )}
+                    <h2 className={headingClasses} style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}>
+                      {entry.title}
+                    </h2>
+                    <div className="w-10 h-px mb-5" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                    <p className={bodyClasses} style={defaultBodyColor ? { color: defaultBodyColor } : {}}>
+                      {entry.data?.description}
+                    </p>
+                  </ScrollReveal>
+                </div>
+              </>
+            ) : (
+              // ── Text Only — centered, editorial quote feel ──────────────────
+              <ScrollReveal delay={0}>
+                <div className={`text-center ${useCard ? 'py-14 px-8 lg:px-20' : 'py-8'}`}>
+                  {entry.data?.subtitle && (
+                    <p className="tenant-eyebrow mb-4 justify-center" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
+                  )}
+                  <h2
+                    className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'}
+                    style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}
+                  >
+                    {entry.title}
+                  </h2>
+                  <div className="w-10 h-px mb-6 mx-auto" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                  {entry.data?.description && (
+                    <p
+                      className={`${bodyClasses.replace('text-sm', 'text-base')} max-w-2xl mx-auto ${gid === 'prestige' || gid === 'artisan' ? 'italic' : ''}`}
+                      style={defaultBodyColor ? { color: defaultBodyColor } : {}}
+                    >
+                      &ldquo;{entry.data.description}&rdquo;
+                    </p>
+                  )}
+                </div>
+              </ScrollReveal>
+            );
+
+            return (
+              <section key={entry.id} className="py-16" style={{ backgroundColor: sectionBg }}>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                  {useCard ? (
+                    <div className={cardClass} style={cardStyle}>{inner}</div>
+                  ) : inner}
                 </div>
               </section>
             );
@@ -336,7 +425,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <p className="tenant-eyebrow mb-3 justify-center" style={{ color: primaryColor }}>Reviews</p>
-              <h2 className="tenant-h2 text-3xl md:text-4xl text-gray-900">What Our Customers Say</h2>
+              <h2 className="section-heading tenant-h2 text-3xl md:text-4xl text-gray-900">What Our Customers Say</h2>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {reviewEntries.map((entry: any, idx: number) => {

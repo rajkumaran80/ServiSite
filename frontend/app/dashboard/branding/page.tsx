@@ -20,6 +20,7 @@ import {
   type DesignTokens,
 } from '../../../config/page-templates';
 import { revalidateTenantCache } from '../settings/actions';
+import { getColorGroup, COLOR_GROUPS } from '../../../lib/theme';
 
 const brandingSchema = z.object({
   primaryColor: z.string().min(1),
@@ -37,26 +38,46 @@ interface ColorPalette {
 }
 
 const COLOR_PALETTES: ColorPalette[] = [
-  { name: 'Ocean Blue',    primary: '#1D4ED8', secondary: '#1E40AF' },
-  { name: 'Sky',           primary: '#0EA5E9', secondary: '#0284C7' },
-  { name: 'Midnight',      primary: '#1E293B', secondary: '#0F172A' },
-  { name: 'Emerald',       primary: '#059669', secondary: '#047857' },
-  { name: 'Forest',        primary: '#166534', secondary: '#14532D' },
-  { name: 'Sage',          primary: '#4ADE80', secondary: '#16A34A' },
-  { name: 'Crimson',       primary: '#DC2626', secondary: '#991B1B' },
-  { name: 'Rose',          primary: '#E11D48', secondary: '#BE123C' },
-  { name: 'Coral',         primary: '#F97316', secondary: '#EA580C' },
-  { name: 'Amber',         primary: '#D97706', secondary: '#B45309' },
-  { name: 'Gold',          primary: '#C4A35A', secondary: '#A0843E' },
-  { name: 'Bronze',        primary: '#BE8A60', secondary: '#A0714A' },
-  { name: 'Purple',        primary: '#7C3AED', secondary: '#6D28D9' },
-  { name: 'Violet',        primary: '#A855F7', secondary: '#7C3AED' },
-  { name: 'Pink',          primary: '#EC4899', secondary: '#DB2777' },
-  { name: 'Teal',          primary: '#0D9488', secondary: '#0F766E' },
-  { name: 'Slate',         primary: '#475569', secondary: '#334155' },
-  { name: 'Charcoal',      primary: '#374151', secondary: '#1F2937' },
-  { name: 'Warm Brown',    primary: '#92400E', secondary: '#78350F' },
-  { name: 'Near Black',    primary: '#09090B', secondary: '#27272A' },
+  // Prestige & Clubroom
+  { name: 'Deep Espresso',  primary: '#2D1E17', secondary: '#1A0F0A' },
+  { name: 'Obsidian',       primary: '#1A1A1A', secondary: '#0A0A0A' },
+  { name: 'Midnight Navy',  primary: '#0F172A', secondary: '#080F1C' },
+  { name: 'Deep Cherry',    primary: '#480003', secondary: '#320002' },
+  { name: 'Bottle Green',   primary: '#064E3B', secondary: '#043D2E' },
+  { name: 'Antique Gold',   primary: '#A0843E', secondary: '#7A6430' },
+  { name: 'Deep Burgundy',  primary: '#450A0A', secondary: '#2D0606' },
+  // Artisan & Heritage
+  { name: 'Oat Milk',       primary: '#F5F5DC', secondary: '#E8E8C8' },
+  { name: 'Clay Brick',     primary: '#884C42', secondary: '#6B3A32' },
+  { name: 'Dusky Plum',     primary: '#7A5C61', secondary: '#5E4549' },
+  { name: 'Sage Leaf',      primary: '#B2AC88', secondary: '#928C6A' },
+  { name: 'Warm Bronze',    primary: '#BE8A60', secondary: '#A0714A' },
+  { name: 'Terracotta',     primary: '#EA580C', secondary: '#C2470A' },
+  { name: 'Mushroom Taupe', primary: '#8D7B68', secondary: '#6E5F4F' },
+  // Modern & Industrial
+  { name: 'Slate Grey',     primary: '#475569', secondary: '#334155' },
+  { name: 'Deep Teal',      primary: '#0D9488', secondary: '#0F766E' },
+  { name: 'Midnight Blue',  primary: '#1E293B', secondary: '#0F172A' },
+  { name: 'Graphite',       primary: '#1D1D1D', secondary: '#111111' },
+  { name: 'Cool Silver',    primary: '#E2E8F0', secondary: '#CBD5E1' },
+  { name: 'Ocean Blue',     primary: '#1D4ED8', secondary: '#1E40AF' },
+  { name: 'Gunmetal Carbon',primary: '#262626', secondary: '#171717' },
+  // Botanical & Fresh
+  { name: 'Forest Green',   primary: '#14532D', secondary: '#0A3D1F' },
+  { name: 'Wasabi',         primary: '#B7B53E', secondary: '#969430' },
+  { name: 'Pale Sky',       primary: '#BAE6FD', secondary: '#93D4F8' },
+  { name: 'Soft Mint',      primary: '#D1FAE5', secondary: '#A7F3D0' },
+  { name: 'Sand',           primary: '#F3F4F6', secondary: '#E5E7EB' },
+  { name: 'Pure White',     primary: '#FFFFFF', secondary: '#F9FAFB' },
+  { name: 'Kelp Green',     primary: '#374131', secondary: '#252B21' },
+  // Vibrant & Sweet
+  { name: 'Banana Yellow',  primary: '#FEF08A', secondary: '#FDE047' },
+  { name: 'Tangerine',      primary: '#F97316', secondary: '#EA580C' },
+  { name: 'Bubblegum',      primary: '#EC4899', secondary: '#DB2777' },
+  { name: 'Persimmon',      primary: '#E25822', secondary: '#C04518' },
+  { name: 'Lavender',       primary: '#DDD6FE', secondary: '#C4B5FD' },
+  { name: 'Coral Pink',     primary: '#F472B6', secondary: '#EC4899' },
+  { name: 'Electric Violet',primary: '#7E22CE', secondary: '#6B21A8' },
 ];
 
 type Tab = 'template' | 'banner' | 'logo' | 'colors' | 'style';
@@ -125,6 +146,8 @@ export default function BrandingPage() {
   // Design token state
   const [designTokens, setDesignTokens] = useState<DesignTokens>({ radius: '16px', glassEffect: false });
   const [fontStyle, setFontStyle] = useState<string>('modern');
+  const [textColorOption, setTextColorOption] = useState<'signature' | 'offwhite'>('signature');
+  const [footerAccent, setFooterAccent] = useState<'primary' | 'gold' | 'silver'>('primary');
   const [isSavingStyle, setIsSavingStyle] = useState(false);
 
   // Media state
@@ -149,6 +172,8 @@ export default function BrandingPage() {
       setSelectedTemplate(ts.pageTemplate || 'grande');
       setDesignTokens(resolveDesignTokens(ts.pageTemplate, ts.designTokens));
       setFontStyle(ts.fontStyle || 'modern');
+      setTextColorOption(ts.textColorOption || 'signature');
+      setFooterAccent(ts.footerAccent || 'primary');
       setLogoUrl(t.logo || '');
       const stored = ts.bannerImages;
       setBannerUrls(Array.isArray(stored) && stored.length ? stored : t.banner ? [t.banner] : []);
@@ -198,17 +223,27 @@ export default function BrandingPage() {
     setIsSavingMedia(true);
     try {
       const ts = tenant.themeSettings as any || {};
+      const group = getColorGroup(data.primaryColor);
       const updated = await tenantService.update(tenant.id, {
         themeSettings: {
           ...ts,
           primaryColor: data.primaryColor,
           secondaryColor: data.secondaryColor,
-          fontFamily: data.fontFamily,
+          fontFamily: data.fontFamily || group.headingFont,
+          fontStyle,
+          textColorOption,
+          footerAccent,
+          colorGroup: group.id,
+          headingOnWhite: group.headingOnWhite,
+          bodyOnWhite: group.bodyOnWhite,
+          headingOnDark: group.headingOnDark,
+          bodyOnDark: group.bodyOnDark,
+          buttonRadius: group.buttonRadius,
         },
       });
       setTenant(updated);
       await revalidateTenantCache(tenant.slug);
-      toast.success('Colors & font saved');
+      toast.success(`${group.label} colour scheme saved`);
     } catch {
       toast.error('Failed to save');
     } finally {
@@ -535,99 +570,297 @@ export default function BrandingPage() {
               </p>
             </div>
 
-            {/* Palette grid */}
-            <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-              {COLOR_PALETTES.map((palette) => {
-                const isSelected = form.watch('primaryColor').toLowerCase() === palette.primary.toLowerCase();
+            {/* Grouped palette swatches */}
+            <div className="space-y-5">
+              {COLOR_GROUPS.map((group) => {
+                const groupPalettes = COLOR_PALETTES.filter(
+                  (p) => getColorGroup(p.primary).id === group.id
+                );
                 return (
-                  <button
-                    key={palette.primary}
-                    type="button"
-                    title={palette.name}
-                    onClick={() => {
-                      form.setValue('primaryColor', palette.primary);
-                      form.setValue('secondaryColor', palette.secondary);
-                    }}
-                    className={`group relative flex flex-col items-center gap-1.5 transition-all`}
-                  >
-                    <div
-                      className={`w-10 h-10 rounded-full border-4 transition-all ${
-                        isSelected
-                          ? 'border-gray-900 scale-110 shadow-lg'
-                          : 'border-transparent hover:border-gray-300 hover:scale-105'
-                      }`}
-                      style={{ backgroundColor: palette.primary }}
-                    >
-                      {isSelected && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      )}
+                  <div key={group.id}>
+                    {/* Group header */}
+                    <div className="mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold uppercase tracking-[0.12em] text-gray-800">{group.label}</span>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-xs text-gray-500">{group.headingFont} + {group.bodyFont}</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{group.tagline}</p>
+                      <p className="text-[10px] text-gray-300 mt-0.5 italic">{group.decorationHint}</p>
                     </div>
-                    <span className="text-[9px] text-gray-500 leading-tight text-center hidden sm:block">{palette.name}</span>
-                  </button>
+                    {/* Swatches */}
+                    <div className="flex gap-2 flex-wrap">
+                      {groupPalettes.map((palette) => {
+                        const isSelected = form.watch('primaryColor').toLowerCase() === palette.primary.toLowerCase();
+                        return (
+                          <button
+                            key={palette.primary}
+                            type="button"
+                            title={palette.name}
+                            onClick={() => {
+                              form.setValue('primaryColor', palette.primary);
+                              form.setValue('secondaryColor', palette.secondary);
+                              form.setValue('fontFamily', group.headingFont);
+                              setFontStyle(
+                                group.id === 'prestige'  ? 'elegant'
+                                : group.id === 'artisan'   ? 'elegant'
+                                : group.id === 'botanical' ? 'elegant'
+                                : group.id === 'vibrant'   ? 'cozy'
+                                : 'modern'
+                              );
+                            }}
+                            className="relative flex flex-col items-center gap-1 transition-all"
+                          >
+                            <div
+                              className={`w-10 h-10 rounded-full border-4 transition-all ${
+                                isSelected
+                                  ? 'border-gray-900 scale-110 shadow-lg'
+                                  : 'border-transparent hover:border-gray-300 hover:scale-105'
+                              }`}
+                              style={{ backgroundColor: palette.primary }}
+                            >
+                              {isSelected && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <svg className="w-4 h-4 drop-shadow" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-[9px] text-gray-500 leading-tight text-center w-10 truncate">{palette.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
 
-            {/* Selected palette name + swatch strip */}
+            {/* Selected: group badge + font auto-applied notice */}
             {(() => {
               const selected = COLOR_PALETTES.find(
                 (p) => p.primary.toLowerCase() === form.watch('primaryColor').toLowerCase()
               );
-              return selected ? (
-                <div className="flex items-center gap-3 pt-1">
-                  <div className="flex gap-1">
-                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: selected.primary }} />
-                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: selected.secondary }} />
+              if (!selected) return null;
+              const group = getColorGroup(selected.primary);
+              return (
+                <div className="flex items-center gap-3 pt-1 bg-gray-50 rounded-lg px-4 py-3">
+                  <div className="w-7 h-7 rounded-full flex-shrink-0" style={{ backgroundColor: selected.primary }} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">{selected.name}
+                      <span className="ml-2 text-xs font-normal text-gray-400 font-mono">{selected.primary}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      <span className="font-medium text-blue-600">{group.label}</span>
+                      {' · '}Font auto-set to <span className="font-medium">{group.headingFont}</span>
+                    </p>
                   </div>
-                  <span className="text-sm font-medium text-gray-700">{selected.name}</span>
-                  <span className="text-xs text-gray-400 font-mono">{selected.primary}</span>
                 </div>
-              ) : null;
+              );
+            })()}
+
+            {/* Navigation bar text colour */}
+            {(() => {
+              const pc = form.watch('primaryColor');
+              const grp = getColorGroup(pc);
+              const clean = pc.replace('#', '');
+              const r = parseInt(clean.slice(0, 2), 16) || 0;
+              const g = parseInt(clean.slice(2, 4), 16) || 0;
+              const b = parseInt(clean.slice(4, 6), 16) || 0;
+              const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+              const isDarkEnoughForOffWhite = brightness < 160;
+
+              const light = brightness > 153;
+              const sigColour = light
+                ? (grp.headingOnWhite === 'var(--primary-hex)' ? pc : grp.headingOnWhite)
+                : grp.headingOnDark;
+              // Off-White uses bodyOnDark (cream for Prestige, warm light for others)
+              // — always distinct from the Signature gold/accent colour
+              const offColour = grp.bodyOnDark;
+
+              const options: { id: 'signature' | 'offwhite'; label: string; description: string; textSample: string; disabled?: boolean }[] = [
+                {
+                  id: 'signature',
+                  label: 'Signature',
+                  description: grp.id === 'prestige' ? 'Dark Gold — stands out on deep backgrounds' :
+                    grp.id === 'artisan' ? 'Deep Cacao — rich warm contrast' :
+                    grp.id === 'modern' ? 'Primary accent colour' :
+                    grp.id === 'botanical' ? 'Moss Green — natural contrast' :
+                    'Near Black — sharp and bold',
+                  textSample: sigColour,
+                },
+                {
+                  id: 'offwhite',
+                  label: 'Off-White',
+                  description: grp.id === 'prestige' ? 'Bone Cream — soft luxury on dark backgrounds' :
+                    grp.id === 'artisan' ? 'Warm Light — gentle and readable' :
+                    grp.id === 'modern' ? 'Light Grey — clean contrast' :
+                    grp.id === 'botanical' ? 'Pale Sky — light and fresh' :
+                    'Near White — bright and airy',
+                  textSample: offColour,
+                  disabled: !isDarkEnoughForOffWhite,
+                },
+              ];
+
+              return (
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-1">Navigation Bar Text Colour</p>
+                  <p className="text-xs text-gray-400 mb-3">Only affects the top navigation bar text. Page body colours are set automatically by the group.</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {options.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={opt.disabled}
+                        onClick={() => !opt.disabled && setTextColorOption(opt.id)}
+                        title={opt.disabled ? 'Background too light for this option' : undefined}
+                        className={`relative text-left p-4 rounded-xl border-2 transition-all ${
+                          opt.disabled
+                            ? 'opacity-40 cursor-not-allowed border-gray-100 bg-gray-50'
+                            : textColorOption === opt.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-bold text-gray-800">{opt.label}</span>
+                          {textColorOption === opt.id && !opt.disabled && (
+                            <span className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </span>
+                          )}
+                          {opt.disabled && <span className="text-[9px] text-red-400 font-medium">Too light</span>}
+                        </div>
+                        {/* Mini navbar preview */}
+                        <div className="w-full h-8 rounded-lg flex items-center justify-between px-3 mb-3" style={{ backgroundColor: pc }}>
+                          <span className="text-xs font-bold" style={{ color: opt.textSample }}>Café Name</span>
+                          <div className="flex gap-2">
+                            {['Menu','About'].map(l => (
+                              <span key={l} className="text-[10px]" style={{ color: opt.textSample, opacity: 0.75 }}>{l}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 leading-snug">{opt.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Footer accent colour */}
+            {(() => {
+              const pc = form.watch('primaryColor');
+              const clean = pc.replace('#', '');
+              const r = parseInt(clean.slice(0, 2), 16) || 0;
+              const g = parseInt(clean.slice(2, 4), 16) || 0;
+              const b = parseInt(clean.slice(4, 6), 16) || 0;
+              const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+              // Disable Primary if the brand colour is too dark to read on the dark footer bg
+              const primaryTooDark = brightness < 70;
+              const options = [
+                {
+                  id: 'primary' as const,
+                  label: 'Primary',
+                  colour: pc,
+                  description: 'Uses your chosen brand colour',
+                  disabled: primaryTooDark,
+                  disabledHint: 'Too dark for footer',
+                },
+                {
+                  id: 'gold' as const,
+                  label: 'Gold',
+                  colour: '#D4AF37',
+                  description: 'Warm metallic — great for Prestige & Artisan',
+                  disabled: false,
+                },
+                {
+                  id: 'silver' as const,
+                  label: 'Silver',
+                  colour: '#CBD5E1',
+                  description: 'Clean & minimal — great for Modern & Botanical',
+                  disabled: false,
+                },
+              ];
+              return (
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-1">Footer Accent Colour</p>
+                  <p className="text-xs text-gray-400 mb-3">Colour used for section labels and links in the footer.</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {options.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={opt.disabled}
+                        onClick={() => !opt.disabled && setFooterAccent(opt.id)}
+                        className={`relative text-left p-3 rounded-xl border-2 transition-all ${
+                          opt.disabled
+                            ? 'opacity-40 cursor-not-allowed border-gray-100 bg-gray-50'
+                            : footerAccent === opt.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }`}
+                      >
+                        {/* Mini footer preview */}
+                        <div className="w-full h-7 rounded-lg flex items-center justify-between px-2 mb-2" style={{ backgroundColor: '#111827' }}>
+                          <span className="text-[9px] font-bold" style={{ color: opt.disabled ? '#6B7280' : opt.colour }}>Get In Touch</span>
+                          <span className="text-[9px]" style={{ color: opt.disabled ? '#6B7280' : opt.colour, opacity: 0.8 }}>Hours</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-gray-700">{opt.label}</span>
+                          {footerAccent === opt.id && !opt.disabled && (
+                            <span className="w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center">
+                              <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            </span>
+                          )}
+                          {opt.disabled && <span className="text-[9px] text-red-400">{(opt as any).disabledHint ?? 'Not suitable'}</span>}
+                        </div>
+                        <p className="text-[9px] text-gray-400 leading-snug mt-0.5">{opt.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
             })()}
 
             {/* Live preview — smart contrast */}
             {(() => {
               const pc = form.watch('primaryColor');
-              const { mainText, secondaryText, buttonBg, buttonText, isLight } = (() => {
-                const clean = pc.replace('#', '');
-                const r = parseInt(clean.slice(0, 2), 16);
-                const g = parseInt(clean.slice(2, 4), 16);
-                const b = parseInt(clean.slice(4, 6), 16);
-                const light = (0.299 * r + 0.587 * g + 0.114 * b) > 153;
-                return {
-                  mainText: light ? '#1A1A1A' : '#FFFFFF',
-                  secondaryText: light ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.7)',
-                  buttonBg: light ? '#111111' : '#FFFFFF',
-                  buttonText: light ? '#FFFFFF' : '#111111',
-                  isLight: light,
-                };
-              })();
+              const grp = getColorGroup(pc);
+              const clean = pc.replace('#', '');
+              const r = parseInt(clean.slice(0, 2), 16) || 0;
+              const g = parseInt(clean.slice(2, 4), 16) || 0;
+              const b = parseInt(clean.slice(4, 6), 16) || 0;
+              const light = (0.299 * r + 0.587 * g + 0.114 * b) > 153;
+              const sigColour = light
+                ? (grp.headingOnWhite === 'var(--primary-hex)' ? pc : grp.headingOnWhite)
+                : grp.headingOnDark;
+              const navText = textColorOption === 'offwhite' ? grp.bodyOnDark : sigColour;
+              const navMuted = navText === '#FFFFFF' || navText.startsWith('#F') || navText.startsWith('#D') || navText.startsWith('#C')
+                ? 'rgba(255,255,255,0.65)'
+                : 'rgba(0,0,0,0.58)';
               return (
-                <div className="rounded-xl overflow-hidden border border-gray-100">
-                  <div className="h-14 flex items-center justify-between px-5" style={{ backgroundColor: pc }}>
-                    <span className="text-sm font-bold" style={{ color: mainText }}>Your Café Name</span>
-                    <div className="flex gap-3">
-                      {['Menu', 'About', 'Contact'].map(l => (
-                        <span key={l} className="text-xs font-medium" style={{ color: secondaryText }}>{l}</span>
+                <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                  {/* Navbar preview only */}
+                  <div className="h-14 flex items-center justify-between px-5"
+                    style={{ background: `${pc}e8`, backdropFilter: 'blur(12px)' }}>
+                    <span className="text-sm font-black tracking-wide" style={{ color: navText, fontFamily: grp.headingFontStack }}>
+                      {tenant?.name || 'Your Business'}
+                    </span>
+                    <div className="flex items-center gap-4">
+                      {['Home', 'Menu', 'About', 'Contact'].map(l => (
+                        <span key={l} className="text-xs font-semibold" style={{ color: navMuted }}>{l}</span>
                       ))}
                     </div>
                   </div>
-                  <div className="h-16 flex items-center gap-3 px-5 bg-white border-t border-gray-100">
-                    <div className="px-4 py-1.5 rounded-lg text-sm font-semibold"
-                      style={{ backgroundColor: buttonBg, color: buttonText }}>
-                      {getBusinessPreset(tenant?.type)?.ctaLabel || 'Book Now'}
-                    </div>
-                    <div className="px-4 py-1.5 rounded-lg text-sm font-medium border"
-                      style={{ color: pc, borderColor: pc + '50' }}>
-                      Learn More
-                    </div>
-                    <span className="ml-auto text-xs text-gray-400">
-                      {isLight ? '🌤 Light → dark text' : '🌙 Dark → white text'}
-                    </span>
+                  <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-[10px] text-gray-400">Navigation bar preview</span>
+                    <span className="text-[10px] font-mono text-gray-400">{navText}</span>
                   </div>
                 </div>
               );
