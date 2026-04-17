@@ -89,18 +89,6 @@ const HeroIdentity: React.FC<{
   const subColor = dark ? 'rgba(255,255,255,0.5)' : `${primaryColor}99`;
   const align = center ? 'items-center justify-center' : 'items-center';
 
-  if (tenant.logo) {
-    return (
-      <div className={`mb-6 flex ${center ? 'justify-center' : ''}`}>
-        <img
-          src={tenant.logo}
-          alt={`${tenant.name} logo`}
-          className="h-20 w-auto object-contain drop-shadow-lg"
-        />
-      </div>
-    );
-  }
-
   return (
     <div className={`mb-6 select-none ${center ? 'text-center' : ''}`}>
       {/* Eyebrow */}

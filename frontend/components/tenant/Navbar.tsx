@@ -46,6 +46,9 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
   const navPages = resolveNavPages(themeSettings.navPages);
   const template = getPageTemplate(themeSettings.pageTemplate);
   const showLogo = template.showLogo !== false;
+  const logoDisplay: 'logo' | 'text' | 'both' = themeSettings.logoDisplay || (tenant.logo ? 'logo' : 'text');
+  const showLogoImage = tenant.logo && (logoDisplay === 'logo' || logoDisplay === 'both');
+  const showLogoText  = logoDisplay === 'text' || logoDisplay === 'both';
 
   const isRestaurantLike = ['RESTAURANT', 'CAFE'].includes(tenant.type);
 
@@ -76,13 +79,14 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant }) => {
 
             {/* Logo / Name */}
             <Link href="/" className="flex items-center gap-3 flex-shrink-0">
-              {tenant.logo ? (
+              {showLogoImage && (
                 <img
-                  src={tenant.logo}
+                  src={tenant.logo!}
                   alt={`${tenant.name} logo`}
-                  className="h-12 w-auto object-contain drop-shadow-md"
+                  className="h-24 w-auto object-contain drop-shadow-lg brightness-110 contrast-105"
                 />
-              ) : (
+              )}
+              {showLogoText && (
                 <div className="select-none">
                   <span
                     className="font-black leading-none block"

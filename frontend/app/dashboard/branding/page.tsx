@@ -154,6 +154,7 @@ export default function BrandingPage() {
 
   // Media state
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoDisplay, setLogoDisplay] = useState<'logo' | 'text' | 'both'>('logo');
   const [bannerUrls, setBannerUrls] = useState<string[]>([]);
   const [promoImageUrl, setPromoImageUrl] = useState('');
   const [isSavingMedia, setIsSavingMedia] = useState(false);
@@ -179,6 +180,7 @@ export default function BrandingPage() {
       setFooterAccent(ts.footerAccent || 'primary');
       setMenuGroupStyle(ts.menuGroupStyle || 'pill');
       setLogoUrl(t.logo || '');
+      setLogoDisplay(ts.logoDisplay || 'logo');
       const stored = ts.bannerImages;
       setBannerUrls(Array.isArray(stored) && stored.length ? stored : t.banner ? [t.banner] : []);
       setPromoImageUrl(ts.promoImageUrl || '');
@@ -291,6 +293,7 @@ export default function BrandingPage() {
         banner: bannerUrls[0] || undefined,
         themeSettings: {
           ...ts,
+          logoDisplay,
           bannerImages: bannerUrls,
           promoImageUrl: promoImageUrl || null,
         },
@@ -512,13 +515,15 @@ export default function BrandingPage() {
         </div>
       )}
 
-      {/* ── LOGO & FONT TAB ───────────────────────────────────────────────── */}
+      {/* ── LOGO TAB ─────────────────────────────────────────────────────── */}
       {activeTab === 'logo' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-6">
+
+            {/* Logo upload */}
             <div>
-              <h3 className="font-semibold text-gray-900 mb-1">Logo</h3>
-              <p className="text-sm text-gray-500 mb-3">Shown in the navbar. Square images work best.</p>
+              <h3 className="font-semibold text-gray-900 mb-1">Logo Image</h3>
+              <p className="text-sm text-gray-500 mb-3">Square images work best. Max 1 MB.</p>
               <div className="w-36">
                 <ImageUpload
                   currentUrl={logoUrl}
@@ -526,6 +531,67 @@ export default function BrandingPage() {
                   onUpload={(url) => setLogoUrl(url)}
                   aspectRatio="square"
                 />
+              </div>
+            </div>
+
+            {/* Navbar display mode */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">Navbar Display</h3>
+              <p className="text-sm text-gray-500 mb-3">What to show in the top navigation bar.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {([
+                  {
+                    id: 'logo' as const,
+                    label: 'Logo Only',
+                    description: 'Show your logo image — clean and visual.',
+                    icon: '🖼️',
+                    disabled: !logoUrl,
+                    disabledHint: 'Upload a logo first',
+                  },
+                  {
+                    id: 'text' as const,
+                    label: 'Name Only',
+                    description: 'Show your business name as styled text.',
+                    icon: '✍️',
+                    disabled: false,
+                  },
+                  {
+                    id: 'both' as const,
+                    label: 'Logo & Name',
+                    description: 'Show both your logo and business name side by side.',
+                    icon: '🔳',
+                    disabled: !logoUrl,
+                    disabledHint: 'Upload a logo first',
+                  },
+                ]).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    disabled={opt.disabled}
+                    onClick={() => !opt.disabled && setLogoDisplay(opt.id)}
+                    className={`text-left p-4 rounded-xl border-2 transition-all ${
+                      opt.disabled
+                        ? 'opacity-40 cursor-not-allowed border-gray-100 bg-gray-50'
+                        : logoDisplay === opt.id
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xl">{opt.icon}</span>
+                      {logoDisplay === opt.id && !opt.disabled && (
+                        <span className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                      )}
+                      {opt.disabled && <span className="text-[9px] text-gray-400">{(opt as any).disabledHint}</span>}
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800">{opt.label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 leading-snug">{opt.description}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
