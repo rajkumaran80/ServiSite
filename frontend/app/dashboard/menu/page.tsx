@@ -987,6 +987,7 @@ export default function DashboardMenuPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* Load Template temporarily disabled
           {groups.length === 0 && (
             <button
               onClick={async () => {
@@ -1004,6 +1005,7 @@ export default function DashboardMenuPage() {
               ✨ Load Template
             </button>
           )}
+          */}
           <button
             onClick={() => setShowImportModal(true)}
             className="flex items-center gap-1.5 border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
