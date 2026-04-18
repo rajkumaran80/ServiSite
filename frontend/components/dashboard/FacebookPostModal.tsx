@@ -9,6 +9,8 @@ interface FacebookPostModalProps {
   item: MenuItem;
   businessName: string;
   currency: string;
+  hashtags?: string;
+  siteUrl?: string;
   onClose: () => void;
 }
 
@@ -16,6 +18,8 @@ export const FacebookPostModal: React.FC<FacebookPostModalProps> = ({
   item,
   businessName,
   currency,
+  hashtags = '',
+  siteUrl = '',
   onClose,
 }) => {
   const [customNote, setCustomNote] = useState('');
@@ -51,7 +55,17 @@ export const FacebookPostModal: React.FC<FacebookPostModalProps> = ({
         .map((note, i) => `${NOTE_EMOJIS[i % NOTE_EMOJIS.length]} ${note}`)
         .join('\n');
 
-      setPostText(notes.length > 0 ? `${noteLines}\n\n${text}` : text);
+      // Append hashtags from settings
+      const hashtagLine = hashtags.trim()
+        ? hashtags.split(',').map((h) => {
+            const clean = h.trim().replace(/^#*/, '');
+            return clean ? `#${clean}` : '';
+          }).filter(Boolean).join(' ')
+        : '';
+
+      const body = notes.length > 0 ? `${noteLines}\n\n${text}` : text;
+      const tail = [hashtagLine, siteUrl.trim()].filter(Boolean).join('\n');
+      setPostText(tail ? `${body}\n\n${tail}` : body);
     } catch {
       toast.error('Failed to generate post text');
     } finally {

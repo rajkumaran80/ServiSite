@@ -55,6 +55,7 @@ function SettingsPageInner() {
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [activeSection, setActiveSection] = useState<'business' | 'contact' | 'hours' | 'domain' | 'social'>('business');
   const [socialLinks, setSocialLinks] = useState({ instagram: '', facebook: '', tiktok: '', twitter: '', youtube: '' });
+  const [facebookHashtags, setFacebookHashtags] = useState('');
   const [isSavingSocial, setIsSavingSocial] = useState(false);
   // Facebook
   const [fbConnection, setFbConnection] = useState<FacebookConnection | null>(null);
@@ -124,6 +125,7 @@ function SettingsPageInner() {
           setGooglePlaceId((currentTenant.themeSettings as any)?.googlePlaceId || '');
           const sl = (currentTenant.themeSettings as any)?.socialLinks || {};
           setSocialLinks({ instagram: sl.instagram || '', facebook: sl.facebook || '', tiktok: sl.tiktok || '', twitter: sl.twitter || '', youtube: sl.youtube || '' });
+          setFacebookHashtags((currentTenant.themeSettings as any)?.facebookHashtags || '');
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
@@ -360,8 +362,9 @@ function SettingsPageInner() {
     try {
       const clean = Object.fromEntries(Object.entries(socialLinks).filter(([, v]) => v.trim()));
       const ts = tenant.themeSettings as any || {};
+      const cleanHashtags = facebookHashtags.trim() || null;
       const updated = await tenantService.update(tenant.id, {
-        themeSettings: { ...ts, socialLinks: Object.keys(clean).length > 0 ? clean : null },
+        themeSettings: { ...ts, socialLinks: Object.keys(clean).length > 0 ? clean : null, facebookHashtags: cleanHashtags },
       });
       setTenant(updated);
       await revalidateTenantCache(tenant.slug);
@@ -860,6 +863,23 @@ function SettingsPageInner() {
                   Once connected you can post any menu item directly to your Facebook Page from the Menu section, with AI-generated captions.
                 </p>
               )}
+            </div>
+
+            {/* Facebook Hashtags */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Facebook Post Hashtags <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={facebookHashtags}
+                onChange={(e) => setFacebookHashtags(e.target.value)}
+                placeholder="foodie, specialoffer, Manchester"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
+                <span>#</span> Enter hashtags separated by commas — they will be added automatically at the end of every AI-generated post
+              </p>
             </div>
 
             {([

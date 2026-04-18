@@ -643,6 +643,8 @@ function parseCsv(raw: string): { data: ParsedMenu | null; error: string | null 
   return { data: result, error: null };
 }
 
+const CONFIRM_PHRASE = 'delete existing menu items';
+
 function ImportMenuModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [csv, setCsv] = useState('');
   const [step, setStep] = useState<'paste' | 'confirm'>('paste');
@@ -650,6 +652,7 @@ function ImportMenuModal({ onClose, onDone }: { onClose: () => void; onDone: () 
   const [parseError, setParseError] = useState('');
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState('');
+  const [confirmInput, setConfirmInput] = useState('');
 
   const handleParse = () => {
     const { data, error } = parseCsv(csv);
@@ -786,10 +789,30 @@ function ImportMenuModal({ onClose, onDone }: { onClose: () => void; onDone: () 
                   <p className="text-sm text-blue-600 font-medium text-center">{progress}</p>
                 </div>
               ) : (
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setStep('paste')} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Back</button>
-                  <button type="button" onClick={handleImport} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors">Delete All & Import</button>
-                </div>
+                <>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+                    <p className="text-sm font-semibold text-red-800">🗑️ All existing menu items will be permanently deleted</p>
+                    <p className="text-xs text-red-700">To confirm, type <span className="font-mono font-bold">delete existing menu items</span> below:</p>
+                    <input
+                      type="text"
+                      value={confirmInput}
+                      onChange={(e) => setConfirmInput(e.target.value)}
+                      placeholder="delete existing menu items"
+                      className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => { setStep('paste'); setConfirmInput(''); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Back</button>
+                    <button
+                      type="button"
+                      onClick={handleImport}
+                      disabled={confirmInput.trim().toLowerCase() !== CONFIRM_PHRASE}
+                      className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Delete All & Import
+                    </button>
+                  </div>
+                </>
               )}
             </>
           )}
@@ -827,6 +850,8 @@ export default function DashboardMenuPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [fbPageConnected, setFbPageConnected] = useState(false);
   const [fbPostItem, setFbPostItem] = useState<MenuItem | null>(null);
+  const [fbHashtags, setFbHashtags] = useState('');
+  const [siteUrl, setSiteUrl] = useState('');
 
   const loadData = async () => {
     try {
@@ -840,8 +865,15 @@ export default function DashboardMenuPage() {
       setGroups(grps);
       setCategories(cats);
       setItems(menuItems);
-      setCurrency(tenantRes.data?.data?.currency ?? 'GBP');
-      setBusinessName(tenantRes.data?.data?.name ?? '');
+      const tenantData = tenantRes.data?.data;
+      setCurrency(tenantData?.currency ?? 'GBP');
+      setBusinessName(tenantData?.name ?? '');
+      setFbHashtags((tenantData?.themeSettings as any)?.facebookHashtags || '');
+      const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.co.uk';
+      const url = tenantData?.customDomain
+        ? `https://www.${tenantData.customDomain}`
+        : `https://${tenantData?.slug}.${appDomain}`;
+      setSiteUrl(url);
       setFbPageConnected(!!fbConn?.pageId);
     } catch {
       toast.error('Failed to load menu data');
@@ -978,15 +1010,6 @@ export default function DashboardMenuPage() {
           >
             ↑ Import CSV
           </button>
-          <Link href="/dashboard/menu/modifiers" className="flex items-center gap-1.5 border border-gray-300 hover:border-blue-400 text-gray-600 hover:text-blue-600 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-            Modifiers
-          </Link>
-          <Link href="/dashboard/menu/bundles" className="flex items-center gap-1.5 border border-gray-300 hover:border-orange-400 text-gray-600 hover:text-orange-600 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-            Bundles
-          </Link>
-          <Link href="/dashboard/menu/pricing" className="flex items-center gap-1.5 border border-gray-300 hover:border-green-400 text-gray-600 hover:text-green-600 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
-            Pricing Rules
-          </Link>
           {activeTab === 'groups' && (
             <button
               onClick={() => { setEditingGroup(null); setShowGroupForm(true); }}
@@ -1397,6 +1420,8 @@ export default function DashboardMenuPage() {
           item={fbPostItem}
           businessName={businessName}
           currency={currency}
+          hashtags={fbHashtags}
+          siteUrl={siteUrl}
           onClose={() => setFbPostItem(null)}
         />
       )}
