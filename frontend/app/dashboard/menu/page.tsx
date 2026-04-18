@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import Link from 'next/link';
+
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
 import toast from 'react-hot-toast';
 import { api } from '../../../services/api';
 import menuService from '../../../services/menu.service';
@@ -59,6 +61,19 @@ function GroupForm({
     sortOrder: group?.sortOrder ?? 0,
   });
   const [saving, setSaving] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showEmojiPicker]);
 
   const set = (key: keyof CreateMenuGroupPayload, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -102,7 +117,39 @@ function GroupForm({
           </FieldRow>
         </div>
         <FieldRow label="Icon (emoji)">
-          <input className={inputClass} value={form.icon ?? ''} onChange={(e) => set('icon', e.target.value)} placeholder="🍳" />
+          <div className="relative" ref={emojiPickerRef}>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((p) => !p)}
+                className="w-11 h-10 flex items-center justify-center text-2xl border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors flex-shrink-0"
+                title="Pick emoji"
+              >
+                {form.icon || '➕'}
+              </button>
+              <input
+                className={inputClass}
+                value={form.icon ?? ''}
+                onChange={(e) => set('icon', e.target.value)}
+                placeholder="or type / paste emoji"
+              />
+            </div>
+            {showEmojiPicker && (
+              <div className="absolute z-50 top-12 left-0">
+                <Suspense fallback={<div className="w-64 h-64 flex items-center justify-center bg-white border rounded-xl shadow-lg text-gray-400 text-sm">Loading…</div>}>
+                  <EmojiPicker
+                    onEmojiClick={(emojiData) => {
+                      set('icon', emojiData.emoji);
+                      setShowEmojiPicker(false);
+                    }}
+                    autoFocusSearch={false}
+                    height={380}
+                    width={300}
+                  />
+                </Suspense>
+              </div>
+            )}
+          </div>
         </FieldRow>
         <FieldRow label="Sort Order">
           <input type="number" min={0} className={inputClass} value={form.sortOrder ?? 0} onChange={(e) => set('sortOrder', parseInt(e.target.value, 10) || 0)} />

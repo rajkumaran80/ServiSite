@@ -1465,13 +1465,24 @@ export default function MenuPage() {
                       <p className="text-gray-500">No items match &ldquo;{searchQuery}&rdquo;</p>
                     </div>
                   ) : (
-                    <div className="space-y-12">
+                    <div className="space-y-10">
                       {filteredCats.map((category) => (
                         <section key={category.id}>
                           <div className="mb-5">
-                            <h3 className="text-lg font-semibold text-gray-800">{category.name}</h3>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 h-px" style={{ background: `${primaryColor}30` }} />
+                              <div className="text-center">
+                                <span
+                                  className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                                  style={{ color: primaryColor, background: `${primaryColor}12` }}
+                                >
+                                  {category.name}
+                                </span>
+                              </div>
+                              <div className="flex-1 h-px" style={{ background: `${primaryColor}30` }} />
+                            </div>
                             {category.description && (
-                              <p className="text-sm text-gray-500 mt-0.5">{category.description}</p>
+                              <p className="text-xs text-gray-500 mt-2 text-center">{category.description}</p>
                             )}
                           </div>
                           {viewMode === 'grid' ? (
