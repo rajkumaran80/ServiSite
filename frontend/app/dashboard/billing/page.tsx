@@ -8,7 +8,7 @@ import {
   getSubscriptionCheckoutUrl,
   getPortalUrl,
   getConnectOnboardingUrl,
-  changePlan,
+  // changePlan kept for future multi-plan support
 } from '../../../services/billing.service';
 import { api } from '../../../services/api';
 import type { BillingStatus, BillingPlan } from '../../../types/billing.types';
@@ -42,7 +42,8 @@ export default function BillingPage() {
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [highlightPlan, setHighlightPlan] = useState<BillingPlan | null>(null);
+  // highlightPlan kept for future multi-plan support
+  // const [highlightPlan, setHighlightPlan] = useState<BillingPlan | null>(null);
   const [whatsapp, setWhatsapp] = useState('');
   const [whatsappSaving, setWhatsappSaving] = useState(false);
 
@@ -51,9 +52,6 @@ export default function BillingPage() {
       .then(setBilling)
       .catch(() => toast.error('Failed to load billing status'))
       .finally(() => setLoading(false));
-    // Pre-select plan chosen during signup
-    const saved = localStorage.getItem('selectedPlan') as BillingPlan | null;
-    if (saved) setHighlightPlan(saved);
     // Load saved whatsapp number from tenant
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     if (user?.tenantId) {
@@ -181,85 +179,28 @@ export default function BillingPage() {
       {/* Monthly Subscription */}
       {billing.registrationFeePaid && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">Monthly Plan</h2>
+          <h2 className="font-semibold text-gray-900">Monthly Subscription</h2>
           {billing.stripeSubscriptionId ? (
             <div className="space-y-4">
-              {/* Current plan */}
+              {/* Active subscription */}
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm text-gray-600">Current plan:</span>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${billing.plan === 'ordering' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
-                  {billing.plan === 'ordering' ? 'Ordering — £99/mo' : 'Basic — £49/mo'}
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                  ServiSite — £49/mo
                 </span>
               </div>
-
-              {/* Trial extension notice */}
-              {billing.status === 'TRIAL' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
-                  <strong>Free trial active.</strong> Upgrading to the Ordering plan now will extend your free trial by 7 extra days.
-                </div>
-              )}
-
-              {/* Plan change buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                {(
-                  [
-                    { plan: 'basic' as BillingPlan, price: '£49', label: 'Basic', features: ['Website', 'Menu', 'Gallery', 'Contact forms'] },
-                    { plan: 'ordering' as BillingPlan, price: '£99', label: 'Ordering', features: ['Everything in Basic', 'Online ordering', 'Bundle/combo meals', 'Real-time notifications', 'Email & WhatsApp alerts'] },
-                  ] as const
-                ).map(({ plan, price, label, features }) => {
-                  const isCurrent = billing.plan === plan;
-                  return (
-                    <div key={plan} className={`border rounded-lg p-4 space-y-3 ${isCurrent ? 'border-blue-400 ring-2 ring-blue-100 bg-blue-50/40' : 'border-gray-200'}`}>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-gray-900">{label}</p>
-                          {isCurrent && (
-                            <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">Current</span>
-                          )}
-                        </div>
-                        <p className="text-xl font-bold text-blue-600 mt-1">{price}<span className="text-sm font-normal text-gray-500">/mo</span></p>
-                      </div>
-                      <ul className="space-y-1">
-                        {features.map((f) => (
-                          <li key={f} className="text-xs text-gray-600 flex items-center gap-1.5">
-                            <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                            </svg>
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
-                      {isCurrent ? (
-                        <div className="w-full text-center text-xs text-blue-600 font-medium py-2">Active plan</div>
-                      ) : (
-                        <button
-                          disabled={actionLoading === `change-${plan}`}
-                          onClick={async () => {
-                            if (!confirm(`Switch to the ${label} plan (${price}/mo)?`)) return;
-                            setActionLoading(`change-${plan}`);
-                            try {
-                              await changePlan(plan);
-                              toast.success(`Plan changed to ${label}${billing.status === 'TRIAL' && plan === 'ordering' ? ' — trial extended by 7 days!' : ''}`);
-                              const updated = await getBillingStatus();
-                              setBilling(updated);
-                            } catch {
-                              toast.error('Failed to change plan. Please try again.');
-                            } finally {
-                              setActionLoading(null);
-                            }
-                          }}
-                          className="w-full bg-gray-900 hover:bg-gray-700 disabled:opacity-60 text-white font-semibold text-sm py-2 rounded-lg transition-colors"
-                        >
-                          {actionLoading === `change-${plan}` ? 'Switching...' : (billing.plan === 'basic' ? `Upgrade to ${label}` : `Downgrade to ${label}`)}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
+              <ul className="space-y-1.5">
+                {['Professional website', 'Menu & services showcase', 'Photo & video gallery', 'Online ordering', 'WhatsApp & contact integration', 'Admin dashboard'].map((f) => (
+                  <li key={f} className="text-sm text-gray-600 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
               {/* Stripe portal link */}
-              <div className="pt-1 border-t border-gray-100 flex items-center justify-between">
+              <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
                 <p className="text-xs text-gray-500">Update payment method, view invoices, or cancel subscription</p>
                 <button
                   disabled={actionLoading === 'portal'}
@@ -272,43 +213,35 @@ export default function BillingPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">Choose a monthly plan to continue after your first month:</p>
-              <div className="grid grid-cols-2 gap-4">
-                {(
-                  [
-                    { plan: 'basic' as BillingPlan, price: '£49', label: 'Basic', features: ['Website', 'Menu', 'Gallery', 'Contact forms'] },
-                    { plan: 'ordering' as BillingPlan, price: '£99', label: 'Ordering', features: ['Everything in Basic', 'Online ordering', 'Bundle/combo meals', 'Real-time notifications', 'Email & WhatsApp alerts'] },
-                  ] as const
-                ).map(({ plan, price, label, features }) => (
-                  <div key={plan} className={`border rounded-lg p-4 space-y-3 ${highlightPlan === plan ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200'}`}>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-gray-900">{label}</p>
-                        {highlightPlan === plan && (
-                          <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">Your plan</span>
-                        )}
-                      </div>
-                      <p className="text-2xl font-bold text-blue-600 mt-1">{price}<span className="text-sm font-normal text-gray-500">/mo</span></p>
-                    </div>
-                    <ul className="space-y-1">
-                      {features.map((f) => (
-                        <li key={f} className="text-xs text-gray-600 flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                          </svg>
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <button
-                      disabled={actionLoading === `sub-${plan}`}
-                      onClick={() => handleAction(`sub-${plan}`, () => getSubscriptionCheckoutUrl(plan))}
-                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold text-sm py-2 rounded-lg transition-colors"
-                    >
-                      {actionLoading === `sub-${plan}` ? 'Redirecting...' : `Choose ${label}`}
-                    </button>
+              <p className="text-sm text-gray-600">
+                Start your monthly subscription to keep your site running after the first month.
+              </p>
+              {/* Single plan */}
+              <div className="border border-blue-300 ring-2 ring-blue-100 rounded-lg p-5 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <p className="font-semibold text-gray-900">ServiSite</p>
+                    <p className="text-2xl font-bold text-blue-600 mt-0.5">£49<span className="text-sm font-normal text-gray-500">/month</span></p>
                   </div>
-                ))}
+                  <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-1 rounded-full">Everything included</span>
+                </div>
+                <ul className="space-y-1.5">
+                  {['Professional website', 'Menu & services showcase', 'Photo & video gallery', 'Online ordering', 'WhatsApp & contact integration', 'Admin dashboard'].map((f) => (
+                    <li key={f} className="text-sm text-gray-600 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  disabled={actionLoading === 'sub-ordering'}
+                  onClick={() => handleAction('sub-ordering', () => getSubscriptionCheckoutUrl('ordering' as BillingPlan))}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
+                >
+                  {actionLoading === 'sub-ordering' ? 'Redirecting...' : 'Subscribe — £49/month'}
+                </button>
               </div>
             </div>
           )}

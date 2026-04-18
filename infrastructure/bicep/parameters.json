@@ -26,7 +26,6 @@
 
     "superadminAlertEmail": { "value": "aktaconsulting.digital@gmail.com" },
 
-    "mediaCdnUrl": { "value": "https://servisitemedia-h8d0bhfgccebepcz.z03.azurefd.net" },
 
     "facebookAppId": { "value": "924179920377706" }
   }

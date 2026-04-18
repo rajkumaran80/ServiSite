@@ -17,47 +17,11 @@ const BUSINESS_TYPES: { value: TenantType; label: string; icon: string }[] = [
   { value: 'OTHER', label: 'Other Business', icon: '🏪' },
 ];
 
-const PLANS = [
-  {
-    id: 'basic' as const,
-    name: 'Basic',
-    price: '£49',
-    period: '/month',
-    setup: '+ £299 one-time setup',
-    description: 'Professional website with menu, gallery & contact.',
-    features: [
-      'Custom subdomain',
-      'Menu / services showcase',
-      'Photo gallery',
-      'WhatsApp & contact integration',
-      'Custom branding',
-      'Admin dashboard',
-    ],
-    color: 'border-gray-200 hover:border-blue-400',
-    selectedColor: 'border-blue-600 bg-blue-50',
-    badge: null,
-  },
-  {
-    id: 'ordering' as const,
-    name: 'Ordering',
-    price: '£99',
-    period: '/month',
-    setup: '+ £299 one-time setup',
-    description: 'Everything in Basic, plus a full online ordering system.',
-    features: [
-      'Everything in Basic',
-      'Online ordering with cart',
-      'Bundle & combo meals',
-      'Item modifiers (sizes, extras)',
-      'Pricing rules & discounts',
-      'Real-time order notifications',
-      'Email & WhatsApp order alerts',
-    ],
-    color: 'border-gray-200 hover:border-blue-400',
-    selectedColor: 'border-blue-600 bg-blue-50',
-    badge: 'Most Popular',
-  },
-];
+// PLANS kept for future multi-plan support — not used in current signup flow
+// const PLANS = [
+//   { id: 'basic', name: 'Basic', price: '£49', period: '/month', ... },
+//   { id: 'ordering', name: 'Ordering', price: '£99', period: '/month', ... },
+// ];
 
 function slugify(name: string): string {
   return name
@@ -72,17 +36,19 @@ function slugify(name: string): string {
 const inputClass =
   'w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white';
 
-const STEPS = ['Plan', 'Business', 'Account'] as const;
+const STEPS = ['Business', 'Account'] as const;
 
 function SignupForm() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const searchParams = useSearchParams();
-  const initialPlan = (searchParams.get('plan') === 'ordering' ? 'ordering' : 'basic') as 'basic' | 'ordering';
 
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [form, setForm] = useState({
-    plan: initialPlan,
+    plan: 'ordering' as 'ordering' | 'basic', // kept for future plans; always ordering for now
     name: '',
     slug: '',
     slugEdited: false,
@@ -108,7 +74,7 @@ function SignupForm() {
     setErrors((prev) => ({ ...prev, [key]: '' }));
   };
 
-  const validateStep1 = () => {
+  const validateStep0 = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Business name is required';
     if (!form.slug || form.slug.length < 2) e.slug = 'At least 2 characters';
@@ -117,7 +83,7 @@ function SignupForm() {
     return Object.keys(e).length === 0;
   };
 
-  const validateStep2 = () => {
+  const validateStep1 = () => {
     const e: Record<string, string> = {};
     if (!form.adminEmail.includes('@')) e.adminEmail = 'Valid email required';
     if (form.adminPassword.length < 8) e.adminPassword = 'Minimum 8 characters';
@@ -127,9 +93,9 @@ function SignupForm() {
   };
 
   const handleNext = () => {
-    if (step === 1 && !validateStep1()) return;
-    if (step === 2) {
-      if (!validateStep2()) return;
+    if (step === 0 && !validateStep0()) return;
+    if (step === 1) {
+      if (!validateStep1()) return;
       handleSubmit();
       return;
     }
@@ -148,8 +114,6 @@ function SignupForm() {
         adminPassword: form.adminPassword,
       });
 
-      // Persist chosen plan so billing page can pre-select it after login
-      localStorage.setItem('selectedPlan', form.plan);
       setSignupEmail(form.adminEmail.toLowerCase().trim());
       setDone(true);
     } catch (err: any) {
@@ -159,8 +123,6 @@ function SignupForm() {
       setSubmitting(false);
     }
   };
-
-  const selectedPlanInfo = PLANS.find((p) => p.id === form.plan)!;
 
   // ── Success screen — check email ─────────────────────────────────────────
 
@@ -247,97 +209,13 @@ function SignupForm() {
         ))}
       </div>
 
-      {/* ── Step 0: Plan ── */}
+      {/* ── Step 0: Business ── */}
       {step === 0 && (
-        <div className="space-y-5">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Choose your plan</h1>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                7-day free trial — no card needed
-              </span>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {PLANS.map((plan) => (
-              <button
-                key={plan.id}
-                type="button"
-                onClick={() => setForm((p) => ({ ...p, plan: plan.id }))}
-                className={`w-full text-left border-2 rounded-xl p-4 transition-all ${
-                  form.plan === plan.id ? plan.selectedColor : plan.color + ' bg-white'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className={`w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
-                      form.plan === plan.id ? 'border-blue-600 bg-blue-600' : 'border-gray-300'
-                    }`}>
-                      {form.plan === plan.id && <div className="w-2 h-2 bg-white rounded-full" />}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-gray-900">{plan.name}</span>
-                        {plan.badge && (
-                          <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                            {plan.badge}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{plan.description}</p>
-                      <ul className="mt-2 space-y-1">
-                        {plan.features.map((f) => (
-                          <li key={f} className="text-xs text-gray-600 flex items-center gap-1.5">
-                            <svg className={`w-3 h-3 shrink-0 ${form.plan === plan.id ? 'text-blue-500' : 'text-green-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                            </svg>
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-xl font-bold text-gray-900">{plan.price}</span>
-                    <span className="text-xs text-gray-500">{plan.period}</span>
-                    <p className="text-xs text-gray-400 mt-0.5">{plan.setup}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800 leading-relaxed">
-            <strong>How it works:</strong> Sign up today, trial for 7 days completely free. After the
-            trial, pay a one-time £299 setup fee to keep your site live. Monthly subscription (
-            {selectedPlanInfo.price}/mo) starts from month 2. You can upgrade or downgrade your plan
-            any time from your dashboard.
-          </div>
-
-          <button
-            onClick={handleNext}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
-          >
-            Continue with {selectedPlanInfo.name} plan →
-          </button>
-
-          <p className="text-center text-xs text-gray-400">
-            You can change your plan at any time from the dashboard.
-          </p>
-        </div>
-      )}
-
-      {/* ── Step 1: Business ── */}
-      {step === 1 && (
         <div className="space-y-5">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Set up your business</h1>
             <p className="text-gray-500 text-sm mt-1">
-              {selectedPlanInfo.name} plan · {selectedPlanInfo.price}/month · 7-day free trial
+              Get your professional website live in minutes.
             </p>
           </div>
 
@@ -396,19 +274,17 @@ function SignupForm() {
             {errors.type && <p className="text-xs text-red-500 mt-1">{errors.type}</p>}
           </div>
 
-          <div className="flex gap-3">
-            <button onClick={() => setStep(0)} className="flex-1 py-3 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-xl transition-colors">
-              Back
-            </button>
-            <button onClick={handleNext} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors">
-              Continue
-            </button>
-          </div>
+          <button
+            onClick={handleNext}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+          >
+            Continue →
+          </button>
         </div>
       )}
 
-      {/* ── Step 2: Account ── */}
-      {step === 2 && (
+      {/* ── Step 1: Account ── */}
+      {step === 1 && (
         <div className="space-y-5">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
@@ -430,50 +306,88 @@ function SignupForm() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-            <input
-              type="password"
-              className={inputClass}
-              value={form.adminPassword}
-              onChange={(e) => set('adminPassword', e.target.value)}
-              placeholder="Minimum 8 characters"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className={inputClass + ' pr-12'}
+                value={form.adminPassword}
+                onChange={(e) => set('adminPassword', e.target.value)}
+                placeholder="Minimum 8 characters"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
             {errors.adminPassword && <p className="text-xs text-red-500 mt-1">{errors.adminPassword}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
-            <input
-              type="password"
-              className={inputClass}
-              value={form.confirmPassword}
-              onChange={(e) => set('confirmPassword', e.target.value)}
-              placeholder="Repeat your password"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                className={inputClass + ' pr-12'}
+                value={form.confirmPassword}
+                onChange={(e) => set('confirmPassword', e.target.value)}
+                placeholder="Repeat your password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
             {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword}</p>}
           </div>
 
           {/* Summary box */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm space-y-1.5">
-            <p className="font-semibold text-gray-800">Order summary</p>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm space-y-2">
+            <p className="font-semibold text-gray-800">Pricing summary</p>
             <div className="flex justify-between text-gray-600">
-              <span>Plan</span>
-              <span className="font-medium">{selectedPlanInfo.name} ({selectedPlanInfo.price}/mo)</span>
+              <span>Registration fee</span>
+              <span className="font-medium">£299 <span className="text-gray-400 text-xs">(includes 1st month)</span></span>
             </div>
             <div className="flex justify-between text-gray-600">
-              <span>One-time setup fee</span>
-              <span className="font-medium">£299</span>
+              <span>Monthly from month 2</span>
+              <span className="font-medium">£49/month</span>
             </div>
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-gray-600 pt-1 border-t border-gray-200">
               <span>Due today</span>
               <span className="font-bold text-green-600">£0 — free trial</span>
             </div>
-            <p className="text-xs text-gray-400 pt-1 border-t border-gray-200 mt-1">
-              No card needed now. Pay setup fee any time during your 7-day trial from the dashboard.
+            <p className="text-xs text-gray-400 pt-0.5">
+              Includes online ordering for all customers. Pay registration fee any time from your dashboard.
             </p>
           </div>
 
           <div className="flex gap-3">
-            <button onClick={() => setStep(1)} disabled={submitting} className="flex-1 py-3 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-xl transition-colors">
+            <button onClick={() => setStep(0)} disabled={submitting} className="flex-1 py-3 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-xl transition-colors">
               Back
             </button>
             <button onClick={handleNext} disabled={submitting} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors">

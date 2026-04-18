@@ -92,8 +92,6 @@ param twilioWhatsappFrom string = 'whatsapp:+14155238886'
 @description('Email address for superadmin platform alerts')
 param superadminAlertEmail string = 'admin@servisite.co.uk'
 
-@description('Azure Front Door CDN URL for media delivery (e.g. https://servisitemedia-xxxx.azurefd.net)')
-param mediaCdnUrl string = ''
 
 @description('Google Places API key — for fetching Google Reviews on tenant home pages')
 @secure()
@@ -172,6 +170,15 @@ module storage 'modules/storage.bicep' = {
   }
 }
 
+module mediacdn 'modules/mediacdn.bicep' = {
+  name: 'mediacdn'
+  params: {
+    prefix: prefix
+    location: 'global'
+    blobEndpoint: storage.outputs.blobEndpoint
+  }
+}
+
 module database 'modules/database.bicep' = {
   name: 'database'
   params: {
@@ -221,7 +228,7 @@ module appservice 'modules/appservice.bicep' = {
     twilioAccountSid: twilioAccountSid
     twilioWhatsappFrom: twilioWhatsappFrom
     superadminAlertEmail: superadminAlertEmail
-    mediaCdnUrl: mediaCdnUrl
+    mediaCdnUrl: mediacdn.outputs.cdnEndpoint
     facebookAppId: facebookAppId
   }
 }
