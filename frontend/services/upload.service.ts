@@ -32,18 +32,23 @@ class UploadService {
     return { url: publicUrl, contentType: file.type, size: file.size };
   }
 
-  validateFile(file: File, maxSizeMB = 10): { valid: boolean; error?: string } {
+  /** Type-only check — no size rejection (images are compressed automatically) */
+  validateFileType(file: File): { valid: boolean; error?: string } {
     const imageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
     const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
     const allowedTypes = [...imageTypes, ...videoTypes];
-
     if (!allowedTypes.includes(file.type)) {
-      return {
-        valid: false,
-        error: `Invalid file type. Allowed: JPEG, PNG, WebP, GIF, MP4, WebM, MOV`,
-      };
+      return { valid: false, error: `Invalid file type. Allowed: JPEG, PNG, WebP, GIF, MP4, WebM, MOV` };
     }
+    return { valid: true };
+  }
 
+  /** Full validation including size — used for videos which cannot be compressed */
+  validateFile(file: File, maxSizeMB = 10): { valid: boolean; error?: string } {
+    const typeCheck = this.validateFileType(file);
+    if (!typeCheck.valid) return typeCheck;
+
+    const videoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
     const isVideo = videoTypes.includes(file.type);
     const effectiveMaxMB = isVideo ? 200 : maxSizeMB;
     const maxBytes = effectiveMaxMB * 1024 * 1024;

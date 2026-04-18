@@ -279,7 +279,8 @@ export class MediaService implements OnModuleInit {
     const containerClient = this.getContainerClient();
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
     const uploadUrl = `${blockBlobClient.url}?${sasParams.toString()}`;
-    const publicUrl = blockBlobClient.url; // direct URL, no SAS — container has public blob access
+    // Rewrite to CDN URL so all assets are served via Azure Front Door edge cache
+    const publicUrl = this.toCdnUrl(blockBlobClient.url);
 
     return { uploadUrl, publicUrl };
   }
@@ -291,7 +292,7 @@ export class MediaService implements OnModuleInit {
 
     for await (const blob of containerClient.listBlobsFlat({ prefix })) {
       const blobClient = containerClient.getBlobClient(blob.name);
-      urls.push(blobClient.url);
+      urls.push(this.toCdnUrl(blobClient.url));
     }
 
     return urls;

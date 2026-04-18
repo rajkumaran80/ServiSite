@@ -82,24 +82,24 @@ export default async function ContactPage({ params }: { params: { tenant: string
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid lg:grid-cols-2 gap-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+        <div className="grid lg:grid-cols-2 gap-6 lg:gap-10">
           {/* Contact Details */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+          <div className="space-y-6 min-w-0">
+            <div className="bg-white rounded-2xl p-4 sm:p-8 shadow-sm border border-gray-100 overflow-hidden">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Get in Touch</h2>
               <div className="space-y-5">
                 {(tenant.whatsappNumber || contact?.phone) && (
                   <a
                     href={`tel:${tenant.whatsappNumber || contact?.phone}`}
-                    className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors group"
+                    className="flex items-center gap-3 p-3 sm:p-4 rounded-xl hover:bg-gray-50 transition-colors group min-w-0"
                   >
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center text-lg sm:text-xl flex-shrink-0">
                       📞
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs text-gray-500 uppercase tracking-wide">Phone</p>
-                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
                         {tenant.whatsappNumber || contact?.phone}
                       </p>
                     </div>
@@ -109,14 +109,14 @@ export default async function ContactPage({ params }: { params: { tenant: string
                 {contact?.email && (
                   <a
                     href={`mailto:${contact.email}`}
-                    className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors group"
+                    className="flex items-center gap-3 p-3 sm:p-4 rounded-xl hover:bg-gray-50 transition-colors group min-w-0"
                   >
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center text-lg sm:text-xl flex-shrink-0">
                       ✉️
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
-                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
                         {contact.email}
                       </p>
                     </div>
@@ -124,13 +124,13 @@ export default async function ContactPage({ params }: { params: { tenant: string
                 )}
 
                 {fullAddress && (
-                  <div className="flex items-start gap-4 p-4 rounded-xl">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl flex-shrink-0 mt-0.5">
+                  <div className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center text-lg sm:text-xl flex-shrink-0 mt-0.5">
                       📍
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs text-gray-500 uppercase tracking-wide">Address</p>
-                      <p className="font-semibold text-gray-900">{fullAddress}</p>
+                      <p className="font-semibold text-gray-900 break-words">{fullAddress}</p>
                       {contact?.mapUrl && (
                         <a
                           href={contact.mapUrl}
@@ -150,12 +150,12 @@ export default async function ContactPage({ params }: { params: { tenant: string
                     href={`https://wa.me/${tenant.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello! I found ${tenant.name} on ServiSite.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-4 p-4 rounded-xl bg-green-50 hover:bg-green-100 transition-colors group"
+                    className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-green-50 hover:bg-green-100 transition-colors group min-w-0"
                   >
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-xl flex-shrink-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-full flex items-center justify-center text-lg sm:text-xl flex-shrink-0">
                       💬
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs text-gray-500 uppercase tracking-wide">WhatsApp</p>
                       <p className="font-semibold text-green-700">Chat with us</p>
                     </div>
@@ -166,7 +166,7 @@ export default async function ContactPage({ params }: { params: { tenant: string
 
             {/* Opening Hours */}
             {allDays.length > 0 && (
-              <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+              <div className="bg-white rounded-2xl p-4 sm:p-8 shadow-sm border border-gray-100 overflow-hidden">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">Opening Hours</h2>
                 <div className="space-y-3">
                   {allDays.map((day) => {
@@ -204,9 +204,9 @@ export default async function ContactPage({ params }: { params: { tenant: string
           </div>
 
           {/* Map embed or placeholder */}
-          <div>
+          <div className="min-w-0">
             {mapEmbedUrl ? (
-              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 h-full flex flex-col">
+              <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex flex-col">
                 <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                   <iframe
                     src={mapEmbedUrl}

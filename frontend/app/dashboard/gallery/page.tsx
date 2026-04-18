@@ -5,6 +5,7 @@ import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { api } from '../../../services/api';
 import uploadService from '../../../services/upload.service';
+import { compressImage } from '../../../lib/compressImage';
 import type { GalleryImage } from '../../../types/tenant.types';
 
 const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
@@ -44,16 +45,21 @@ export default function DashboardGalleryPage() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      // For videos keep full size validation; images are compressed automatically
       const validation = uploadService.validateFile(file);
-
-      if (!validation.valid) {
+      if (!validation.valid && file.type.startsWith('video/')) {
         toast.error(`${file.name}: ${validation.error}`);
+        continue;
+      }
+      if (!uploadService.validateFileType(file).valid) {
+        toast.error(`${file.name}: invalid file type`);
         continue;
       }
 
       try {
         setUploadProgress(`Uploading ${i + 1}/${total}…`);
-        const uploadResult = await uploadService.uploadFile(file, 'gallery');
+        const fileToUpload = file.type.startsWith('image/') ? await compressImage(file) : file;
+        const uploadResult = await uploadService.uploadFile(fileToUpload, 'gallery');
 
         const res = await api.post('/gallery', {
           url: uploadResult.url,

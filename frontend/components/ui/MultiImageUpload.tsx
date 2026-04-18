@@ -3,6 +3,7 @@
 import React, { useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import uploadService from '../../services/upload.service';
+import { compressImage } from '../../lib/compressImage';
 
 interface MultiImageUploadProps {
   urls: string[];
@@ -19,9 +20,9 @@ export const MultiImageUpload: React.FC<MultiImageUploadProps> = ({ urls, onChan
 
     const fileArray = Array.from(files);
 
-    // Validate all files first
+    // Validate file types only — size handled by compression
     for (const file of fileArray) {
-      const v = uploadService.validateFile(file);
+      const v = uploadService.validateFileType(file);
       if (!v.valid) {
         toast.error(`${file.name}: ${v.error}`);
         return;
@@ -35,7 +36,8 @@ export const MultiImageUpload: React.FC<MultiImageUploadProps> = ({ urls, onChan
       const file = fileArray[i];
       setProgress(`Uploading ${i + 1} of ${fileArray.length}…`);
       try {
-        const result = await uploadService.uploadFile(file, 'banner');
+        const compressed = await compressImage(file);
+        const result = await uploadService.uploadFile(compressed, 'banner');
         uploaded.push(result.url);
       } catch {
         toast.error(`Failed to upload ${file.name}`);
@@ -116,7 +118,7 @@ export const MultiImageUpload: React.FC<MultiImageUploadProps> = ({ urls, onChan
             <p className="text-sm font-medium text-gray-600">
               {urls.length > 0 ? 'Add more images' : 'Upload images'}
             </p>
-            <p className="text-xs text-gray-400">Click or drag · Select multiple · PNG, JPG, WebP</p>
+            <p className="text-xs text-gray-400">Click or drag · Select multiple · PNG, JPG, WebP — large images compressed automatically</p>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import uploadService, { MediaType } from '../../services/upload.service';
+import { compressImage } from '../../lib/compressImage';
 
 interface ImageUploadProps {
   currentUrl?: string;
@@ -108,9 +109,10 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validation = uploadService.validateFile(file, maxSizeMB);
-    if (!validation.valid) {
-      toast.error(validation.error || 'Invalid file');
+    // Only reject invalid type — size is handled by compression
+    const typeCheck = uploadService.validateFileType(file);
+    if (!typeCheck.valid) {
+      toast.error(typeCheck.error || 'Invalid file type');
       return;
     }
 
@@ -119,16 +121,19 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
     setPreview(objectUrl);
 
     if (deferred) {
-      // Just hand the file to the parent — upload happens on form submit
-      onFileSelected!(file);
+      // Compress then hand to parent — upload happens on form submit
+      const compressed = await compressImage(file);
+      if (compressed !== file) toast.success('Image compressed automatically');
+      onFileSelected!(compressed);
       if (inputRef.current) inputRef.current.value = '';
       return;
     }
 
-    // Eager mode: upload now
+    // Eager mode: compress then upload
     setIsUploading(true);
     try {
-      const fileToUpload = autoCrop ? await cropToContent(file) : file;
+      let fileToUpload = await compressImage(file);
+      if (autoCrop) fileToUpload = await cropToContent(fileToUpload);
       const result = await uploadService.uploadFile(fileToUpload, mediaType);
       onUpload?.(result.url);
       setPreview(result.url);
@@ -204,7 +209,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
               Drop image here or click to upload
             </p>
             <p className="text-xs text-gray-400 mt-1">
-              PNG, JPG, WebP up to {maxSizeMB}MB
+              PNG, JPG, WebP — large images compressed automatically
             </p>
           </div>
         )}
