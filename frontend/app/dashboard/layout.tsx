@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, Suspense } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from '../../components/dashboard/Sidebar';
 import BillingBanner from '../../components/dashboard/BillingBanner';
 import { useAuthStore } from '../../store/auth.store';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, initialize } = useAuthStore();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     initialize();
@@ -18,7 +20,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
-      router.replace('/auth/login?redirect=/dashboard');
+      const qs = searchParams.toString();
+      const full = pathname + (qs ? `?${qs}` : '');
+      router.replace(`/auth/login?redirect=${encodeURIComponent(full)}`);
     } else {
       const { user } = useAuthStore.getState();
       if (user?.role === 'SUPER_ADMIN') {
@@ -68,5 +72,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </Suspense>
   );
 }
