@@ -30,6 +30,8 @@ export const FacebookPostModal: React.FC<FacebookPostModalProps> = ({
     return `${symbol}${num.toFixed(2)}`;
   };
 
+  const NOTE_EMOJIS = ['🔔', '⭐', '🎉', '✨', '🔥', '💫', '🎊', '🌟'];
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
@@ -40,7 +42,16 @@ export const FacebookPostModal: React.FC<FacebookPostModalProps> = ({
         itemPrice: formatPrice(item.price),
         customNote: customNote.trim() || undefined,
       });
-      setPostText(text);
+
+      // Prepend each comma-separated note as its own highlighted line
+      const notes = customNote.trim()
+        ? customNote.split(',').map((n) => n.trim()).filter(Boolean)
+        : [];
+      const noteLines = notes
+        .map((note, i) => `${NOTE_EMOJIS[i % NOTE_EMOJIS.length]} ${note}`)
+        .join('\n');
+
+      setPostText(notes.length > 0 ? `${noteLines}\n\n${text}` : text);
     } catch {
       toast.error('Failed to generate post text');
     } finally {
@@ -105,9 +116,12 @@ export const FacebookPostModal: React.FC<FacebookPostModalProps> = ({
               type="text"
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
-              placeholder="e.g. Offer ends 20th June · New addition · Limited time only"
+              placeholder="e.g. Offer ends 20th June, New addition, Limited time only"
               className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
+              <span>💡</span> Separate multiple notes with commas — each will appear on its own line in the post
+            </p>
           </div>
 
           {/* Generate + post text */}
