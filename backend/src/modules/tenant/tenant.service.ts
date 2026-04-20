@@ -69,12 +69,17 @@ export class TenantService {
       throw new BadRequestException('The email address does not look valid. Please use your real email.');
     }
 
-    // ── 5. Normalized email uniqueness (prevents Gmail dot/plus tricks) ────
+    // ── 5. Email uniqueness: exact match + normalized (dots/plus tricks) ──
     const normalised = normalizeEmail(emailLower);
-    const existingNorm = await this.prisma.user.findFirst({
-      where: { normalizedEmail: normalised },
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: emailLower },
+          { normalizedEmail: normalised },
+        ],
+      },
     });
-    if (existingNorm) {
+    if (existingUser) {
       throw new ConflictException('An account with this email address already exists.');
     }
 

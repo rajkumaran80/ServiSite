@@ -6,6 +6,7 @@ import WhatsAppButton from '../../components/tenant/WhatsAppButton';
 import JsonLd from '../../components/tenant/JsonLd';
 import { getPageTemplate, resolveDesignTokens } from '../../config/page-templates';
 import { getColorGroup } from '../../lib/theme';
+import { getFontGroup } from '../../lib/font-groups';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.co.uk';
@@ -107,6 +108,17 @@ export default async function TenantLayout({
   const colorGroup = getColorGroup(primaryColor);
   const resolvedButtonRadius = (theme as any).buttonRadius || colorGroup.buttonRadius;
 
+  // Font group — overrides colour-group fonts when explicitly set by admin
+  const fontGroupId = (theme as any).fontGroup as string | undefined;
+  const fontGroup = fontGroupId ? getFontGroup(fontGroupId) : null;
+  const resolvedHeadingFont = fontGroup?.headingFontStack ?? colorGroup.headingFontStack;
+  const resolvedBodyFont    = fontGroup?.bodyFontStack    ?? colorGroup.bodyFontStack;
+  const resolvedUiFont      = fontGroup?.uiFontStack      ?? fontGroup?.bodyFontStack ?? colorGroup.bodyFontStack;
+  const resolvedLetterSpacing   = fontGroup ? fontGroup.letterSpacing   : colorGroup.letterSpacing;
+  const resolvedHeadingTransform = fontGroup
+    ? (fontGroup.uppercaseHeadings ? 'uppercase' : 'none')
+    : (colorGroup.uppercaseHeadings ? 'uppercase' : 'none');
+
   // Body text always uses the group's fixed signature colours — not affected by nav text option
   const resolvedHeadingOnWhite = colorGroup.headingOnWhite;
   const resolvedBodyOnWhite = colorGroup.bodyOnWhite;
@@ -129,14 +141,15 @@ export default async function TenantLayout({
           --color-primary: ${primaryRgb};
           --color-secondary: ${secondaryRgb};
           --primary-hex: ${primaryColor};
-          --heading-font: ${colorGroup.headingFontStack};
-          --body-font: ${colorGroup.bodyFontStack};
+          --heading-font: ${resolvedHeadingFont};
+          --body-font: ${resolvedBodyFont};
+          --ui-font: ${resolvedUiFont};
           --surface: ${surfaceColor};
           --accent: ${primaryColor};
           --radius: ${tokens.radius};
           --btn-radius: ${resolvedButtonRadius};
-          --letter-spacing: ${colorGroup.letterSpacing};
-          --heading-transform: ${colorGroup.uppercaseHeadings ? 'uppercase' : 'none'};
+          --letter-spacing: ${resolvedLetterSpacing};
+          --heading-transform: ${resolvedHeadingTransform};
           --heading-on-white: ${resolvedHeadingOnWhite};
           --body-on-white: ${resolvedBodyOnWhite};
           --heading-on-dark: ${colorGroup.headingOnDark};
@@ -152,7 +165,7 @@ export default async function TenantLayout({
         ` : ''}
       ` }} />
       <div
-        style={{ fontFamily: colorGroup.bodyFontStack }}
+        style={{ fontFamily: resolvedBodyFont }}
         className="tenant-site min-h-screen flex flex-col bg-white"
         data-group={colorGroup.id}
       >

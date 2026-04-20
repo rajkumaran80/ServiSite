@@ -42,6 +42,11 @@ export class UpdateContactDto {
   @IsOptional()
   mapUrl?: string;
 
+  @ApiPropertyOptional({ example: "Opposite the station" })
+  @IsString()
+  @IsOptional()
+  nearTo?: string;
+
   @ApiPropertyOptional({
     example: {
       monday: '9:00 AM - 10:00 PM',

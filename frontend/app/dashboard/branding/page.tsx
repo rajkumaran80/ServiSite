@@ -21,6 +21,7 @@ import {
 } from '../../../config/page-templates';
 import { revalidateTenantCache } from '../settings/actions';
 import { getColorGroup, COLOR_GROUPS } from '../../../lib/theme';
+import { FONT_GROUPS } from '../../../lib/font-groups';
 
 const brandingSchema = z.object({
   primaryColor: z.string().min(1),
@@ -80,11 +81,12 @@ const COLOR_PALETTES: ColorPalette[] = [
   { name: 'Electric Violet',primary: '#7E22CE', secondary: '#6B21A8' },
 ];
 
-type Tab = 'template' | 'banner' | 'logo' | 'colors' | 'style';
+type Tab = 'template' | 'banner' | 'logo' | 'colors' | 'style' | 'hero';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'template', label: 'Template',   icon: '🎨' },
   { id: 'banner',   label: 'Banner',     icon: '🖼️' },
+  { id: 'hero',     label: 'Hero Text',  icon: '✍️' },
   { id: 'logo',     label: 'Logo',        icon: '✏️' },
   { id: 'colors',   label: 'Colors',     icon: '🎭' },
   { id: 'style',    label: 'Menu Style', icon: '✦' },
@@ -151,6 +153,7 @@ export default function BrandingPage() {
   const [footerAccent, setFooterAccent] = useState<'primary' | 'gold' | 'silver'>('primary');
   const [menuGroupStyle, setMenuGroupStyle] = useState<'pill' | 'rounded' | 'sharp'>('pill');
   const [isSavingStyle, setIsSavingStyle] = useState(false);
+  const [fontGroupId, setFontGroupId] = useState<string | null>(null);
 
   // Media state
   const [logoUrl, setLogoUrl] = useState('');
@@ -158,6 +161,16 @@ export default function BrandingPage() {
   const [bannerUrls, setBannerUrls] = useState<string[]>([]);
   const [promoImageUrl, setPromoImageUrl] = useState('');
   const [isSavingMedia, setIsSavingMedia] = useState(false);
+
+  // Hero content state
+  const [heroBadgeText, setHeroBadgeText] = useState('');
+  const [heroHeadlineLine1, setHeroHeadlineLine1] = useState('');
+  const [heroHeadlineLine2, setHeroHeadlineLine2] = useState('');
+  const [heroSubheading, setHeroSubheading] = useState('');
+  const [heroTagline, setHeroTagline] = useState('');
+  const [heroPrimaryCtaLabel, setHeroPrimaryCtaLabel] = useState('');
+  const [heroSecondaryCtaLabel, setHeroSecondaryCtaLabel] = useState('');
+  const [isSavingHero, setIsSavingHero] = useState(false);
 
 
   const form = useForm<BrandingForm>({
@@ -176,6 +189,7 @@ export default function BrandingPage() {
       setPendingTemplate(ts.pageTemplate || 'grande');
       setDesignTokens(resolveDesignTokens(ts.pageTemplate, ts.designTokens));
       setFontStyle(ts.fontStyle || 'modern');
+      setFontGroupId(ts.fontGroup || null);
       setTextColorOption(ts.textColorOption || 'signature');
       setFooterAccent(ts.footerAccent || 'primary');
       setMenuGroupStyle(ts.menuGroupStyle || 'pill');
@@ -184,6 +198,14 @@ export default function BrandingPage() {
       const stored = ts.bannerImages;
       setBannerUrls(Array.isArray(stored) && stored.length ? stored : t.banner ? [t.banner] : []);
       setPromoImageUrl(ts.promoImageUrl || '');
+      const hero = ts.hero || {};
+      setHeroBadgeText(hero.badgeText || '');
+      setHeroHeadlineLine1(hero.headlineLine1 || '');
+      setHeroHeadlineLine2(hero.headlineLine2 || '');
+      setHeroSubheading(hero.subheading || '');
+      setHeroTagline(hero.tagline || '');
+      setHeroPrimaryCtaLabel(hero.primaryCtaLabel || '');
+      setHeroSecondaryCtaLabel(hero.secondaryCtaLabel || '');
       form.reset({
         primaryColor: ts.primaryColor || '#3B82F6',
         secondaryColor: ts.secondaryColor || '#1E40AF',
@@ -271,6 +293,7 @@ export default function BrandingPage() {
           fontStyle,
           menuGroupStyle,
           fontFamily: selectedTypo?.font || ts.fontFamily,
+          fontGroup: fontGroupId || null,
         },
       });
       setTenant(updated);
@@ -305,6 +328,35 @@ export default function BrandingPage() {
       toast.error('Failed to save');
     } finally {
       setIsSavingMedia(false);
+    }
+  };
+
+  const handleSaveHero = async () => {
+    if (!tenant) return;
+    setIsSavingHero(true);
+    try {
+      const ts = tenant.themeSettings as any || {};
+      const updated = await tenantService.update(tenant.id, {
+        themeSettings: {
+          ...ts,
+          hero: {
+            badgeText: heroBadgeText.trim() || undefined,
+            headlineLine1: heroHeadlineLine1.trim() || undefined,
+            headlineLine2: heroHeadlineLine2.trim() || undefined,
+            subheading: heroSubheading.trim() || undefined,
+            tagline: heroTagline.trim() || undefined,
+            primaryCtaLabel: heroPrimaryCtaLabel.trim() || undefined,
+            secondaryCtaLabel: heroSecondaryCtaLabel.trim() || undefined,
+          },
+        },
+      });
+      setTenant(updated);
+      await revalidateTenantCache(tenant.slug);
+      toast.success('Hero content saved');
+    } catch {
+      toast.error('Failed to save hero content');
+    } finally {
+      setIsSavingHero(false);
     }
   };
 
@@ -511,6 +563,130 @@ export default function BrandingPage() {
           >
             {isSavingMedia && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             Save Images
+          </button>
+        </div>
+      )}
+
+      {/* ── HERO TEXT TAB ────────────────────────────────────────────────── */}
+      {activeTab === 'hero' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+            <div>
+              <h2 className="font-semibold text-gray-900 mb-1">Hero Section Text</h2>
+              <p className="text-sm text-gray-500">
+                Customise the words on your homepage hero. Leave any field blank to use the default.
+              </p>
+            </div>
+
+            {/* Badge */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Badge / Award text
+                <span className="text-gray-400 font-normal ml-1">(optional pill above headline)</span>
+              </label>
+              <input
+                type="text"
+                value={heroBadgeText}
+                onChange={(e) => setHeroBadgeText(e.target.value)}
+                placeholder="e.g. 4x Good Food Award Winner · Gold Seal"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Headline */}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Headline — line 1</label>
+                <input
+                  type="text"
+                  value={heroHeadlineLine1}
+                  onChange={(e) => setHeroHeadlineLine1(e.target.value)}
+                  placeholder={`e.g. ${tenant?.name || 'Your Business'}`}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Headline — line 2 <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={heroHeadlineLine2}
+                  onChange={(e) => setHeroHeadlineLine2(e.target.value)}
+                  placeholder="e.g. Reimagined"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Subheading */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Subheading
+                <span className="text-gray-400 font-normal ml-1">(sentence below headline)</span>
+              </label>
+              <input
+                type="text"
+                value={heroSubheading}
+                onChange={(e) => setHeroSubheading(e.target.value)}
+                placeholder="e.g. Multi-award-winning. Chef-led. A destination on Sutton High Street."
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Tagline */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tagline
+                <span className="text-gray-400 font-normal ml-1">(italic line, optional)</span>
+              </label>
+              <input
+                type="text"
+                value={heroTagline}
+                onChange={(e) => setHeroTagline(e.target.value)}
+                placeholder="e.g. An experience worth the journey."
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* CTA labels */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Button Labels</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Primary button</label>
+                  <input
+                    type="text"
+                    value={heroPrimaryCtaLabel}
+                    onChange={(e) => setHeroPrimaryCtaLabel(e.target.value)}
+                    placeholder="View Menu"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Secondary button</label>
+                  <input
+                    type="text"
+                    value={heroSecondaryCtaLabel}
+                    onChange={(e) => setHeroSecondaryCtaLabel(e.target.value)}
+                    placeholder="Contact Us"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-xs text-blue-700">
+              Leave any field blank to use the default (business name, "View Menu", "Contact Us").
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={isSavingHero}
+            onClick={handleSaveHero}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            {isSavingHero && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Save Hero Text
           </button>
         </div>
       )}
@@ -932,6 +1108,91 @@ export default function BrandingPage() {
       {/* ── MENU STYLE TAB ────────────────────────────────────────────────── */}
       {activeTab === 'style' && (
         <div className="space-y-6">
+
+          {/* ── Font Groups ─────────────────────────────────────────────────── */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900">Typography Style</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                One choice controls heading, body, button and nav fonts across your entire site.
+                Leave on default to follow your colour scheme's fonts.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Default option */}
+              <button
+                type="button"
+                onClick={() => setFontGroupId(null)}
+                className={`text-left p-4 rounded-xl border-2 transition-all ${
+                  fontGroupId === null
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Default</span>
+                  {fontGroupId === null && (
+                    <span className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    </span>
+                  )}
+                </div>
+                <p className="text-base font-semibold text-gray-800">Follow colour scheme</p>
+                <p className="text-xs text-gray-400 mt-1">Fonts set automatically by your chosen colour palette</p>
+              </button>
+
+              {FONT_GROUPS.map((fg) => (
+                <button
+                  key={fg.id}
+                  type="button"
+                  onClick={() => setFontGroupId(fg.id)}
+                  className={`text-left p-4 rounded-xl border-2 transition-all ${
+                    fontGroupId === fg.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{fg.tagline.split(' · ')[0]}</span>
+                    {fontGroupId === fg.id && (
+                      <span className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      </span>
+                    )}
+                  </div>
+                  {/* Preview heading in the actual font */}
+                  <p
+                    className="text-lg font-bold text-gray-900 leading-tight mb-0.5"
+                    style={{
+                      fontFamily: fg.headingFontStack,
+                      fontWeight: fg.headingWeight,
+                      letterSpacing: fg.letterSpacing,
+                      textTransform: fg.uppercaseHeadings ? 'uppercase' : 'none',
+                    }}
+                  >
+                    {fg.previewHeading}
+                  </p>
+                  {/* Preview body in body font */}
+                  <p
+                    className="text-xs text-gray-500 mt-0.5"
+                    style={{ fontFamily: fg.bodyFontStack }}
+                  >
+                    {fg.previewBody}
+                  </p>
+                  <p className="text-xs text-blue-600 font-semibold mt-2">{fg.label}</p>
+                </button>
+              ))}
+            </div>
+
+            {fontGroupId && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
+                <strong>{FONT_GROUPS.find(g => g.id === fontGroupId)?.label}:</strong>{' '}
+                {FONT_GROUPS.find(g => g.id === fontGroupId)?.feel}
+              </div>
+            )}
+          </div>
+
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-7">
             <div>
               <h2 className="font-semibold text-gray-900">Menu Style</h2>

@@ -32,6 +32,7 @@ const contactSchema = z.object({
   country: z.string().optional(),
   zipCode: z.string().optional(),
   mapUrl: z.string().optional(),
+  nearTo: z.string().optional(),
 });
 
 type TenantForm = z.infer<typeof tenantSchema>;
@@ -152,6 +153,7 @@ function SettingsPageInner() {
             country: contactData.country || '',
             zipCode: contactData.zipCode || '',
             mapUrl: contactData.mapUrl || '',
+            nearTo: contactData.nearTo || '',
           });
           // Load opening hours — support both new {open,close,closed} and legacy string formats
           if (contactData.openingHours && typeof contactData.openingHours === 'object') {
@@ -538,6 +540,19 @@ function SettingsPageInner() {
                 placeholder="123 Main Street"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Location Hint
+                <span className="text-gray-400 font-normal ml-1">(optional)</span>
+              </label>
+              <input
+                {...contactForm.register('nearTo')}
+                placeholder="e.g. Opposite the station, Next to Sainsbury's"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">Shown below the address to help customers find you</p>
             </div>
 
             <div className="grid sm:grid-cols-3 gap-4">

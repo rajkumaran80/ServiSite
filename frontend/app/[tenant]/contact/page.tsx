@@ -131,6 +131,9 @@ export default async function ContactPage({ params }: { params: { tenant: string
                     <div className="min-w-0">
                       <p className="text-xs text-gray-500 uppercase tracking-wide">Address</p>
                       <p className="font-semibold text-gray-900 break-words">{fullAddress}</p>
+                      {contact?.nearTo && (
+                        <p className="text-sm text-gray-500 mt-0.5 italic">{contact.nearTo}</p>
+                      )}
                       {contact?.mapUrl && (
                         <a
                           href={contact.mapUrl}

@@ -55,6 +55,7 @@ export interface ContactInfo {
   country: string | null;
   zipCode: string | null;
   mapUrl: string | null;
+  nearTo: string | null;
   openingHours: Record<string, string> | null;
   createdAt: string;
   updatedAt: string;

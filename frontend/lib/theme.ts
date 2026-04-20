@@ -40,9 +40,9 @@ export const COLOR_GROUPS: ColorGroup[] = [
     label: 'Prestige & Clubroom',
     tagline: 'Fine dining, steakhouses, whiskey bars, upscale sushi',
     headingFont: 'Playfair Display',
-    headingFontStack: "'Playfair Display', 'DM Serif Display', Georgia, serif",
+    headingFontStack: "var(--font-playfair), Georgia, serif",
     bodyFont: 'Lato',
-    bodyFontStack: "'Lato', 'Inter', system-ui, sans-serif",
+    bodyFontStack: "var(--font-lato), system-ui, sans-serif",
     headingOnWhite: '#B8860B',   // dark gold — readable on white, still luxe
     bodyOnWhite:    '#3D2B1F',   // dark warm espresso
     headingOnDark:  '#D4AF37',   // full metallic gold
@@ -57,9 +57,9 @@ export const COLOR_GROUPS: ColorGroup[] = [
     label: 'Artisan & Heritage',
     tagline: 'Italian bistros, sourdough bakeries, wine bars, neighbourhood cafés',
     headingFont: 'Libre Baskerville',
-    headingFontStack: "'Libre Baskerville', 'Lora', Georgia, serif",
-    bodyFont: 'Merriweather',
-    bodyFontStack: "'Merriweather', Georgia, serif",
+    headingFontStack: "var(--font-libre-baskerville), Georgia, serif",
+    bodyFont: 'Lato',
+    bodyFontStack: "var(--font-lato), system-ui, sans-serif",
     headingOnWhite: '#362119',   // deep cacao brown
     bodyOnWhite:    '#5D4037',   // warm brown
     headingOnDark:  '#FFFDD0',   // soft cream
@@ -74,9 +74,9 @@ export const COLOR_GROUPS: ColorGroup[] = [
     label: 'Modern & Industrial',
     tagline: 'Urban bistros, pizza shops, craft breweries, tech cafés',
     headingFont: 'Montserrat',
-    headingFontStack: "'Montserrat', 'Oswald', system-ui, sans-serif",
+    headingFontStack: "var(--font-montserrat), system-ui, sans-serif",
     bodyFont: 'Roboto',
-    bodyFontStack: "'Roboto', system-ui, sans-serif",
+    bodyFontStack: "var(--font-roboto), system-ui, sans-serif",
     headingOnWhite: 'var(--primary-hex)',  // primary colour as heading accent on white
     bodyOnWhite:    '#374151',             // graphite
     headingOnDark:  '#FFFFFF',
@@ -91,9 +91,9 @@ export const COLOR_GROUPS: ColorGroup[] = [
     label: 'Botanical & Fresh',
     tagline: 'Vegan spots, juice bars, garden cafés, seafood restaurants',
     headingFont: 'Cormorant Garamond',
-    headingFontStack: "'Cormorant Garamond', Georgia, serif",
-    bodyFont: 'Poppins',
-    bodyFontStack: "'Poppins', 'Open Sans', system-ui, sans-serif",
+    headingFontStack: "var(--font-cormorant-garamond), Georgia, serif",
+    bodyFont: 'DM Sans',
+    bodyFontStack: "var(--font-dm-sans), system-ui, sans-serif",
     headingOnWhite: '#064E3B',   // dark moss green
     bodyOnWhite:    '#475569',   // slate
     headingOnDark:  '#D1FAE5',   // soft mint
@@ -107,10 +107,10 @@ export const COLOR_GROUPS: ColorGroup[] = [
     id: 'vibrant',
     label: 'Vibrant & Sweet',
     tagline: 'Dessert shops, ice cream, high-energy cafés, breakfast spots',
-    headingFont: 'Poppins',
-    headingFontStack: "'Poppins', 'Quicksand', system-ui, sans-serif",
+    headingFont: 'Nunito',
+    headingFontStack: "var(--font-nunito), system-ui, sans-serif",
     bodyFont: 'Nunito',
-    bodyFontStack: "'Nunito', 'Lato', system-ui, sans-serif",
+    bodyFontStack: "var(--font-nunito), system-ui, sans-serif",
     headingOnWhite: '#09090B',   // near black — pops against vibrant bg
     bodyOnWhite:    '#1F2937',   // dark slate
     headingOnDark:  '#FFFFFF',

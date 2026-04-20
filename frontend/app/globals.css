@@ -287,6 +287,18 @@ html {
   color: var(--body-on-dark) !important;
 }
 
+/* ── UI font — buttons, nav, labels, badges ── */
+.tenant-site button,
+.tenant-site a[class*="font-"],
+.tenant-site nav a,
+.tenant-site .nav-link,
+.tenant-site input,
+.tenant-site select,
+.tenant-site textarea,
+.tenant-site label {
+  font-family: var(--ui-font, var(--body-font, system-ui, sans-serif));
+}
+
 /* ── Primary colour overrides — replaces hardcoded blue throughout ── */
 /* Prices, links, accents */
 .tenant-site .text-blue-700,

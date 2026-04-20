@@ -3,6 +3,16 @@ import Link from 'next/link';
 import type { Tenant } from '../../types/tenant.types';
 import { BannerSlideshow } from './BannerSlideshow';
 
+export interface HeroContent {
+  badgeText?: string;
+  headlineLine1?: string;
+  headlineLine2?: string;
+  subheading?: string;
+  tagline?: string;
+  primaryCtaLabel?: string;
+  secondaryCtaLabel?: string;
+}
+
 interface HeroSectionProps {
   tenant: Tenant;
   bannerImages: string[];
@@ -15,6 +25,7 @@ interface HeroSectionProps {
     twitter?: string;
     youtube?: string;
   };
+  heroContent?: HeroContent;
 }
 
 interface SocialLinksBarProps {
@@ -98,7 +109,7 @@ const HeroIdentity: React.FC<{
       <h1
         className="font-black leading-[1.0] tracking-tight"
         style={{
-          fontFamily: `'${fontFamily}', Georgia, serif`,
+          fontFamily: 'var(--heading-font)',
           color: textColor,
           fontSize: 'clamp(2.6rem, 6vw, 5rem)',
         }}
@@ -115,9 +126,74 @@ const HeroIdentity: React.FC<{
   );
 };
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, heroStyle = 'dark', primaryColor, fontFamily, socialLinks }) => {
+// ── Custom hero text block ───────────────────────────────────────────────────
+// Renders badge, custom headline, subheading and tagline when heroContent is set.
+// Falls back to HeroIdentity (tenant name) when no custom content provided.
+const HeroCustomContent: React.FC<{
+  tenant: Tenant;
+  primaryColor: string;
+  fontFamily: string;
+  content: HeroContent;
+  dark?: boolean;
+  center?: boolean;
+}> = ({ tenant, primaryColor, fontFamily, content, dark = true, center = false }) => {
+  const hasCustomHeadline = content.headlineLine1 || content.headlineLine2;
+  const textColor = dark ? '#ffffff' : '#1c1008';
+  const subColor = dark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.6)';
+  const taglineColor = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.45)';
+
+  return (
+    <div className={center ? 'text-center' : ''}>
+      {/* Badge pill */}
+      {content.badgeText && (
+        <div className={`inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-5 ${center ? 'mx-auto' : ''}`}>
+          <svg viewBox="0 0 24 24" fill="#C8A855" className="w-3.5 h-3.5 shrink-0">
+            <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/>
+          </svg>
+          <span className="text-sm font-medium" style={{ color: dark ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.75)' }}>{content.badgeText}</span>
+        </div>
+      )}
+
+      {/* Headline */}
+      {hasCustomHeadline ? (
+        <h1
+          className="font-black leading-tight tracking-tight mb-4"
+          style={{
+            fontFamily: 'var(--heading-font)',
+            color: textColor,
+            fontSize: 'clamp(2.6rem, 6vw, 5rem)',
+          }}
+        >
+          {content.headlineLine1}
+          {content.headlineLine1 && content.headlineLine2 && <br />}
+          {content.headlineLine2}
+        </h1>
+      ) : (
+        <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={dark} center={center} />
+      )}
+
+      {/* Subheading */}
+      {content.subheading && (
+        <p className="text-lg sm:text-xl leading-relaxed mb-3" style={{ color: subColor, fontFamily: 'var(--body-font)' }}>
+          {content.subheading}
+        </p>
+      )}
+
+      {/* Tagline */}
+      {content.tagline && (
+        <p className="text-base italic mb-6" style={{ color: taglineColor, fontFamily: 'var(--body-font)' }}>
+          {content.tagline}
+        </p>
+      )}
+    </div>
+  );
+};
+
+export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, heroStyle = 'dark', primaryColor, fontFamily, socialLinks, heroContent }) => {
   const tenantBase = ``;
-  const ctaLabel = 'View Menu';
+  const hc: HeroContent = heroContent || {};
+  const ctaLabel = hc.primaryCtaLabel || 'View Menu';
+  const secondaryCtaLabel = hc.secondaryCtaLabel || 'Contact Us';
   const ctaHref = `${tenantBase}/menu`;
   const waHref = tenant.whatsappNumber
     ? `https://wa.me/${tenant.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello! I'm interested in ${tenant.name}.`)}`
@@ -147,11 +223,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
         )}
         <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-24 w-full">
           <div className="max-w-2xl">
-            <span className="inline-block text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest mb-5"
-              style={{ backgroundColor: `${primaryColor}bb` }}>
-              {typeLabel[tenant.type] || 'Business'}
-            </span>
-            <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
+            {!hc.badgeText && (
+              <span className="inline-block text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest mb-5"
+                style={{ backgroundColor: `${primaryColor}bb` }}>
+                {typeLabel[tenant.type] || 'Business'}
+              </span>
+            )}
+            <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
             {tenant.contactInfo?.city && (
               <p className="text-white/60 text-sm mb-8 flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -170,9 +248,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   <WhatsAppIcon /> WhatsApp
                 </a>
               )}
-              <Link href={`${tenantBase}/contact`} className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold px-7 py-3.5 rounded-xl transition-all hover:scale-[1.03] border border-white/25 text-base">
-                Contact Us
-              </Link>
+              <Link href={`${tenantBase}/contact`} className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold px-7 py-3.5 rounded-xl transition-all hover:scale-[1.03] border border-white/25 text-base">{secondaryCtaLabel}</Link>
             </div>
             {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
           </div>
@@ -205,7 +281,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             </span>
             <div className="h-px w-16 opacity-50" style={{ backgroundColor: primaryColor }} />
           </div>
-          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} center={true} />
+          <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} center={true} />
           <div className="flex flex-wrap justify-center gap-4">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3.5 rounded-none border-2 transition-all hover:scale-[1.02] tracking-widest uppercase text-sm"
@@ -239,7 +315,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   {typeLabel[tenant.type] || 'Restaurant'}
                 </span>
               </div>
-              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
+              <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-black px-7 py-3.5 text-base transition-all hover:opacity-90"
@@ -257,9 +333,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 border-2 text-gray-900 font-black px-7 py-3.5 text-base transition-all hover:bg-gray-900 hover:text-white"
                   style={{ borderColor: primaryColor }}
-                >
-                  Contact
-                </Link>
+                >{secondaryCtaLabel}</Link>
               </div>
               {socialLinks && <SocialLinksBar links={socialLinks} dark={false} />}
             </div>
@@ -299,7 +373,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           <p className="text-xs font-black uppercase tracking-[0.35em] mb-6" style={{ color: primaryColor }}>
             — {typeLabel[tenant.type] || 'Business'} —
           </p>
-          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
+          <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
           <div className="flex flex-wrap gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 font-bold px-8 py-3.5 rounded-sm text-black text-base transition-all hover:scale-[1.03]"
@@ -317,9 +391,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             <Link href={`${tenantBase}/contact`}
               className="inline-flex items-center gap-2 bg-transparent border text-white font-bold px-8 py-3.5 rounded-sm transition-all hover:bg-white/5 text-base"
               style={{ borderColor: `${primaryColor}66` }}
-            >
-              Contact
-            </Link>
+            >{secondaryCtaLabel}</Link>
           </div>
           {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
         </div>
@@ -350,7 +422,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </>
             )}
           </div>
-          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
+          <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
           <div className="flex flex-wrap gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-black px-8 py-4 text-base transition-all hover:opacity-90"
@@ -366,9 +438,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </a>
             )}
             <Link href={`${tenantBase}/contact`}
-              className="inline-flex items-center gap-2 border-2 border-gray-900 text-gray-900 font-black px-8 py-4 text-base transition-all hover:bg-gray-900 hover:text-white">
-              Contact
-            </Link>
+              className="inline-flex items-center gap-2 border-2 border-gray-900 text-gray-900 font-black px-8 py-4 text-base transition-all hover:bg-gray-900 hover:text-white">{secondaryCtaLabel}</Link>
           </div>
           {socialLinks && <SocialLinksBar links={socialLinks} dark={false} />}
         </div>
@@ -402,7 +472,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             <span className="text-white/80 text-xs font-black uppercase tracking-[0.3em]">{typeLabel[tenant.type] || 'Business'}</span>
             <div className="h-px w-10 bg-white/50" />
           </div>
-          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} center={true} />
+          <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} center={true} />
           <div className="flex flex-wrap justify-center gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 bg-white font-black px-8 py-3.5 rounded-2xl text-base transition-all hover:scale-[1.03] shadow-xl"
@@ -418,9 +488,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </a>
             )}
             <Link href={`${tenantBase}/contact`}
-              className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold px-8 py-3.5 rounded-2xl transition-all hover:scale-[1.03] border border-white/30 text-base">
-              Contact Us
-            </Link>
+              className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold px-8 py-3.5 rounded-2xl transition-all hover:scale-[1.03] border border-white/30 text-base">{secondaryCtaLabel}</Link>
           </div>
           {socialLinks && <div className="flex justify-center"><SocialLinksBar links={socialLinks} dark={true} /></div>}
         </div>
@@ -451,7 +519,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 </span>
                 <div className="w-8 h-0.5 bg-gray-900" />
               </div>
-              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
+              <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-black px-7 py-3.5 text-base transition-all hover:opacity-90"
@@ -467,9 +535,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   </a>
                 )}
                 <Link href={`${tenantBase}/contact`}
-                  className="inline-flex items-center gap-2 border-2 border-gray-900 text-gray-900 font-black px-7 py-3.5 text-base transition-all hover:bg-gray-900 hover:text-white">
-                  Contact
-                </Link>
+                  className="inline-flex items-center gap-2 border-2 border-gray-900 text-gray-900 font-black px-7 py-3.5 text-base transition-all hover:bg-gray-900 hover:text-white">{secondaryCtaLabel}</Link>
               </div>
               {socialLinks && <SocialLinksBar links={socialLinks} dark={false} />}
             </div>
@@ -517,7 +583,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   {typeLabel[tenant.type] || 'Salon'}
                 </span>
               </div>
-              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
+              <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3.5 text-sm uppercase tracking-widest transition-all hover:opacity-90"
@@ -534,9 +600,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 border text-gray-600 font-semibold px-8 py-3.5 text-sm uppercase tracking-widest transition-all hover:bg-gray-100"
                   style={{ borderColor: `${primaryColor}55` }}
-                >
-                  Contact
-                </Link>
+                >{secondaryCtaLabel}</Link>
               </div>
               {socialLinks && <SocialLinksBar links={socialLinks} dark={false} />}
             </div>
@@ -585,7 +649,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 {typeLabel[tenant.type] || 'Gym'}
               </span>
             </div>
-            <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
+            <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
             <div className="flex flex-wrap gap-3">
               <Link href={ctaHref}
                 className="inline-flex items-center gap-2 font-black px-8 py-4 text-white text-base transition-all hover:opacity-90 uppercase tracking-wide"
@@ -603,9 +667,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               <Link href={`${tenantBase}/contact`}
                 className="inline-flex items-center gap-2 border-2 text-white font-black px-8 py-4 text-base transition-all hover:bg-white/10 uppercase tracking-wide"
                 style={{ borderColor: `${primaryColor}88` }}
-              >
-                Contact
-              </Link>
+              >{secondaryCtaLabel}</Link>
             </div>
             {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
           </div>
@@ -634,7 +696,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               >
                 {typeLabel[tenant.type] || 'Café'}
               </span>
-              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
+              <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-bold px-7 py-3.5 rounded-full transition-all hover:scale-[1.02] shadow-lg text-base"
@@ -652,9 +714,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 font-bold px-7 py-3.5 rounded-full border-2 transition-all hover:scale-[1.02] text-base"
                   style={{ borderColor: `${primaryColor}55`, color: '#3d2b1f' }}
-                >
-                  Contact Us
-                </Link>
+                >{secondaryCtaLabel}</Link>
               </div>
               {socialLinks && <SocialLinksBar links={socialLinks} dark={false} />}
             </div>
@@ -708,7 +768,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           {/* Thin colour rule */}
           <div className="w-14 h-0.5 mb-6" style={{ backgroundColor: primaryColor }} />
 
-          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
+          <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
 
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div />
@@ -726,9 +786,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 </a>
               )}
               <Link href={`${tenantBase}/contact`}
-                className="inline-flex items-center gap-2 border border-white/30 text-white font-bold px-7 py-3 text-sm uppercase tracking-wider hover:bg-white/10 transition-all">
-                Contact
-              </Link>
+                className="inline-flex items-center gap-2 border border-white/30 text-white font-bold px-7 py-3 text-sm uppercase tracking-wider hover:bg-white/10 transition-all">{secondaryCtaLabel}</Link>
             </div>
           </div>
           {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
@@ -753,7 +811,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             {typeLabel[tenant.type] || 'Restaurant'}
           </p>
           <div className="relative">
-            <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
+            <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
           </div>
           <div className="relative flex flex-col sm:flex-row gap-3">
             <Link href={ctaHref}
@@ -770,9 +828,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </a>
             )}
             <Link href={`${tenantBase}/contact`}
-              className="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-7 py-3.5 text-base transition-all border border-white/30">
-              Contact
-            </Link>
+              className="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-7 py-3.5 text-base transition-all border border-white/30">{secondaryCtaLabel}</Link>
           </div>
           {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
         </div>
@@ -826,7 +882,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: primaryColor }} />
             </div>
 
-            <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
+            <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
 
             <div className="flex flex-wrap gap-3">
               <Link href={ctaHref}
@@ -842,9 +898,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                 </a>
               )}
               <Link href={`${tenantBase}/contact`}
-                className="inline-flex items-center gap-2 border border-white/25 text-white/80 font-bold px-7 py-3 text-sm uppercase tracking-widest hover:bg-white/10 transition-all">
-                Contact
-              </Link>
+                className="inline-flex items-center gap-2 border border-white/25 text-white/80 font-bold px-7 py-3 text-sm uppercase tracking-widest hover:bg-white/10 transition-all">{secondaryCtaLabel}</Link>
             </div>
             {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
           </div>
@@ -877,7 +931,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   {typeLabel[tenant.type] || 'Restaurant'}
                 </span>
               </div>
-              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
+              <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
 
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
@@ -894,9 +948,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   </a>
                 )}
                 <Link href={`${tenantBase}/contact`}
-                  className="inline-flex items-center gap-2 border-2 border-gray-200 text-gray-700 font-black px-8 py-4 text-base hover:border-gray-400 transition-all">
-                  Contact
-                </Link>
+                  className="inline-flex items-center gap-2 border-2 border-gray-200 text-gray-700 font-black px-8 py-4 text-base hover:border-gray-400 transition-all">{secondaryCtaLabel}</Link>
               </div>
               {socialLinks && <SocialLinksBar links={socialLinks} dark={false} />}
             </div>
@@ -943,7 +995,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               <p className="text-white/60 text-xs font-black uppercase tracking-[0.35em] mb-8">
                 {typeLabel[tenant.type] || 'Restaurant'} · Est. {new Date().getFullYear()}
               </p>
-              <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={true} />
+              <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
               <div className="flex flex-wrap gap-3">
                 <Link href={ctaHref}
                   className="inline-flex items-center gap-2 bg-white font-black px-8 py-4 text-base transition-all hover:opacity-90 shadow-xl"
@@ -959,9 +1011,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
                   </a>
                 )}
                 <Link href={`${tenantBase}/contact`}
-                  className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-8 py-4 text-base border border-white/30 transition-all">
-                  Contact
-                </Link>
+                  className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-8 py-4 text-base border border-white/30 transition-all">{secondaryCtaLabel}</Link>
               </div>
               {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
             </div>
@@ -1008,7 +1058,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           >
             {typeLabel[tenant.type] || 'Restaurant'}
           </span>
-          <HeroIdentity tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} dark={false} />
+          <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
           <div className="flex flex-wrap gap-3">
             <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-bold px-7 py-3.5 rounded-2xl transition-all hover:scale-[1.02] shadow-lg text-base"
@@ -1024,9 +1074,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </a>
             )}
             <Link href={`${tenantBase}/contact`}
-              className="inline-flex items-center gap-2 bg-white text-gray-700 hover:text-gray-900 font-bold px-7 py-3.5 rounded-2xl border border-gray-200 hover:border-gray-300 transition-all hover:scale-[1.02] shadow-sm text-base">
-              Contact Us
-            </Link>
+              className="inline-flex items-center gap-2 bg-white text-gray-700 hover:text-gray-900 font-bold px-7 py-3.5 rounded-2xl border border-gray-200 hover:border-gray-300 transition-all hover:scale-[1.02] shadow-sm text-base">{secondaryCtaLabel}</Link>
           </div>
           {socialLinks && <SocialLinksBar links={socialLinks} dark={false} />}
         </div>

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import HeroSection from '../../components/tenant/HeroSection';
+import HeroSection, { type HeroContent } from '../../components/tenant/HeroSection';
 import { getPageTemplate, getBusinessPreset, resolveDesignTokens } from '../../config/page-templates';
 import ScrollReveal from '../../components/ui/ScrollReveal';
 import { generateTheme, getColorGroup } from '../../lib/theme';
@@ -122,6 +122,8 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
       ? [tenant.banner]
       : [];
 
+  const heroContent: HeroContent = theme.hero || {};
+
   return (
     <div className="bg-white">
       {/* Hero — tall wrapper for hanging templates */}
@@ -133,6 +135,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
           primaryColor={primaryColor}
           fontFamily={fontFamily}
           socialLinks={socialLinks}
+          heroContent={heroContent}
         />
       </div>
 
@@ -179,7 +182,6 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                     </p>
                     <h3
                       className="text-xl font-black text-white leading-tight group-hover:text-amber-100 transition-colors"
-                      style={{ fontFamily: `'Playfair Display', Georgia, serif` }}
                     >
                       {group.name}
                     </h3>

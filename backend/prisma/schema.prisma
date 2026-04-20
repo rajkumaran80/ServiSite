@@ -428,6 +428,7 @@ model ContactInfo {
   country      String?
   zipCode      String?
   mapUrl       String?
+  nearTo       String?  // e.g. "Opposite the station", "Next to Sainsbury's"
   openingHours Json?    @default("{}")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
