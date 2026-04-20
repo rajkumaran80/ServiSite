@@ -1457,6 +1457,11 @@ export default function MenuPage() {
                     {activeSection.description && (
                       <p className="text-gray-600 mt-2">{activeSection.description}</p>
                     )}
+                    {activeSection.headerText && (
+                      <div className="mt-4 px-4 py-3 rounded-xl text-sm text-center italic leading-relaxed" style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}>
+                        {activeSection.headerText}
+                      </div>
+                    )}
                   </div>
 
                   {noResults ? (
@@ -1483,6 +1488,11 @@ export default function MenuPage() {
                             </div>
                             {category.description && (
                               <p className="text-xs text-gray-500 mt-2 text-center">{category.description}</p>
+                            )}
+                            {(category as any).headerText && (
+                              <div className="mt-3 px-3 py-2 rounded-lg text-xs text-center italic leading-relaxed" style={{ backgroundColor: `${primaryColor}0D`, color: primaryColor }}>
+                                {(category as any).headerText}
+                              </div>
                             )}
                           </div>
                           {viewMode === 'grid' ? (
@@ -1525,8 +1535,18 @@ export default function MenuPage() {
                               ))}
                             </div>
                           )}
+                          {(category as any).footerText && (
+                            <p className="mt-4 text-xs text-center italic text-gray-400 leading-relaxed">
+                              {(category as any).footerText}
+                            </p>
+                          )}
                         </section>
                       ))}
+                    </div>
+                  )}
+                  {!noResults && activeSection.footerText && (
+                    <div className="mt-10 px-4 py-3 rounded-xl text-sm text-center italic leading-relaxed border" style={{ borderColor: `${primaryColor}25`, color: `${primaryColor}BB` }}>
+                      {activeSection.footerText}
                     </div>
                   )}
                 </div>

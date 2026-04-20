@@ -14,6 +14,18 @@ export class CreateCategoryDto {
   @MaxLength(500)
   description?: string;
 
+  @ApiPropertyOptional({ example: 'Perfect for sharing' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  headerText?: string;
+
+  @ApiPropertyOptional({ example: 'Ask about our gluten-free options' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  footerText?: string;
+
   @ApiPropertyOptional({ default: 0 })
   @IsInt()
   @Min(0)

@@ -17,6 +17,16 @@ export class CreateMenuGroupDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ example: 'All dishes available until 11:30am' })
+  @IsOptional()
+  @IsString()
+  headerText?: string;
+
+  @ApiPropertyOptional({ example: 'Ask your server about daily specials' })
+  @IsOptional()
+  @IsString()
+  footerText?: string;
+
   @ApiPropertyOptional({ example: '07:00' })
   @IsOptional()
   @IsString()

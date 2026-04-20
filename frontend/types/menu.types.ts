@@ -4,6 +4,8 @@ export interface MenuGroup {
   name: string;
   icon: string | null;
   description: string | null;
+  headerText: string | null;
+  footerText: string | null;
   servedFrom: string | null;
   servedUntil: string | null;
   isActive: boolean;
@@ -22,6 +24,8 @@ export interface Category {
   menuGroupId?: string | null;
   name: string;
   description: string | null;
+  headerText: string | null;
+  footerText: string | null;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +62,8 @@ export interface CreateMenuGroupPayload {
   name: string;
   icon?: string;
   description?: string;
+  headerText?: string;
+  footerText?: string;
   servedFrom?: string;
   servedUntil?: string;
   isActive?: boolean;
@@ -67,6 +73,8 @@ export interface CreateMenuGroupPayload {
 export interface CreateCategoryPayload {
   name: string;
   description?: string;
+  headerText?: string;
+  footerText?: string;
   sortOrder?: number;
   menuGroupId?: string;
 }

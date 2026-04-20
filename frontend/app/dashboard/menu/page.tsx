@@ -55,6 +55,8 @@ function GroupForm({
     name: group?.name ?? '',
     icon: group?.icon ?? '',
     description: group?.description ?? '',
+    headerText: group?.headerText ?? '',
+    footerText: group?.footerText ?? '',
     servedFrom: group?.servedFrom ?? '',
     servedUntil: group?.servedUntil ?? '',
     isActive: group?.isActive ?? true,
@@ -87,6 +89,8 @@ function GroupForm({
         name: form.name.trim(),
         icon: form.icon || undefined,
         description: form.description || undefined,
+        headerText: form.headerText || undefined,
+        footerText: form.footerText || undefined,
         servedFrom: form.servedFrom || undefined,
         servedUntil: form.servedUntil || undefined,
         isActive: form.isActive,
@@ -158,6 +162,15 @@ function GroupForm({
       <FieldRow label="Description">
         <textarea rows={2} className={inputClass} value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Optional description..." />
       </FieldRow>
+      <div className="border-t border-gray-100 pt-4 space-y-3">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Header &amp; Footer Text</p>
+        <FieldRow label="Header text">
+          <textarea rows={2} className={inputClass} value={form.headerText ?? ''} onChange={(e) => set('headerText', e.target.value)} placeholder="Shown above items — e.g. 'All dishes served until 11:30am'" />
+        </FieldRow>
+        <FieldRow label="Footer text">
+          <textarea rows={2} className={inputClass} value={form.footerText ?? ''} onChange={(e) => set('footerText', e.target.value)} placeholder="Shown below items — e.g. 'Ask about our daily specials'" />
+        </FieldRow>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <FieldRow label="Served From (HH:MM)">
           <input className={inputClass} value={form.servedFrom ?? ''} onChange={(e) => set('servedFrom', e.target.value)} placeholder="07:00" pattern="^\d{2}:\d{2}$" />
@@ -204,6 +217,8 @@ function CategoryForm({
   const [form, setForm] = useState<CreateCategoryPayload>({
     name: category?.name ?? '',
     description: category?.description ?? '',
+    headerText: category?.headerText ?? '',
+    footerText: category?.footerText ?? '',
     sortOrder: category?.sortOrder ?? 0,
     menuGroupId: category?.menuGroupId ?? '',
   });
@@ -220,6 +235,8 @@ function CategoryForm({
       const payload: CreateCategoryPayload = {
         name: form.name.trim(),
         description: form.description || undefined,
+        headerText: form.headerText || undefined,
+        footerText: form.footerText || undefined,
         sortOrder: form.sortOrder,
         menuGroupId: form.menuGroupId || undefined,
       };
@@ -247,6 +264,15 @@ function CategoryForm({
       <FieldRow label="Description">
         <textarea rows={2} className={inputClass} value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Optional description..." />
       </FieldRow>
+      <div className="border-t border-gray-100 pt-4 space-y-3">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Header &amp; Footer Text</p>
+        <FieldRow label="Header text">
+          <textarea rows={2} className={inputClass} value={form.headerText ?? ''} onChange={(e) => set('headerText', e.target.value)} placeholder="Shown above items — e.g. 'Perfect for sharing'" />
+        </FieldRow>
+        <FieldRow label="Footer text">
+          <textarea rows={2} className={inputClass} value={form.footerText ?? ''} onChange={(e) => set('footerText', e.target.value)} placeholder="Shown below items — e.g. 'Ask about gluten-free options'" />
+        </FieldRow>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <FieldRow label="Group">
           <select className={inputClass} value={form.menuGroupId ?? ''} onChange={(e) => set('menuGroupId', e.target.value)}>

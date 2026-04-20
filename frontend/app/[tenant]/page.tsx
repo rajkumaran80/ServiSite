@@ -289,61 +289,215 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
       {showHomeBlocks && (
         <div>
           {homeBlockEntries.map((entry: any, idx: number) => {
-            const imagePos = entry.data?.imagePosition || (idx % 2 === 0 ? 'left' : 'right');
-            const hasImage = !!entry.imageUrl;
+            const sectionType: 'content' | 'awards' | 'social-proof' = entry.data?.sectionType || 'content';
             const gid = colorGroup.id;
 
-            // ── Section background ──────────────────────────────────────────
-            const sectionBg =
-              gid === 'prestige'                   ? '#080808' :
-              gid === 'modern' && idx % 2 === 0   ? '#1E293B' :
-              gid === 'modern'                     ? '#F1F5F9' :
-              gid === 'artisan'                    ? '#FAF7F2' :
-              gid === 'botanical'                  ? '#EEF4EE' :
-              idx % 2 === 0                        ? '#FAFAFA' : '#FFFFFF';
+            // ── Background from global bgMode — cycles by index ──────────────
+            const bgMode: string = (theme as any).sectionBgMode || 'soft-light';
 
-            // ── Dark card → use group's on-dark text colours inline ─────────
-            const isDark = gid === 'prestige' || (gid === 'modern' && idx % 2 === 0);
-            const headingColor = isDark ? colorGroup.headingOnDark : undefined;
-            const bodyColor    = isDark ? colorGroup.bodyOnDark    : undefined;
+            // Each mode defines 4 background levels; index cycles through them
+            type BgEntry = { bg: string; dark: boolean };
+            const bgSequence: Record<string, BgEntry[]> = {
+              'soft-light': [
+                { bg: '#ffffff', dark: false },
+                { bg: '#f7f7f7', dark: false },
+                { bg: '#f0f0f0', dark: false },
+                { bg: '#e9e9e9', dark: false },
+              ],
+              'rich-dark': [
+                { bg: '#111111', dark: true },
+                { bg: '#171717', dark: true },
+                { bg: '#1e1e1e', dark: true },
+                { bg: '#141414', dark: true },
+              ],
+              'contrast': [
+                { bg: '#ffffff',  dark: false },
+                { bg: '#111111',  dark: true  },
+                { bg: '#f5f5f5',  dark: false },
+                { bg: '#1a1a1a',  dark: true  },
+              ],
+              'warm-mix': [
+                { bg: '#fafafa',  dark: false },
+                { bg: '#ede8e0',  dark: false },
+                { bg: '#2d2520',  dark: true  },
+                { bg: '#111111',  dark: true  },
+              ],
+            };
 
-            // ── Card style per group ────────────────────────────────────────
-            // prestige  → Elegant Frame: thin gold border, dark interior
-            // modern    → Zebra: no card wrapper, raw content with large gap
-            // others    → Floating Canvas: white rounded card with soft shadow
-            const useCard   = gid !== 'modern';
-            const cardClass = gid === 'prestige'
-              ? 'rounded-3xl overflow-hidden'
-              : 'bg-white rounded-[40px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.06)]';
-            const cardStyle: React.CSSProperties = gid === 'prestige'
-              ? { border: '1px solid #D4AF37', backgroundColor: '#0f0f0f' }
+            // Colour-group warm tint applied to light backgrounds
+            const lightTint: Record<string, string[]> = {
+              artisan:   ['#ffffff', '#faf7f2', '#f5f0e8', '#f0ebe0'],
+              botanical: ['#ffffff', '#f0f5f0', '#e6f0e6', '#ddeedd'],
+              prestige:  ['#0a0a0a', '#111109', '#141410', '#0f0f0a'],
+              vibrant:   ['#ffffff', '#fff9f9', '#fff4f4', '#ffeeee'],
+            };
+
+            const seq = bgSequence[bgMode] ?? bgSequence['soft-light'];
+            // Awards/social-proof always pick from the darkest entry in the sequence
+            const forceDark = sectionType !== 'content';
+            let bgEntry: BgEntry;
+            if (forceDark) {
+              // Find darkest slot in sequence
+              bgEntry = seq.reduce((prev, cur) => (cur.dark ? cur : prev), seq[seq.length - 1]);
+            } else {
+              bgEntry = seq[idx % seq.length];
+            }
+
+            // Apply colour-group warm tint to light slots
+            let bgBase = bgEntry.bg;
+            if (!bgEntry.dark && lightTint[gid]) {
+              bgBase = lightTint[gid][idx % lightTint[gid].length];
+            }
+            const isDark = bgEntry.dark;
+
+            // ── Pattern overlay ──────────────────────────────────────────────
+            const pattern: string = entry.data?.pattern || 'none';
+            const pc = isDark ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.045)';
+            const patternStyle: React.CSSProperties = (() => {
+              switch (pattern) {
+                case 'dots':
+                  return { backgroundImage: `radial-gradient(circle, ${pc} 1px, transparent 1px)`, backgroundSize: '22px 22px' };
+                case 'grid':
+                  return { backgroundImage: `linear-gradient(${pc} 1px, transparent 1px), linear-gradient(to right, ${pc} 1px, transparent 1px)`, backgroundSize: '30px 30px' };
+                case 'diagonal':
+                  return { backgroundImage: `repeating-linear-gradient(45deg, ${pc} 0, ${pc} 1px, transparent 0, transparent 50%)`, backgroundSize: '14px 14px' };
+                default: return {};
+              }
+            })();
+
+            const sectionStyle: React.CSSProperties = { backgroundColor: bgBase, ...patternStyle };
+
+            // ── Text colours ─────────────────────────────────────────────────
+            const headingColor = isDark ? (colorGroup.headingOnDark ?? '#FFFFFF') : undefined;
+            const bodyColor    = isDark ? (colorGroup.bodyOnDark    ?? '#D1D5DB') : undefined;
+
+            // ══════════════════════════════════════════════════════════════════
+            // AWARDS STRIP
+            // ══════════════════════════════════════════════════════════════════
+            if (sectionType === 'awards') {
+              const awards: { name: string; subtitle: string }[] = (entry.data?.awards || []).filter((a: any) => a.name?.trim());
+              if (!awards.length) return null;
+              const cols = Math.min(awards.length, 6);
+              return (
+                <section key={entry.id} style={sectionStyle}>
+                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    {entry.title?.trim() && (
+                      <p className="text-center text-xs font-bold tracking-[0.2em] uppercase mb-6 opacity-60" style={{ color: headingColor || primaryColor }}>
+                        {entry.title}
+                      </p>
+                    )}
+                    <div
+                      className="grid gap-6"
+                      style={{ gridTemplateColumns: `repeat(${Math.min(cols, 3)}, 1fr)` }}
+                    >
+                      {awards.map((award, i) => (
+                        <div key={i} className="text-center relative">
+                          {/* Vertical divider between items */}
+                          {i > 0 && i % Math.min(cols, 3) !== 0 && (
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-8 opacity-20" style={{ backgroundColor: headingColor || '#fff' }} />
+                          )}
+                          <p className="font-bold text-sm leading-snug" style={{ color: headingColor || '#FFFFFF' }}>
+                            {award.name}
+                          </p>
+                          {award.subtitle && (
+                            <p className="text-xs mt-0.5 opacity-60" style={{ color: headingColor || '#FFFFFF' }}>
+                              {award.subtitle}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              );
+            }
+
+            // ══════════════════════════════════════════════════════════════════
+            // SOCIAL PROOF BAR
+            // ══════════════════════════════════════════════════════════════════
+            if (sectionType === 'social-proof') {
+              const rating = parseFloat(entry.data?.rating || '5') || 5;
+              const reviewText: string = entry.data?.reviewText || '';
+              const badges: { text: string }[] = (entry.data?.badges || []).filter((b: any) => b.text?.trim());
+              const textCol = isDark ? '#FFFFFF' : '#111111';
+              const mutedCol = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)';
+              const dividerCol = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+              return (
+                <section key={entry.id} style={sectionStyle}>
+                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-8 text-center flex-wrap">
+                      {/* Stars + rating */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-0.5">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <svg key={i} viewBox="0 0 24 24" fill={i < Math.round(rating) ? '#C8A855' : 'rgba(200,168,85,0.25)'} className="w-4 h-4">
+                              <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/>
+                            </svg>
+                          ))}
+                        </div>
+                        <span className="font-bold text-sm" style={{ color: textCol }}>
+                          Rated {rating.toFixed(1)}{reviewText && <> across {reviewText}</>}
+                        </span>
+                      </div>
+
+                      {/* Badge items with dividers */}
+                      {badges.map((badge, i) => (
+                        <div key={i} className="flex items-center gap-3 sm:gap-8">
+                          <span className="hidden sm:block w-px h-5" style={{ backgroundColor: dividerCol }} />
+                          <span className="text-sm" style={{ color: mutedCol }}>{badge.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              );
+            }
+
+            // ══════════════════════════════════════════════════════════════════
+            // CONTENT BLOCK (existing, enhanced)
+            // ══════════════════════════════════════════════════════════════════
+            const imagePos = entry.data?.imagePosition || (idx % 2 === 0 ? 'left' : 'right');
+            const hasImage = !!entry.imageUrl;
+            const hasDescription = !!entry.data?.description?.trim();
+            const hasTitle = !!entry.title?.trim();
+            const hasText = hasTitle || !!entry.data?.subtitle || hasDescription;
+            const effectivePos = hasImage && !hasDescription ? 'center' : imagePos;
+            const statItems: { value: string; label: string }[] = (entry.data?.statItems || []).filter((s: any) => s.value?.trim());
+
+            // Card styling per colour group + showBorder
+            const showBorder: boolean = entry.data?.showBorder ?? false;
+            const useCard = gid !== 'modern';
+            // Card is transparent — the section <section> element holds the background colour.
+            // Only border and rounded styling applied here; no bg-white override.
+            const cardClass = 'rounded-3xl overflow-hidden';
+            const cardStyle: React.CSSProperties = showBorder
+              ? { border: isDark ? '1px solid rgba(255,255,255,0.14)' : `1px solid ${primaryColor}28` }
               : {};
 
-            // On dark cards the CSS !important rules in globals.css override inline styles,
-            // so we must not apply the class-based colour helpers when we need dark-mode text.
             const headingClasses = isDark
               ? 'text-3xl leading-tight mb-4 font-bold'
               : 'section-heading tenant-h2 text-3xl leading-tight mb-4';
             const bodyClasses = isDark
               ? 'leading-relaxed whitespace-pre-line text-sm'
               : 'leading-relaxed whitespace-pre-line text-sm text-gray-600';
-            const defaultBodyColor = isDark ? (bodyColor ?? '#E5E7EB') : undefined;
-            const defaultHeadingColor = isDark ? (headingColor ?? '#FFFFFF') : undefined;
 
-            const hasDescription = !!entry.data?.description?.trim();
-            const hasTitle = !!entry.title?.trim();
-            const hasText = hasTitle || !!entry.data?.subtitle || hasDescription;
-            // Float side layout only useful when there is body description text to flow beside.
-            // Image-only or title-only → centre layout.
-            const effectivePos = hasImage && !hasDescription ? 'center' : imagePos;
+            const imgBg = isDark ? 'rgba(255,255,255,0.04)' : '#f8f8f8';
 
-            const imgBg = isDark ? 'transparent' : '#f8f8f8';
+            // Stat blocks rendered below content
+            const statGrid = statItems.length > 0 ? (
+              <div className={`grid grid-cols-2 gap-3 mt-8 ${statItems.length > 2 ? 'sm:grid-cols-4' : 'sm:grid-cols-2'}`}>
+                {statItems.map((s, i) => (
+                  <div key={i} className="rounded-xl p-4" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : `${primaryColor}0D` }}>
+                    <p className="font-bold text-2xl leading-tight" style={{ color: isDark ? colorGroup.headingOnDark : primaryColor }}>{s.value}</p>
+                    <p className="text-xs mt-0.5 leading-snug" style={{ color: isDark ? 'rgba(255,255,255,0.55)' : '#6B7280' }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null;
 
             const inner = hasImage && effectivePos === 'center' ? (
-              // ── Centre layout: image on top, text centred below ─────────────
               <ScrollReveal delay={0}>
                 {hasText ? (
-                  // With text: fixed height container, image contained
                   <HomeSectionImage
                     src={entry.imageUrl}
                     alt={entry.title || ''}
@@ -352,110 +506,75 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                     wrapperStyle={{ maxHeight: 420, height: '56vw', backgroundColor: imgBg }}
                   />
                 ) : (
-                  // Image only: natural dimensions, no gaps
-                  <HomeSectionImage
-                    natural
-                    src={entry.imageUrl}
-                    alt={entry.title || ''}
-                    className="w-full h-auto block rounded-2xl"
-                  />
+                  <HomeSectionImage natural src={entry.imageUrl} alt={entry.title || ''} className="w-full h-auto block rounded-2xl" />
                 )}
                 {hasText && (
                   <div className={`text-center ${useCard ? 'py-10 px-8 lg:px-20' : 'py-8'}`}>
                     {entry.data?.subtitle && (
-                      <p className="tenant-eyebrow mb-3 justify-center" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
+                      <p className="tenant-eyebrow mb-3 justify-center" style={{ color: isDark ? colorGroup.headingOnDark : primaryColor }}>{entry.data.subtitle}</p>
                     )}
                     {hasTitle && (
-                      <h2
-                        className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'}
-                        style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}
-                      >
+                      <h2 className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'} style={headingColor ? { color: headingColor } : {}}>
                         {entry.title}
                       </h2>
                     )}
                     {hasDescription && (
                       <>
                         <div className="w-10 h-px mb-5 mx-auto" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
-                        <p
-                          className={`${bodyClasses.replace('text-sm', 'text-base')} max-w-2xl mx-auto`}
-                          style={defaultBodyColor ? { color: defaultBodyColor } : {}}
-                        >
+                        <p className={`${bodyClasses.replace('text-sm', 'text-base')} max-w-2xl mx-auto`} style={bodyColor ? { color: bodyColor } : {}}>
                           {entry.data.description}
                         </p>
                       </>
                     )}
+                    {statGrid}
                   </div>
                 )}
               </ScrollReveal>
             ) : hasImage ? (
-              // ── Left / Right layout ─────────────────────────────────────────
-              // Heading centred full-width at top.
-              // Image floats to selected side; description starts at same top
-              // edge and naturally wraps to full-width below the image.
               <ScrollReveal delay={0}>
                 <div className={useCard ? 'px-6 sm:px-10 lg:px-14 py-10 lg:py-14' : 'py-8 px-4'}>
-
-                  {/* Centred eyebrow + heading */}
-                  {(entry.data?.subtitle || hasTitle) && (
-                    <div className="text-center mb-6 lg:mb-8">
+                  {/* Two-column grid: image + text side by side, text fills remaining space */}
+                  <div className={`flex flex-col ${effectivePos === 'right' ? 'sm:flex-row' : 'sm:flex-row-reverse'} gap-8 lg:gap-12 items-start`}>
+                    {/* Image — natural size, no fixed box */}
+                    <div className="flex-shrink-0 w-full sm:w-auto sm:max-w-[46%]">
+                      <img
+                        src={entry.imageUrl}
+                        alt={entry.title || ''}
+                        className="w-full h-auto rounded-2xl object-cover block"
+                        style={{ maxHeight: 480 }}
+                      />
+                    </div>
+                    {/* Text column */}
+                    <div className="flex-1 min-w-0">
                       {entry.data?.subtitle && (
-                        <p className="tenant-eyebrow mb-3 justify-center" style={{ color: primaryColor }}>
+                        <p className="tenant-eyebrow mb-3" style={{ color: isDark ? colorGroup.headingOnDark : primaryColor }}>
                           {entry.data.subtitle}
                         </p>
                       )}
                       {hasTitle && (
-                        <h2
-                          className={headingClasses.replace('mb-4', 'mb-0') + ' md:text-4xl'}
-                          style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}
-                        >
+                        <h2 className={headingClasses + ' md:text-4xl'} style={headingColor ? { color: headingColor } : {}}>
                           {entry.title}
                         </h2>
                       )}
+                      {hasDescription && (
+                        <>
+                          <div className="w-10 h-px mb-4" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                          <p className={`${bodyClasses} leading-relaxed`} style={bodyColor ? { color: bodyColor } : {}}>{entry.data.description}</p>
+                        </>
+                      )}
+                      {statGrid}
                     </div>
-                  )}
-
-                  {/* Float zone — image floats beside description;
-                      overflow text wraps to full width below image */}
-                  <div className="overflow-hidden">
-                    <HomeSectionImage
-                      src={entry.imageUrl}
-                      alt={entry.title || ''}
-                      className="w-full h-full object-contain"
-                      wrapperClassName={`relative rounded-2xl overflow-hidden mb-4 w-full ${
-                        effectivePos === 'right'
-                          ? 'sm:float-right sm:ml-8 sm:mb-3'
-                          : 'sm:float-left sm:mr-8 sm:mb-3'
-                      } sm:w-[46%]`}
-                      wrapperStyle={{ aspectRatio: '4 / 3', backgroundColor: imgBg }}
-                    />
-                    {hasDescription && (
-                      <>
-                        <div className="w-10 h-px mb-4" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
-                        <p
-                          className={`${bodyClasses} leading-relaxed`}
-                          style={defaultBodyColor ? { color: defaultBodyColor } : {}}
-                        >
-                          {entry.data.description}
-                        </p>
-                      </>
-                    )}
-                    <div className="clear-both" />
                   </div>
-
                 </div>
               </ScrollReveal>
             ) : (
-              // ── Text Only — centered, editorial quote feel ──────────────────
               <ScrollReveal delay={0}>
                 <div className={`text-center ${useCard ? 'py-14 px-8 lg:px-20' : 'py-8'}`}>
                   {entry.data?.subtitle && (
-                    <p className="tenant-eyebrow mb-4 justify-center" style={{ color: primaryColor }}>{entry.data.subtitle}</p>
+                    <p className="tenant-eyebrow mb-4 justify-center" style={{ color: isDark ? colorGroup.headingOnDark : primaryColor }}>{entry.data.subtitle}</p>
                   )}
                   {hasTitle && (
-                    <h2
-                      className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'}
-                      style={defaultHeadingColor ? { color: defaultHeadingColor } : {}}
-                    >
+                    <h2 className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'} style={headingColor ? { color: headingColor } : {}}>
                       {entry.title}
                     </h2>
                   )}
@@ -463,23 +582,22 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                     <>
                       <div className="w-10 h-px mb-6 mx-auto" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
                       <p
-                        className={`${bodyClasses.replace('text-sm', 'text-base')} max-w-2xl mx-auto ${gid === 'prestige' || gid === 'artisan' ? 'italic' : ''}`}
-                        style={defaultBodyColor ? { color: defaultBodyColor } : {}}
+                        className={`${bodyClasses.replace('text-sm', 'text-base')} max-w-2xl mx-auto ${!isDark && (gid === 'prestige' || gid === 'artisan') ? 'italic' : ''}`}
+                        style={bodyColor ? { color: bodyColor } : {}}
                       >
                         &ldquo;{entry.data.description}&rdquo;
                       </p>
                     </>
                   )}
+                  {statGrid}
                 </div>
               </ScrollReveal>
             );
 
             return (
-              <section key={entry.id} className="py-8" style={{ backgroundColor: sectionBg }}>
+              <section key={entry.id} className="py-8" style={sectionStyle}>
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-                  {useCard ? (
-                    <div className={cardClass} style={cardStyle}>{inner}</div>
-                  ) : inner}
+                  {useCard ? <div className={cardClass} style={cardStyle}>{inner}</div> : inner}
                 </div>
               </section>
             );

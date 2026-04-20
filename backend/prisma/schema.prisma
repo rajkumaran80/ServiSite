@@ -267,6 +267,8 @@ model MenuGroup {
   name        String
   icon        String?
   description String?
+  headerText  String?  // Shown above items in this group on the menu page
+  footerText  String?  // Shown below items in this group on the menu page
   servedFrom  String?
   servedUntil String?
   isActive    Boolean  @default(true)
@@ -281,11 +283,13 @@ model MenuGroup {
 }
 
 model Category {
-  id            String   @id @default(cuid())
-  tenantId      String
+  id          String  @id @default(cuid())
+  tenantId    String
   menuGroupId String?
   name        String
   description String?
+  headerText  String?  // Shown above items in this category
+  footerText  String?  // Shown below items in this category
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
