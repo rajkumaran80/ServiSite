@@ -7,6 +7,48 @@
  * via globals.css `.tenant-site` rules.
  */
 
+export type SectionBgMode = 'dark' | 'soft' | 'contrast';
+
+export interface SectionBgEntry { bg: string; dark: boolean; }
+
+/**
+ * Per colour-group section background palettes.
+ * Each mode has 3 entries that cycle across consecutive sections.
+ * 'dark'    — dark backgrounds with light text
+ * 'soft'    — light/tinted backgrounds with dark text
+ * 'contrast'— alternating dark/light
+ */
+export const SECTION_BG_PALETTES: Record<
+  'prestige' | 'artisan' | 'modern' | 'botanical' | 'vibrant',
+  Record<SectionBgMode, SectionBgEntry[]>
+> = {
+  prestige: {
+    dark:     [{ bg: '#0a0a08', dark: true  }, { bg: '#111109', dark: true  }, { bg: '#1a1a14', dark: true  }],
+    soft:     [{ bg: '#faf8f0', dark: false }, { bg: '#f4eeda', dark: false }, { bg: '#ede5cc', dark: false }],
+    contrast: [{ bg: '#111109', dark: true  }, { bg: '#faf8f0', dark: false }, { bg: '#1a1a14', dark: true  }],
+  },
+  artisan: {
+    dark:     [{ bg: '#1a1108', dark: true  }, { bg: '#231508', dark: true  }, { bg: '#2d1e0f', dark: true  }],
+    soft:     [{ bg: '#faf7f2', dark: false }, { bg: '#f3ece0', dark: false }, { bg: '#ebe0cc', dark: false }],
+    contrast: [{ bg: '#1a1108', dark: true  }, { bg: '#faf7f2', dark: false }, { bg: '#2d1e0f', dark: true  }],
+  },
+  modern: {
+    dark:     [{ bg: '#0f172a', dark: true  }, { bg: '#111827', dark: true  }, { bg: '#1e293b', dark: true  }],
+    soft:     [{ bg: '#f8fafc', dark: false }, { bg: '#f1f5f9', dark: false }, { bg: '#e2e8f0', dark: false }],
+    contrast: [{ bg: '#0f172a', dark: true  }, { bg: '#f8fafc', dark: false }, { bg: '#111827', dark: true  }],
+  },
+  botanical: {
+    dark:     [{ bg: '#052e16', dark: true  }, { bg: '#064e3b', dark: true  }, { bg: '#0a3622', dark: true  }],
+    soft:     [{ bg: '#f0fdf4', dark: false }, { bg: '#ecfdf5', dark: false }, { bg: '#d1fae5', dark: false }],
+    contrast: [{ bg: '#052e16', dark: true  }, { bg: '#f0fdf4', dark: false }, { bg: '#064e3b', dark: true  }],
+  },
+  vibrant: {
+    dark:     [{ bg: '#1e1b4b', dark: true  }, { bg: '#312e81', dark: true  }, { bg: '#1e1244', dark: true  }],
+    soft:     [{ bg: '#fefce8', dark: false }, { bg: '#fff7ed', dark: false }, { bg: '#fce7f3', dark: false }],
+    contrast: [{ bg: '#1e1b4b', dark: true  }, { bg: '#fefce8', dark: false }, { bg: '#312e81', dark: true  }],
+  },
+};
+
 export interface ColorGroup {
   id: 'prestige' | 'artisan' | 'modern' | 'botanical' | 'vibrant';
   label: string;

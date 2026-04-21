@@ -3,7 +3,7 @@ import Link from 'next/link';
 import HeroSection, { type HeroContent } from '../../components/tenant/HeroSection';
 import { getPageTemplate, getBusinessPreset, resolveDesignTokens } from '../../config/page-templates';
 import ScrollReveal from '../../components/ui/ScrollReveal';
-import { generateTheme, getColorGroup } from '../../lib/theme';
+import { generateTheme, getColorGroup, getBrightness, SECTION_BG_PALETTES, type SectionBgEntry } from '../../lib/theme';
 import HomeSectionImage from '../../components/tenant/HomeSectionImage';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -292,62 +292,26 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             const sectionType: 'content' | 'awards' | 'social-proof' = entry.data?.sectionType || 'content';
             const gid = colorGroup.id;
 
-            // ── Background from global bgMode — cycles by index ──────────────
-            const bgMode: string = (theme as any).sectionBgMode || 'soft-light';
+            // ── Background from global sectionBgMode — cycles by index ────────
+            const rawBgMode: string = (theme as any).sectionBgMode || 'soft';
+            const bgMode = (['dark', 'soft', 'contrast'] as const).includes(rawBgMode as any)
+              ? (rawBgMode as 'dark' | 'soft' | 'contrast')
+              : 'soft';
 
-            // Each mode defines 4 background levels; index cycles through them
-            type BgEntry = { bg: string; dark: boolean };
-            const bgSequence: Record<string, BgEntry[]> = {
-              'soft-light': [
-                { bg: '#ffffff', dark: false },
-                { bg: '#f7f7f7', dark: false },
-                { bg: '#f0f0f0', dark: false },
-                { bg: '#e9e9e9', dark: false },
-              ],
-              'rich-dark': [
-                { bg: '#111111', dark: true },
-                { bg: '#171717', dark: true },
-                { bg: '#1e1e1e', dark: true },
-                { bg: '#141414', dark: true },
-              ],
-              'contrast': [
-                { bg: '#ffffff',  dark: false },
-                { bg: '#111111',  dark: true  },
-                { bg: '#f5f5f5',  dark: false },
-                { bg: '#1a1a1a',  dark: true  },
-              ],
-              'warm-mix': [
-                { bg: '#fafafa',  dark: false },
-                { bg: '#ede8e0',  dark: false },
-                { bg: '#2d2520',  dark: true  },
-                { bg: '#111111',  dark: true  },
-              ],
-            };
+            const groupPalette = SECTION_BG_PALETTES[gid as keyof typeof SECTION_BG_PALETTES]
+              ?? SECTION_BG_PALETTES.modern;
+            const seq: SectionBgEntry[] = groupPalette[bgMode];
 
-            // Colour-group warm tint applied to light backgrounds
-            const lightTint: Record<string, string[]> = {
-              artisan:   ['#ffffff', '#faf7f2', '#f5f0e8', '#f0ebe0'],
-              botanical: ['#ffffff', '#f0f5f0', '#e6f0e6', '#ddeedd'],
-              prestige:  ['#0a0a0a', '#111109', '#141410', '#0f0f0a'],
-              vibrant:   ['#ffffff', '#fff9f9', '#fff4f4', '#ffeeee'],
-            };
-
-            const seq = bgSequence[bgMode] ?? bgSequence['soft-light'];
-            // Awards/social-proof always pick from the darkest entry in the sequence
+            // Awards/social-proof always use the darkest slot in the palette
             const forceDark = sectionType !== 'content';
-            let bgEntry: BgEntry;
+            let bgEntry: SectionBgEntry;
             if (forceDark) {
-              // Find darkest slot in sequence
-              bgEntry = seq.reduce((prev, cur) => (cur.dark ? cur : prev), seq[seq.length - 1]);
+              bgEntry = seq.find((e) => e.dark) ?? seq[seq.length - 1];
             } else {
               bgEntry = seq[idx % seq.length];
             }
 
-            // Apply colour-group warm tint to light slots
-            let bgBase = bgEntry.bg;
-            if (!bgEntry.dark && lightTint[gid]) {
-              bgBase = lightTint[gid][idx % lightTint[gid].length];
-            }
+            const bgBase = bgEntry.bg;
             const isDark = bgEntry.dark;
 
             // ── Pattern overlay ──────────────────────────────────────────────
@@ -367,9 +331,20 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
 
             const sectionStyle: React.CSSProperties = { backgroundColor: bgBase, ...patternStyle };
 
-            // ── Text colours ─────────────────────────────────────────────────
-            const headingColor = isDark ? (colorGroup.headingOnDark ?? '#FFFFFF') : undefined;
-            const bodyColor    = isDark ? (colorGroup.bodyOnDark    ?? '#D1D5DB') : undefined;
+            // ── Text colours — always resolved for both dark and light slots ──
+            // Light sections: always use near-black for headings for maximum readability
+            // (tinted headingOnWhite colors like dark-green or gold can still look washed
+            // out on same-hue light backgrounds). headingOnWhite used only for accents.
+            const headingColor = isDark
+              ? (colorGroup.headingOnDark ?? '#FFFFFF')
+              : '#0f0f0f';
+            const bodyColor = isDark
+              ? (colorGroup.bodyOnDark ?? '#D1D5DB')
+              : (colorGroup.bodyOnWhite ?? '#374151');
+            // Accent color for eyebrows/labels on light sections
+            const accentOnLight = colorGroup.headingOnWhite === 'var(--primary-hex)'
+              ? primaryColor
+              : colorGroup.headingOnWhite;
 
             // ══════════════════════════════════════════════════════════════════
             // AWARDS STRIP
@@ -382,7 +357,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 <section key={entry.id} style={sectionStyle}>
                   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     {entry.title?.trim() && (
-                      <p className="text-center text-xs font-bold tracking-[0.2em] uppercase mb-6 opacity-60" style={{ color: headingColor || primaryColor }}>
+                      <p className="text-center text-xs font-bold tracking-[0.2em] uppercase mb-6" style={{ color: headingColor || primaryColor }}>
                         {entry.title}
                       </p>
                     )}
@@ -400,7 +375,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                             {award.name}
                           </p>
                           {award.subtitle && (
-                            <p className="text-xs mt-0.5 opacity-60" style={{ color: headingColor || '#FFFFFF' }}>
+                            <p className="text-xs mt-0.5" style={{ color: headingColor || '#FFFFFF' }}>
                               {award.subtitle}
                             </p>
                           )}
@@ -474,9 +449,9 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               ? { border: isDark ? '1px solid rgba(255,255,255,0.14)' : `1px solid ${primaryColor}28` }
               : {};
 
-            const headingClasses = isDark
-              ? 'text-3xl leading-tight mb-4 font-bold'
-              : 'section-heading tenant-h2 text-3xl leading-tight mb-4';
+            // No section-heading/tenant-h2 classes here — those force var(--heading-on-white)
+            // via !important in globals.css, overriding the inline color we set.
+            const headingClasses = 'text-3xl leading-tight mb-4 font-bold';
             const bodyClasses = isDark
               ? 'leading-relaxed whitespace-pre-line text-sm'
               : 'leading-relaxed whitespace-pre-line text-sm text-gray-600';
@@ -488,7 +463,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               <div className={`grid grid-cols-2 gap-3 mt-8 ${statItems.length > 2 ? 'sm:grid-cols-4' : 'sm:grid-cols-2'}`}>
                 {statItems.map((s, i) => (
                   <div key={i} className="rounded-xl p-4" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : `${primaryColor}0D` }}>
-                    <p className="font-bold text-2xl leading-tight" style={{ color: isDark ? colorGroup.headingOnDark : primaryColor }}>{s.value}</p>
+                    <p className="font-bold text-2xl leading-tight" style={{ color: isDark ? colorGroup.headingOnDark : accentOnLight }}>{s.value}</p>
                     <p className="text-xs mt-0.5 leading-snug" style={{ color: isDark ? 'rgba(255,255,255,0.55)' : '#6B7280' }}>{s.label}</p>
                   </div>
                 ))}
@@ -511,7 +486,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                 {hasText && (
                   <div className={`text-center ${useCard ? 'py-10 px-8 lg:px-20' : 'py-8'}`}>
                     {entry.data?.subtitle && (
-                      <p className="tenant-eyebrow mb-3 justify-center" style={{ color: isDark ? colorGroup.headingOnDark : primaryColor }}>{entry.data.subtitle}</p>
+                      <p className="tenant-eyebrow mb-3 justify-center" style={{ color: isDark ? colorGroup.headingOnDark : accentOnLight }}>{entry.data.subtitle}</p>
                     )}
                     {hasTitle && (
                       <h2 className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'} style={headingColor ? { color: headingColor } : {}}>
@@ -547,7 +522,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                     {/* Text column */}
                     <div className="flex-1 min-w-0">
                       {entry.data?.subtitle && (
-                        <p className="tenant-eyebrow mb-3" style={{ color: isDark ? colorGroup.headingOnDark : primaryColor }}>
+                        <p className="tenant-eyebrow mb-3" style={{ color: isDark ? colorGroup.headingOnDark : accentOnLight }}>
                           {entry.data.subtitle}
                         </p>
                       )}
@@ -571,7 +546,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               <ScrollReveal delay={0}>
                 <div className={`text-center ${useCard ? 'py-14 px-8 lg:px-20' : 'py-8'}`}>
                   {entry.data?.subtitle && (
-                    <p className="tenant-eyebrow mb-4 justify-center" style={{ color: isDark ? colorGroup.headingOnDark : primaryColor }}>{entry.data.subtitle}</p>
+                    <p className="tenant-eyebrow mb-4 justify-center" style={{ color: isDark ? colorGroup.headingOnDark : accentOnLight }}>{entry.data.subtitle}</p>
                   )}
                   {hasTitle && (
                     <h2 className={headingClasses.replace('mb-4', 'mb-5') + ' md:text-4xl'} style={headingColor ? { color: headingColor } : {}}>

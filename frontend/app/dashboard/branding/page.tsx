@@ -20,7 +20,7 @@ import {
   type DesignTokens,
 } from '../../../config/page-templates';
 import { revalidateTenantCache } from '../settings/actions';
-import { getColorGroup, COLOR_GROUPS } from '../../../lib/theme';
+import { getColorGroup, COLOR_GROUPS, SECTION_BG_PALETTES, type SectionBgMode } from '../../../lib/theme';
 import { FONT_GROUPS } from '../../../lib/font-groups';
 
 const brandingSchema = z.object({
@@ -152,6 +152,7 @@ export default function BrandingPage() {
   const [textColorOption, setTextColorOption] = useState<'signature' | 'offwhite'>('signature');
   const [footerAccent, setFooterAccent] = useState<'primary' | 'gold' | 'silver'>('primary');
   const [menuGroupStyle, setMenuGroupStyle] = useState<'pill' | 'rounded' | 'sharp'>('pill');
+  const [sectionBgMode, setSectionBgMode] = useState<SectionBgMode>('soft');
   const [isSavingStyle, setIsSavingStyle] = useState(false);
   const [fontGroupId, setFontGroupId] = useState<string | null>(null);
 
@@ -193,6 +194,7 @@ export default function BrandingPage() {
       setTextColorOption(ts.textColorOption || 'signature');
       setFooterAccent(ts.footerAccent || 'primary');
       setMenuGroupStyle(ts.menuGroupStyle || 'pill');
+      setSectionBgMode((['dark', 'soft', 'contrast'] as const).includes(ts.sectionBgMode) ? ts.sectionBgMode : 'soft');
       setLogoUrl(t.logo || '');
       setLogoDisplay(ts.logoDisplay || 'logo');
       const stored = ts.bannerImages;
@@ -262,6 +264,7 @@ export default function BrandingPage() {
           fontStyle,
           textColorOption,
           footerAccent,
+          sectionBgMode,
           colorGroup: group.id,
           headingOnWhite: group.headingOnWhite,
           bodyOnWhite: group.bodyOnWhite,
@@ -977,6 +980,66 @@ export default function BrandingPage() {
               );
             })()}
 
+            {/* Section BG and Text colour */}
+            {(() => {
+              const pc = form.watch('primaryColor');
+              const grp = getColorGroup(pc);
+              const gid = grp.id as keyof typeof SECTION_BG_PALETTES;
+              const palette = SECTION_BG_PALETTES[gid] ?? SECTION_BG_PALETTES.modern;
+
+              const modes: { id: SectionBgMode; label: string; desc: string }[] = [
+                { id: 'dark',     label: 'Dark',     desc: 'Dark backgrounds, light text' },
+                { id: 'soft',     label: 'Soft',     desc: 'Light tinted backgrounds, dark text' },
+                { id: 'contrast', label: 'Contrast', desc: 'Alternating dark & light sections' },
+              ];
+
+              return (
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 mb-1">Section Background &amp; Text</p>
+                  <p className="text-xs text-gray-400 mb-3">Applies to all page sections — home, events, promotions, and more.</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {modes.map((mode) => {
+                      const entries = palette[mode.id];
+                      const isSelected = sectionBgMode === mode.id;
+                      const textCol = (isDark: boolean) => isDark ? grp.headingOnDark : grp.headingOnWhite;
+                      const bodyCol = (isDark: boolean) => isDark ? grp.bodyOnDark : grp.bodyOnWhite;
+                      return (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => setSectionBgMode(mode.id)}
+                          className={`text-left p-3 rounded-xl border-2 transition-all ${
+                            isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'
+                          }`}
+                        >
+                          {/* 3-section mini preview */}
+                          <div className="flex gap-0.5 rounded-lg overflow-hidden mb-2.5 h-12">
+                            {entries.map((entry, i) => (
+                              <div key={i} className="flex-1 flex flex-col justify-center px-1.5 gap-0.5" style={{ backgroundColor: entry.bg }}>
+                                <div className="h-1.5 rounded-sm w-5/6" style={{ backgroundColor: textCol(entry.dark), opacity: 0.9 }} />
+                                <div className="h-1 rounded-sm w-4/6" style={{ backgroundColor: bodyCol(entry.dark), opacity: 0.6 }} />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-gray-800">{mode.label}</span>
+                            {isSelected && (
+                              <span className="w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[9px] text-gray-400 leading-snug mt-0.5">{mode.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Footer accent colour */}
             {(() => {
               const pc = form.watch('primaryColor');
@@ -1054,43 +1117,6 @@ export default function BrandingPage() {
               );
             })()}
 
-            {/* Live preview — smart contrast */}
-            {(() => {
-              const pc = form.watch('primaryColor');
-              const grp = getColorGroup(pc);
-              const clean = pc.replace('#', '');
-              const r = parseInt(clean.slice(0, 2), 16) || 0;
-              const g = parseInt(clean.slice(2, 4), 16) || 0;
-              const b = parseInt(clean.slice(4, 6), 16) || 0;
-              const light = (0.299 * r + 0.587 * g + 0.114 * b) > 153;
-              const sigColour = light
-                ? (grp.headingOnWhite === 'var(--primary-hex)' ? pc : grp.headingOnWhite)
-                : grp.headingOnDark;
-              const navText = textColorOption === 'offwhite' ? grp.bodyOnDark : sigColour;
-              const navMuted = navText === '#FFFFFF' || navText.startsWith('#F') || navText.startsWith('#D') || navText.startsWith('#C')
-                ? 'rgba(255,255,255,0.65)'
-                : 'rgba(0,0,0,0.58)';
-              return (
-                <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-                  {/* Navbar preview only */}
-                  <div className="h-14 flex items-center justify-between px-5"
-                    style={{ background: `${pc}e8`, backdropFilter: 'blur(12px)' }}>
-                    <span className="text-sm font-black tracking-wide" style={{ color: navText, fontFamily: grp.headingFontStack }}>
-                      {tenant?.name || 'Your Business'}
-                    </span>
-                    <div className="flex items-center gap-4">
-                      {['Home', 'Menu', 'About', 'Contact'].map(l => (
-                        <span key={l} className="text-xs font-semibold" style={{ color: navMuted }}>{l}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-[10px] text-gray-400">Navigation bar preview</span>
-                    <span className="text-[10px] font-mono text-gray-400">{navText}</span>
-                  </div>
-                </div>
-              );
-            })()}
           </div>
 
           <button

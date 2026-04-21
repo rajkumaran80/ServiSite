@@ -11,7 +11,6 @@ import { revalidateTenantCache } from '../../settings/actions';
 
 type SectionType  = 'content' | 'awards' | 'social-proof';
 type PatternType  = 'none' | 'dots' | 'grid' | 'diagonal';
-type BgMode       = 'soft-light' | 'rich-dark' | 'contrast' | 'warm-mix';
 type Tonality     = 'auto' | 'light' | 'mid' | 'dark';
 
 interface AwardItem { name: string; subtitle: string; }
@@ -61,33 +60,6 @@ const EMPTY_FORM: SectionForm = {
   reviewText: '1,000+ five-star reviews',
   badges: [{ text: '' }, { text: '' }, { text: '' }],
 };
-
-const BG_MODES: { id: BgMode; label: string; desc: string; swatches: string[] }[] = [
-  {
-    id: 'soft-light',
-    label: 'Soft Light',
-    desc: 'Gentle whites & off-whites',
-    swatches: ['#ffffff', '#f9f9f9', '#f3f3f3', '#ededed'],
-  },
-  {
-    id: 'rich-dark',
-    label: 'Rich Dark',
-    desc: 'Deep blacks & dark greys',
-    swatches: ['#111111', '#171717', '#1e1e1e', '#141414'],
-  },
-  {
-    id: 'contrast',
-    label: 'Contrast',
-    desc: 'Light ↔ dark alternating',
-    swatches: ['#ffffff', '#111111', '#f5f5f5', '#1a1a1a'],
-  },
-  {
-    id: 'warm-mix',
-    label: 'Warm Mix',
-    desc: 'Light → mid-tone → dark cycle',
-    swatches: ['#fafafa', '#e8e2da', '#2d2520', '#111111'],
-  },
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -440,8 +412,6 @@ export default function HomeManagePage() {
   const [tenantSlug, setTenantSlug] = useState<string>('');
   const [showReviews, setShowReviews] = useState(true);
   const [isSavingReviews, setIsSavingReviews] = useState(false);
-  const [bgMode, setBgMode] = useState<BgMode>('soft-light');
-  const [isSavingBgMode, setIsSavingBgMode] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -468,7 +438,6 @@ export default function HomeManagePage() {
           setTenantId(t.id);
           setTenantSlug(t.slug);
           setShowReviews(t.themeSettings?.showReviews !== false);
-          setBgMode(t.themeSettings?.sectionBgMode || 'soft-light');
         }
       } catch {
         toast.error('Failed to load settings');
@@ -493,21 +462,6 @@ export default function HomeManagePage() {
       toast.error('Failed to update');
     } finally {
       setIsSavingReviews(false);
-    }
-  };
-
-  const handleSaveBgMode = async (mode: BgMode) => {
-    if (!tenantId) return;
-    setBgMode(mode);
-    setIsSavingBgMode(true);
-    try {
-      await tenantService.update(tenantId, { themeSettings: { sectionBgMode: mode } });
-      await revalidateTenantCache(tenantSlug);
-      toast.success('Background style saved');
-    } catch {
-      toast.error('Failed to save');
-    } finally {
-      setIsSavingBgMode(false);
     }
   };
 
@@ -640,36 +594,6 @@ export default function HomeManagePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Home Page</h1>
         <p className="text-gray-500 text-sm mt-1">Control which sections appear on your home page</p>
-      </div>
-
-      {/* Section Background Mode — global */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-base font-semibold text-gray-900 mb-1">Section Backgrounds</h2>
-        <p className="text-sm text-gray-400 mb-4">Sets the repeating background tone across all your home page sections</p>
-        <div className="grid grid-cols-2 gap-2">
-          {BG_MODES.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              disabled={isSavingBgMode}
-              onClick={() => handleSaveBgMode(m.id)}
-              className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                bgMode === m.id ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {/* Swatch row */}
-              <div className="flex gap-0.5 flex-shrink-0">
-                {m.swatches.map((s, i) => (
-                  <div key={i} className="w-4 h-7 rounded-sm border border-black/5" style={{ backgroundColor: s }} />
-                ))}
-              </div>
-              <div className="min-w-0">
-                <p className={`text-xs font-semibold truncate ${bgMode === m.id ? 'text-blue-700' : 'text-gray-800'}`}>{m.label}</p>
-                <p className="text-[10px] text-gray-400 leading-tight">{m.desc}</p>
-              </div>
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Google Reviews toggle */}
