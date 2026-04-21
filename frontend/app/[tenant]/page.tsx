@@ -510,39 +510,36 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             ) : hasImage ? (
               <ScrollReveal delay={0}>
                 <div className={useCard ? 'px-6 sm:px-10 lg:px-14 py-10 lg:py-14' : 'py-8 px-4'}>
-                  {/* Top row: image + eyebrow/title side by side */}
-                  <div className={`flex flex-col ${effectivePos === 'right' ? 'sm:flex-row' : 'sm:flex-row-reverse'} gap-8 lg:gap-12 items-start`}>
-                    {/* Image */}
-                    <div className="flex-shrink-0 w-full sm:w-auto sm:max-w-[46%]">
-                      <img
-                        src={entry.imageUrl}
-                        alt={entry.title || ''}
-                        className="w-full h-auto rounded-2xl object-cover block"
-                        style={{ maxHeight: 480 }}
-                      />
-                    </div>
-                    {/* Eyebrow + title + short body beside image */}
-                    <div className="flex-1 min-w-0">
-                      {entry.data?.subtitle && (
-                        <p className="tenant-eyebrow mb-3" style={{ color: isDark ? colorGroup.headingOnDark : accentOnLight }}>
-                          {entry.data.subtitle}
+                  <div className="lg:overflow-hidden">
+                    <img
+                      src={entry.imageUrl}
+                      alt={entry.title || ''}
+                      className={`w-full h-auto rounded-2xl object-cover block mb-6 lg:mb-0 lg:w-[46%] lg:max-w-[46%] ${effectivePos === 'right' ? 'lg:float-right lg:ml-10 lg:mr-0' : 'lg:float-left lg:mr-10'}`}
+                      style={{ maxHeight: 480 }}
+                    />
+
+                    {entry.data?.subtitle && (
+                      <p className="tenant-eyebrow mb-3" style={{ color: isDark ? colorGroup.headingOnDark : accentOnLight }}>
+                        {entry.data.subtitle}
+                      </p>
+                    )}
+                    {hasTitle && (
+                      <h2 className={headingClasses + ' md:text-4xl'} style={headingColor ? { color: headingColor } : {}}>
+                        {entry.title}
+                      </h2>
+                    )}
+
+                    {hasDescription && (
+                      <div className="mt-6">
+                        <div className="w-10 h-px mb-4" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                        <p className={`${bodyClasses} leading-relaxed`} style={bodyColor ? { color: bodyColor } : {}}>
+                          {entry.data.description}
                         </p>
-                      )}
-                      {hasTitle && (
-                        <h2 className={headingClasses + ' md:text-4xl'} style={headingColor ? { color: headingColor } : {}}>
-                          {entry.title}
-                        </h2>
-                      )}
-                    </div>
+                      </div>
+                    )}
+
+                    {statGrid && <div className="mt-6 clear-both">{statGrid}</div>}
                   </div>
-                  {/* Body text spans full width below the image+title row */}
-                  {hasDescription && (
-                    <div className="mt-6">
-                      <div className="w-10 h-px mb-4" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
-                      <p className={`${bodyClasses} leading-relaxed`} style={bodyColor ? { color: bodyColor } : {}}>{entry.data.description}</p>
-                    </div>
-                  )}
-                  {statGrid && <div className="mt-6">{statGrid}</div>}
                 </div>
               </ScrollReveal>
             ) : (
