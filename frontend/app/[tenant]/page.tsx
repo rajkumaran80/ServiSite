@@ -302,8 +302,10 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               ?? SECTION_BG_PALETTES.modern;
             const seq: SectionBgEntry[] = groupPalette[bgMode];
 
-            // Awards/social-proof always use the darkest slot in the palette
-            const forceDark = sectionType !== 'content';
+            // Awards/social-proof use the darkest slot only when the palette has dark entries.
+            // In soft mode (all light) they cycle normally so consecutive sections don't share a bg.
+            const hasDarkSlot = seq.some((e) => e.dark);
+            const forceDark = sectionType !== 'content' && hasDarkSlot;
             let bgEntry: SectionBgEntry;
             if (forceDark) {
               bgEntry = seq.find((e) => e.dark) ?? seq[seq.length - 1];
@@ -508,9 +510,9 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             ) : hasImage ? (
               <ScrollReveal delay={0}>
                 <div className={useCard ? 'px-6 sm:px-10 lg:px-14 py-10 lg:py-14' : 'py-8 px-4'}>
-                  {/* Two-column grid: image + text side by side, text fills remaining space */}
+                  {/* Top row: image + eyebrow/title side by side */}
                   <div className={`flex flex-col ${effectivePos === 'right' ? 'sm:flex-row' : 'sm:flex-row-reverse'} gap-8 lg:gap-12 items-start`}>
-                    {/* Image — natural size, no fixed box */}
+                    {/* Image */}
                     <div className="flex-shrink-0 w-full sm:w-auto sm:max-w-[46%]">
                       <img
                         src={entry.imageUrl}
@@ -519,7 +521,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                         style={{ maxHeight: 480 }}
                       />
                     </div>
-                    {/* Text column */}
+                    {/* Eyebrow + title + short body beside image */}
                     <div className="flex-1 min-w-0">
                       {entry.data?.subtitle && (
                         <p className="tenant-eyebrow mb-3" style={{ color: isDark ? colorGroup.headingOnDark : accentOnLight }}>
@@ -531,15 +533,16 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                           {entry.title}
                         </h2>
                       )}
-                      {hasDescription && (
-                        <>
-                          <div className="w-10 h-px mb-4" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
-                          <p className={`${bodyClasses} leading-relaxed`} style={bodyColor ? { color: bodyColor } : {}}>{entry.data.description}</p>
-                        </>
-                      )}
-                      {statGrid}
                     </div>
                   </div>
+                  {/* Body text spans full width below the image+title row */}
+                  {hasDescription && (
+                    <div className="mt-6">
+                      <div className="w-10 h-px mb-4" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                      <p className={`${bodyClasses} leading-relaxed`} style={bodyColor ? { color: bodyColor } : {}}>{entry.data.description}</p>
+                    </div>
+                  )}
+                  {statGrid && <div className="mt-6">{statGrid}</div>}
                 </div>
               </ScrollReveal>
             ) : (

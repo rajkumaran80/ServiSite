@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Navbar from '../../components/tenant/Navbar';
 import Footer from '../../components/tenant/Footer';
-import WhatsAppButton from '../../components/tenant/WhatsAppButton';
+import StickyActionBar from '../../components/tenant/StickyActionBar';
 import JsonLd from '../../components/tenant/JsonLd';
 import { getPageTemplate, resolveDesignTokens } from '../../config/page-templates';
 import { getColorGroup } from '../../lib/theme';
@@ -172,9 +172,13 @@ export default async function TenantLayout({
         <Navbar tenant={tenant} />
         <main className="flex-1">{children}</main>
         <Footer tenant={tenant} />
-        {tenant.whatsappNumber && (
-          <WhatsAppButton phoneNumber={tenant.whatsappNumber} businessName={tenant.name} />
-        )}
+        <StickyActionBar
+          menuHref="/menu"
+          phone={tenant.contactInfo?.phone ?? null}
+          whatsappNumber={tenant.whatsappNumber ?? null}
+          businessName={tenant.name}
+          primaryColor={primaryColor}
+        />
       </div>
     </>
   );

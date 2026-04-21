@@ -999,7 +999,7 @@ export default function MenuPage() {
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
 
   const cart = useCartStore();
 
@@ -1244,7 +1244,7 @@ export default function MenuPage() {
 
       {/* Group Tab Bar + Search */}
       {menu.groups.length > 0 && (
-        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
+        <div className="fixed top-20 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Tab row — search inline on sm+, hidden on mobile */}
             <div className="flex items-center gap-3 py-2">
@@ -1314,6 +1314,19 @@ export default function MenuPage() {
                     </svg>
                   </button>
                   <button
+                    onClick={() => setViewMode('compact')}
+                    className={`p-1.5 transition-colors ${viewMode === 'compact' ? 'text-white' : 'text-gray-400 hover:text-gray-600 bg-white'}`}
+                    style={viewMode === 'compact' ? { backgroundColor: primaryColor } : {}}
+                    title="Compact view"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <rect x="3" y="4" width="4" height="4" rx="1" fill="currentColor" stroke="none"/>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6h11M10 12h11M10 18h11"/>
+                      <rect x="3" y="10" width="4" height="4" rx="1" fill="currentColor" stroke="none"/>
+                      <rect x="3" y="16" width="4" height="4" rx="1" fill="currentColor" stroke="none"/>
+                    </svg>
+                  </button>
+                  <button
                     onClick={() => setViewMode('list')}
                     className={`p-1.5 transition-colors ${viewMode === 'list' ? 'text-white' : 'text-gray-400 hover:text-gray-600 bg-white'}`}
                     style={viewMode === 'list' ? { backgroundColor: primaryColor } : {}}
@@ -1360,6 +1373,18 @@ export default function MenuPage() {
                   </svg>
                 </button>
                 <button
+                  onClick={() => setViewMode('compact')}
+                  className={`p-2 transition-colors ${viewMode === 'compact' ? 'text-white' : 'text-gray-400 bg-white'}`}
+                  style={viewMode === 'compact' ? { backgroundColor: primaryColor } : {}}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <rect x="3" y="4" width="4" height="4" rx="1" fill="currentColor" stroke="none"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6h11M10 12h11M10 18h11"/>
+                    <rect x="3" y="10" width="4" height="4" rx="1" fill="currentColor" stroke="none"/>
+                    <rect x="3" y="16" width="4" height="4" rx="1" fill="currentColor" stroke="none"/>
+                  </svg>
+                </button>
+                <button
                   onClick={() => setViewMode('list')}
                   className={`p-2 transition-colors ${viewMode === 'list' ? 'text-white' : 'text-gray-400 bg-white'}`}
                   style={viewMode === 'list' ? { backgroundColor: primaryColor } : {}}
@@ -1374,7 +1399,7 @@ export default function MenuPage() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 ${menu.groups.length > 0 ? 'pt-14' : ''}`}>
         {/* Search when no group tab bar */}
         {menu.groups.length === 0 && menu.uncategorized.length > 0 && (
           <div className="mb-6 relative max-w-xs">
@@ -1490,9 +1515,9 @@ export default function MenuPage() {
                               <p className="text-xs text-gray-500 mt-2 text-center">{category.description}</p>
                             )}
                             {(category as any).headerText && (
-                              <div className="mt-3 px-3 py-2 rounded-lg text-xs text-center italic leading-relaxed" style={{ backgroundColor: `${primaryColor}0D`, color: primaryColor }}>
+                              <p className="mt-3 text-xs text-center italic text-gray-400 leading-relaxed">
                                 {(category as any).headerText}
-                              </div>
+                              </p>
                             )}
                           </div>
                           {viewMode === 'grid' ? (
@@ -1518,6 +1543,54 @@ export default function MenuPage() {
                                   />
                                 </div>
                               ))}
+                            </div>
+                          ) : viewMode === 'compact' ? (
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+                              {category.menuItems.map((item) => {
+                                const price = typeof item.price === 'string' ? parseFloat(item.price) : item.price;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => openItem(item)}
+                                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                                  >
+                                    {/* Thumbnail */}
+                                    <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
+                                      {item.imageUrl ? (
+                                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-xl">🍽️</div>
+                                      )}
+                                    </div>
+                                    {/* Text */}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-gray-900 leading-snug truncate">{item.name}</p>
+                                      {item.description && (
+                                        <p className="text-xs text-gray-400 mt-0.5 truncate">{item.description}</p>
+                                      )}
+                                    </div>
+                                    {/* Price + add */}
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      <span className="text-sm font-bold" style={{ color: primaryColor }}>
+                                        {new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(price)}
+                                      </span>
+                                      {orderingEnabled && item.isAvailable && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); handleAddToCart(item); }}
+                                          className="w-6 h-6 rounded-full flex items-center justify-center text-white flex-shrink-0"
+                                          style={{ backgroundColor: primaryColor }}
+                                        >
+                                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
                             </div>
                           ) : (
                             <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-4">
