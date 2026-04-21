@@ -81,12 +81,13 @@ const COLOR_PALETTES: ColorPalette[] = [
   { name: 'Electric Violet',primary: '#7E22CE', secondary: '#6B21A8' },
 ];
 
-type Tab = 'template' | 'banner' | 'logo' | 'colors' | 'style' | 'hero';
+type Tab = 'template' | 'banner' | 'logo' | 'colors' | 'style' | 'hero' | 'footer';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'template', label: 'Template',   icon: '🎨' },
   { id: 'banner',   label: 'Banner',     icon: '🖼️' },
   { id: 'hero',     label: 'Hero Text',  icon: '✍️' },
+  { id: 'footer',   label: 'Footer',     icon: '📋' },
   { id: 'logo',     label: 'Logo',        icon: '✏️' },
   { id: 'colors',   label: 'Colors',     icon: '🎭' },
   { id: 'style',    label: 'Menu Style', icon: '✦' },
@@ -171,6 +172,12 @@ export default function BrandingPage() {
   const [heroTagline, setHeroTagline] = useState('');
   const [heroPrimaryCtaLabel, setHeroPrimaryCtaLabel] = useState('');
   const [heroSecondaryCtaLabel, setHeroSecondaryCtaLabel] = useState('');
+  // Hero footer strip
+  const [heroFooterTagline, setHeroFooterTagline] = useState('');
+  const [heroFooterSecondary, setHeroFooterSecondary] = useState('');
+  const [heroFooterStars, setHeroFooterStars] = useState<number>(0);
+  const [heroFooterAward, setHeroFooterAward] = useState('');
+  const [heroFooterBadge, setHeroFooterBadge] = useState('');
   const [isSavingHero, setIsSavingHero] = useState(false);
 
 
@@ -208,6 +215,11 @@ export default function BrandingPage() {
       setHeroTagline(hero.tagline || '');
       setHeroPrimaryCtaLabel(hero.primaryCtaLabel || '');
       setHeroSecondaryCtaLabel(hero.secondaryCtaLabel || '');
+      setHeroFooterTagline(ts.footerTagline || hero.footerTagline || '');
+      setHeroFooterSecondary(ts.footerSecondary || hero.footerSecondary || '');
+      setHeroFooterStars(ts.footerStars ?? hero.footerStars ?? 0);
+      setHeroFooterAward(ts.footerAward || hero.footerAward || '');
+      setHeroFooterBadge(ts.footerBadge || hero.footerBadge || '');
       form.reset({
         primaryColor: ts.primaryColor || '#3B82F6',
         secondaryColor: ts.secondaryColor || '#1E40AF',
@@ -351,6 +363,11 @@ export default function BrandingPage() {
             primaryCtaLabel: heroPrimaryCtaLabel.trim() || undefined,
             secondaryCtaLabel: heroSecondaryCtaLabel.trim() || undefined,
           },
+          footerTagline: heroFooterTagline.trim() || undefined,
+          footerSecondary: heroFooterSecondary.trim() || undefined,
+          footerStars: heroFooterStars || undefined,
+          footerAward: heroFooterAward.trim() || undefined,
+          footerBadge: heroFooterBadge.trim() || undefined,
         },
       });
       setTenant(updated);
@@ -682,6 +699,7 @@ export default function BrandingPage() {
             </div>
           </div>
 
+
           <button
             type="button"
             disabled={isSavingHero}
@@ -690,6 +708,94 @@ export default function BrandingPage() {
           >
             {isSavingHero && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             Save Hero Text
+          </button>
+        </div>
+      )}
+
+      {/* ── FOOTER TAB ───────────────────────────────────────────────────── */}
+      {activeTab === 'footer' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-5">
+            <div>
+              <h2 className="font-semibold text-gray-900 mb-1">Footer Messages</h2>
+              <p className="text-sm text-gray-500">
+                Add a short description, star rating, and award credentials shown in the page footer.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Star rating <span className="text-gray-400 font-normal">(0 = hidden)</span>
+              </label>
+              <div className="flex gap-2">
+                {[0, 1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setHeroFooterStars(n)}
+                    className={`w-10 h-10 rounded-lg border text-sm font-semibold transition-colors ${heroFooterStars === n ? 'bg-amber-400 border-amber-500 text-white' : 'border-gray-200 text-gray-500 hover:border-amber-300'}`}
+                  >
+                    {n === 0 ? '–' : n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Award / credential line</label>
+                <input
+                  type="text"
+                  value={heroFooterAward}
+                  onChange={(e) => setHeroFooterAward(e.target.value)}
+                  placeholder="e.g. 4x Good Food Award Winner"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Badge / credential 2 <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={heroFooterBadge}
+                  onChange={(e) => setHeroFooterBadge(e.target.value)}
+                  placeholder="e.g. Gold Seal · #1 in Sutton"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description line 1</label>
+                <input
+                  type="text"
+                  value={heroFooterTagline}
+                  onChange={(e) => setHeroFooterTagline(e.target.value)}
+                  placeholder="e.g. Award-winning bistro on Sutton High Street."
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description line 2 <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input
+                  type="text"
+                  value={heroFooterSecondary}
+                  onChange={(e) => setHeroFooterSecondary(e.target.value)}
+                  placeholder="e.g. Chef-led plates, artisan coffee, daily specials."
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={isSavingHero}
+            onClick={handleSaveHero}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors flex items-center gap-2"
+          >
+            {isSavingHero && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Save Footer
           </button>
         </div>
       )}

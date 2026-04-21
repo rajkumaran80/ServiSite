@@ -115,6 +115,12 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
   const hoursGroups = groupOpeningHours(openingHours);
   const liveStatus = getLiveStatus(openingHours);
 
+  const footerTagline: string = (tenant.themeSettings as any)?.footerTagline || '';
+  const footerSecondary: string = (tenant.themeSettings as any)?.footerSecondary || '';
+  const footerStars: number = (tenant.themeSettings as any)?.footerStars || 0;
+  const footerAward: string = (tenant.themeSettings as any)?.footerAward || '';
+  const footerBadge: string = (tenant.themeSettings as any)?.footerBadge || '';
+
   const hasSocial = socialLinks && Object.values(socialLinks).some(Boolean);
   const hasContact = phone || email || address;
   const hasBody = hasContact || hoursGroups.length > 0;
@@ -132,25 +138,25 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
             <div className={`grid gap-10 items-center ${hasContact && hoursGroups.length > 0 ? 'md:grid-cols-[1fr_auto_1fr]' : ''}`}>
 
               {/* Left — Get In Touch */}
-              {hasContact && <div>
+              {hasContact && <div className="text-center md:text-left">
                 <p className="text-xs font-bold uppercase tracking-[0.15em] mb-2" style={{ color: accentColor }}>
                   Get In Touch
                 </p>
                 <div className="space-y-2.5 mt-4">
                   {phone && (
-                    <a href={`tel:${phone}`} className="flex items-center gap-3 group">
+                    <a href={`tel:${phone}`} className="flex items-center justify-center md:justify-start gap-3 group">
                       <span className="text-base w-5 flex-shrink-0">📞</span>
                       <p className="text-white/80 group-hover:text-white transition-colors">{phone}</p>
                     </a>
                   )}
                   {address && (
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start justify-center md:justify-start gap-3">
                       <span className="text-base w-5 flex-shrink-0 mt-0.5">📍</span>
-                      <p className="text-white/80">{address}</p>
+                      <p className="text-white/80 text-left">{address}</p>
                     </div>
                   )}
                   {email && (
-                    <a href={`mailto:${email}`} className="flex items-center gap-3 group">
+                    <a href={`mailto:${email}`} className="flex items-center justify-center md:justify-start gap-3 group">
                       <span className="text-base w-5 flex-shrink-0">✉️</span>
                       <p className="text-white/80 group-hover:text-white transition-colors">{email}</p>
                     </a>
@@ -158,7 +164,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
                 </div>
 
                 {(tenant.whatsappNumber || hasSocial) && (
-                  <div className="flex items-center gap-3 mt-5 flex-wrap">
+                  <div className="flex items-center justify-center md:justify-start gap-3 mt-5 flex-wrap">
                     {tenant.whatsappNumber && (
                       <a href={`https://wa.me/${tenant.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello! I'm interested in ${tenant.name}.`)}`}
                         target="_blank" rel="noopener noreferrer"
@@ -183,7 +189,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
 
               {/* Centre — Decorative text logo */}
               {hasContact && hoursGroups.length > 0 && (
-                <div className="hidden md:flex flex-col items-center justify-center gap-3 select-none px-4">
+                <div className={`flex flex-col items-center justify-center gap-3 select-none px-4 ${footerTagline ? '' : 'hidden md:flex'}`}>
                   {/* Top rule */}
                   <div className="w-px h-8 bg-gradient-to-b from-transparent to-white/20" />
 
@@ -207,10 +213,22 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
                     <div className="flex-1 h-px" style={{ background: `linear-gradient(to left, transparent, ${accentColor}40)` }} />
                   </div>
 
-                  {/* Tagline */}
-                  <p className="text-[0.6rem] uppercase tracking-[0.3em] text-white/25 text-center">
-                    Good Food · Good Vibes
-                  </p>
+                  {/* Tagline / admin footer messages */}
+                  {footerTagline ? (
+                    <div className="text-center space-y-1.5 max-w-[200px]">
+                      {footerStars > 0 && (
+                        <p className="text-sm tracking-tight" style={{ color: '#D4AF37' }}>{'★'.repeat(footerStars)}{'☆'.repeat(5 - footerStars)}</p>
+                      )}
+                      {footerAward && <p className="text-[0.65rem] font-bold" style={{ color: accentColor }}>{footerAward}</p>}
+                      {footerBadge && <p className="text-[0.6rem]" style={{ color: `${accentColor}80` }}>{footerBadge}</p>}
+                      <p className="text-xs font-semibold leading-snug" style={{ color: accentColor }}>{footerTagline}</p>
+                      {footerSecondary && <p className="text-[0.65rem] leading-snug" style={{ color: `${accentColor}99` }}>{footerSecondary}</p>}
+                    </div>
+                  ) : (
+                    <p className="text-[0.6rem] uppercase tracking-[0.3em] text-white/25 text-center">
+                      Good Food · Good Vibes
+                    </p>
+                  )}
 
                   {/* Bottom rule */}
                   <div className="w-px h-8 bg-gradient-to-b from-white/20 to-transparent" />
@@ -219,8 +237,8 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
 
               {/* Right — Opening Hours */}
               {hoursGroups.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-end gap-3 mb-4">
+                <div className="text-center md:text-right">
+                  <div className="flex items-center justify-center md:justify-end gap-3 mb-4">
                     <p className="text-xs font-bold uppercase tracking-[0.15em]" style={{ color: accentColor }}>
                       Opening Hours
                     </p>
@@ -242,7 +260,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
                   </div>
                   <div className="space-y-1.5">
                     {hoursGroups.map(({ label, hours, closed }) => (
-                      <div key={label} className="flex items-center justify-end gap-4">
+                      <div key={label} className="flex items-center justify-center md:justify-end gap-4">
                         <span className="text-white/50 text-sm">{label}</span>
                         <span className={`text-sm font-medium w-28 text-right ${closed ? 'text-red-400' : 'text-white/80'}`}>{hours}</span>
                       </div>

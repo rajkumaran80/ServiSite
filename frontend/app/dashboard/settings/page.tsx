@@ -65,7 +65,7 @@ function SettingsPageInner() {
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
-  const [domainCname, setDomainCname] = useState<string>('');
+  const [domainNameservers, setDomainNameservers] = useState<string[]>([]);
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
 
@@ -130,7 +130,7 @@ function SettingsPageInner() {
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
-          setDomainCname(currentTenant.customDomainStatus !== 'active' ? 'origin.servisite.co.uk' : '');
+          setDomainNameservers(currentTenant.customDomainNsRecords || []);
 
           tenantForm.reset({
             name: currentTenant.name,
@@ -199,8 +199,8 @@ function SettingsPageInner() {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
       setCustomDomain(domainInput.trim().replace(/^www\./, ''));
       setDomainStatus('pending');
-      setDomainCname(result.cname || 'origin.servisite.co.uk');
-      toast.success('Domain saved — add the CNAME record then click Check Status');
+      setDomainNameservers(result.nameservers || []);
+      toast.success('Domain setup initiated — please update your registrar nameservers');
     } catch {
       toast.error('Failed to save custom domain');
     } finally {
@@ -213,7 +213,7 @@ function SettingsPageInner() {
     setIsVerifyingDomain(true);
     try {
       const result = await tenantService.verifyCustomDomain(tenant.id);
-      if (result.status === 'active') {
+      if (result.verified) {
         setDomainStatus('active');
         toast.success('Domain verified! Your custom domain is now active.');
       } else {
@@ -233,7 +233,7 @@ function SettingsPageInner() {
       setCustomDomain('');
       setDomainInput('');
       setDomainStatus(null);
-      setDomainCname('');
+      setDomainNameservers([]);
       toast.success('Custom domain removed');
     } catch {
       toast.error('Failed to remove custom domain');
@@ -757,50 +757,44 @@ function SettingsPageInner() {
               <div className="space-y-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
                   <div>
-                    <h3 className="font-semibold text-amber-900 text-sm">2 steps to connect your domain</h3>
+                    <h3 className="font-semibold text-amber-900 text-sm">Step 1 — Update Nameservers</h3>
+                    <p className="text-xs text-amber-700 mt-1">Point your domain to Cloudflare by adding these nameservers at your registrar (IONOS, GoDaddy, NameCheap, etc):</p>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs font-mono border-collapse">
-                      <thead>
-                        <tr className="text-amber-700 text-left border-b border-amber-200">
-                          <th className="pr-4 pb-1.5 font-semibold">Type</th>
-                          <th className="pr-4 pb-1.5 font-semibold">Host</th>
-                          <th className="pb-1.5 font-semibold">Value</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-amber-900">
-                        <tr className="border-b border-amber-100">
-                          <td className="pr-4 py-1.5 font-bold">A</td>
-                          <td className="pr-4 py-1.5">@</td>
-                          <td className="py-1.5">104.21.5.20</td>
-                        </tr>
-                        <tr className="border-b border-amber-100">
-                          <td className="pr-4 py-1.5 font-bold">A</td>
-                          <td className="pr-4 py-1.5">@</td>
-                          <td className="py-1.5">172.67.132.192</td>
-                        </tr>
-                        <tr className="border-b border-amber-100">
-                          <td className="pr-4 py-1.5 font-bold">CNAME</td>
-                          <td className="pr-4 py-1.5">www</td>
-                          <td className="py-1.5 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
-                        </tr>
-                        <tr className="border-b border-amber-100">
-                          <td className="pr-4 py-1.5 font-bold">TXT</td>
-                          <td className="pr-4 py-1.5">asuid</td>
-                          <td className="py-1.5 break-all">921c9222c9c2a858b880fae91c6c5debf8263248bc34267e426f99771a6eab89</td>
-                        </tr>
-                        <tr>
-                          <td className="pr-4 py-1.5 font-bold">TXT</td>
-                          <td className="pr-4 py-1.5">asuid.www</td>
-                          <td className="py-1.5 break-all">921c9222c9c2a858b880fae91c6c5debf8263248bc34267e426f99771a6eab89</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  <div className="space-y-2 bg-white rounded-lg p-3 border border-amber-100">
+                    {domainNameservers && domainNameservers.length > 0 ? (
+                      domainNameservers.map((ns, idx) => (
+                        <div key={idx} className="flex items-center justify-between">
+                          <code className="text-xs font-mono text-amber-900 flex-1 break-all">{ns}</code>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(ns);
+                              toast.success('Copied to clipboard');
+                            }}
+                            className="ml-2 text-xs text-amber-600 hover:text-amber-700 font-medium px-2 py-1 rounded hover:bg-amber-100 flex-shrink-0"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-gray-500">Loading nameservers...</p>
+                    )}
+                  </div>
+
+                  <div className="bg-amber-100 border border-amber-300 rounded p-3 space-y-2">
+                    <p className="text-xs font-semibold text-amber-900">Example: For IONOS</p>
+                    <ol className="text-xs text-amber-800 space-y-1 list-decimal list-inside">
+                      <li>Log in to IONOS</li>
+                      <li>Go to Domain Management → Your Domain → Nameservers</li>
+                      <li>Replace existing nameservers with the ones above</li>
+                      <li>Save changes (propagation takes 10–60 minutes)</li>
+                    </ol>
                   </div>
 
                   <p className="text-xs text-amber-700 border-t border-amber-200 pt-3">
-                    Add all 5 records above. SSL activates automatically once DNS propagates (usually 10–30 minutes).
+                    ⏳ Propagation usually takes 10–60 minutes. Click "Check Status" below when ready.
                   </p>
                 </div>
 
@@ -808,7 +802,7 @@ function SettingsPageInner() {
                   type="button"
                   onClick={handleVerifyDomain}
                   disabled={isVerifyingDomain}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2 w-full justify-center"
                 >
                   {isVerifyingDomain && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                   Check Status
