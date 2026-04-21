@@ -510,14 +510,14 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             ) : hasImage ? (
               <ScrollReveal delay={0}>
                 <div className={useCard ? 'px-6 sm:px-10 lg:px-14 py-10 lg:py-14' : 'py-8 px-4'}>
-                  <div className="lg:overflow-hidden">
+                  {/* Float image — text wraps beside it and continues full-width below */}
+                  <div className="overflow-hidden">
                     <img
                       src={entry.imageUrl}
                       alt={entry.title || ''}
-                      className={`w-full h-auto rounded-2xl object-cover block mb-6 lg:mb-0 lg:w-[46%] lg:max-w-[46%] ${effectivePos === 'right' ? 'lg:float-right lg:ml-10 lg:mr-0' : 'lg:float-left lg:mr-10'}`}
+                      className={`w-full h-auto rounded-2xl object-cover block mb-5 sm:mb-0 sm:w-[44%] ${effectivePos === 'right' ? 'sm:float-left sm:mr-8 lg:mr-12' : 'sm:float-right sm:ml-8 lg:ml-12'}`}
                       style={{ maxHeight: 480 }}
                     />
-
                     {entry.data?.subtitle && (
                       <p className="tenant-eyebrow mb-3" style={{ color: isDark ? colorGroup.headingOnDark : accentOnLight }}>
                         {entry.data.subtitle}
@@ -528,16 +528,14 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
                         {entry.title}
                       </h2>
                     )}
-
                     {hasDescription && (
-                      <div className="mt-6">
-                        <div className="w-10 h-px mb-4" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
+                      <>
+                        <div className="w-10 h-px my-4" style={{ backgroundColor: primaryColor, opacity: 0.7 }} />
                         <p className={`${bodyClasses} leading-relaxed`} style={bodyColor ? { color: bodyColor } : {}}>
                           {entry.data.description}
                         </p>
-                      </div>
+                      </>
                     )}
-
                     {statGrid && <div className="mt-6 clear-both">{statGrid}</div>}
                   </div>
                 </div>

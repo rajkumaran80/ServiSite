@@ -119,7 +119,8 @@ model Tenant {
   // Custom domain support
   customDomain           String?   @unique
   customDomainStatus     String?
-  customDomainToken      String?   // Cloudflare custom hostname ID (legacy)
+  customDomainToken      String?   // Cloudflare custom hostname ID for www
+  customDomainApexToken  String?   // Cloudflare custom hostname ID for apex (root domain)
   customDomainZoneId     String?   // Cloudflare DNS zone ID for customer domain
   customDomainTxtName    String?   // TXT record name for ownership verification (legacy)
   customDomainTxtValue   String?   // TXT record value for ownership verification (legacy)

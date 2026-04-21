@@ -286,17 +286,21 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // Create Cloudflare custom hostname for www.domain — http validation
-    // means SSL activates automatically once the CNAME is in place, no TXT needed.
-    const wwwHostname = apex.startsWith('www.') ? apex : `www.${apex}`;
-    const { id } = await this.cloudflare.createCustomHostname(wwwHostname);
+    // Register both www and apex in Cloudflare so SSL is provisioned for both.
+    // Azure App Service also needs bindings for both to accept incoming requests.
+    const wwwHostname = `www.${apex}`;
+    const [{ id: wwwId }, { id: apexId }] = await Promise.all([
+      this.cloudflare.createCustomHostname(wwwHostname),
+      this.cloudflare.createCustomHostname(apex),
+    ]);
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
         customDomain: apex,
         customDomainStatus: 'pending',
-        customDomainToken: id,
+        customDomainToken: wwwId,
+        customDomainApexToken: apexId,
         customDomainZoneId: null,
         customDomainNsRecords: [],
         customDomainVerifiedAt: null,
@@ -305,8 +309,11 @@ export class TenantService {
       },
     });
 
-    // Add hostname binding to Azure App Service so it accepts requests for this domain
-    await this.azureAppService.addHostnameBinding(wwwHostname);
+    // Add hostname bindings to Azure App Service for both www and apex
+    await Promise.all([
+      this.azureAppService.addHostnameBinding(wwwHostname),
+      this.azureAppService.addHostnameBinding(apex),
+    ]);
 
     return { cname: 'origin.servisite.co.uk' };
   }
@@ -357,20 +364,29 @@ export class TenantService {
   async removeCustomDomain(tenantId: string): Promise<void> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { customDomain: true, customDomainToken: true, customDomainZoneId: true },
+      select: { customDomain: true, customDomainToken: true, customDomainApexToken: true, customDomainZoneId: true },
     });
 
     if (tenant?.customDomain) {
       const wwwHostname = `www.${tenant.customDomain}`;
       await Promise.all([
+        // Clear domain→slug cache for both variants
         this.tenantCache.deleteDomainSlug(tenant.customDomain),
         this.tenantCache.deleteDomainSlug(wwwHostname),
+        // Delete Cloudflare custom hostnames (www token + apex token)
         tenant.customDomainZoneId
           ? this.cloudflare.deleteZone(tenant.customDomainZoneId)
-          : tenant.customDomainToken
-            ? this.cloudflare.deleteCustomHostname(tenant.customDomainToken)
-            : Promise.resolve(),
+          : Promise.all([
+              tenant.customDomainToken
+                ? this.cloudflare.deleteCustomHostname(tenant.customDomainToken)
+                : Promise.resolve(),
+              tenant.customDomainApexToken
+                ? this.cloudflare.deleteCustomHostname(tenant.customDomainApexToken)
+                : Promise.resolve(),
+            ]),
+        // Remove Azure App Service hostname bindings for both www and apex
         this.azureAppService.removeHostnameBinding(wwwHostname).catch(() => {}),
+        this.azureAppService.removeHostnameBinding(tenant.customDomain).catch(() => {}),
       ]);
     }
 
@@ -380,6 +396,7 @@ export class TenantService {
         customDomain: null,
         customDomainStatus: null,
         customDomainToken: null,
+        customDomainApexToken: null,
         customDomainZoneId: null,
         customDomainNsRecords: [],
         customDomainVerifiedAt: null,

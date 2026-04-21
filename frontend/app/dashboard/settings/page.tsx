@@ -771,9 +771,24 @@ function SettingsPageInner() {
                       </thead>
                       <tbody className="text-amber-900">
                         <tr className="border-b border-amber-100">
+                          <td className="pr-4 py-1.5 font-bold">A</td>
+                          <td className="pr-4 py-1.5">@</td>
+                          <td className="py-1.5">104.21.5.20</td>
+                        </tr>
+                        <tr className="border-b border-amber-100">
+                          <td className="pr-4 py-1.5 font-bold">A</td>
+                          <td className="pr-4 py-1.5">@</td>
+                          <td className="py-1.5">172.67.132.192</td>
+                        </tr>
+                        <tr className="border-b border-amber-100">
                           <td className="pr-4 py-1.5 font-bold">CNAME</td>
                           <td className="pr-4 py-1.5">www</td>
                           <td className="py-1.5 break-all">{domainCname || 'origin.servisite.co.uk'}</td>
+                        </tr>
+                        <tr className="border-b border-amber-100">
+                          <td className="pr-4 py-1.5 font-bold">TXT</td>
+                          <td className="pr-4 py-1.5">asuid</td>
+                          <td className="py-1.5 break-all">921c9222c9c2a858b880fae91c6c5debf8263248bc34267e426f99771a6eab89</td>
                         </tr>
                         <tr>
                           <td className="pr-4 py-1.5 font-bold">TXT</td>
@@ -784,15 +799,8 @@ function SettingsPageInner() {
                     </table>
                   </div>
 
-                  <div className="border-t border-amber-200 pt-3 space-y-1">
-                    <p className="text-xs font-semibold text-amber-800">Also set up a domain forward (apex → www)</p>
-                    <p className="text-xs text-amber-700">
-                      In your registrar's <strong>Forwarding</strong> section, redirect <span className="font-mono">{customDomain}</span> → <span className="font-mono">https://www.{customDomain}</span> (HTTP redirect, 301). Leave "also set up for www" <strong>unchecked</strong>.
-                    </p>
-                  </div>
-
                   <p className="text-xs text-amber-700 border-t border-amber-200 pt-3">
-                    SSL activates automatically. Changes usually propagate within minutes.
+                    Add all 5 records above. SSL activates automatically once DNS propagates (usually 10–30 minutes).
                   </p>
                 </div>
 
