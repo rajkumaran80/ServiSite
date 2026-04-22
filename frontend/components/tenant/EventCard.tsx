@@ -32,10 +32,24 @@ export function EventCard({ entry, primaryColor }: { entry: Entry; primaryColor:
   }
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
 
   const goTo = useCallback((i: number) => {
     setActiveIndex(i);
   }, []);
+
+  // Preload images for faster display
+  useEffect(() => {
+    allImages.forEach((url) => {
+      if (!loadedImages.has(url)) {
+        const img = new Image();
+        img.onload = () => {
+          setLoadedImages(prev => new Set(prev).add(url));
+        };
+        img.src = url;
+      }
+    });
+  }, [allImages, loadedImages]);
 
   // Auto-rotate every 3.5 seconds when there are multiple images
   useEffect(() => {
@@ -47,6 +61,7 @@ export function EventCard({ entry, primaryColor }: { entry: Entry; primaryColor:
   }, [allImages.length]);
 
   const activeUrl = allImages[activeIndex] ?? null;
+  const isLoaded = activeUrl && loadedImages.has(activeUrl);
 
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col md:flex-row">
@@ -55,13 +70,26 @@ export function EventCard({ entry, primaryColor }: { entry: Entry; primaryColor:
         {/* Main image */}
         <div className="relative overflow-hidden bg-gray-100" style={{ aspectRatio: '4/3' }}>
           {activeUrl ? (
-            <img
-              key={activeUrl}
-              src={activeUrl}
-              alt={entry.title}
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 opacity-0"
-              onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = '1'; }}
-            />
+            <>
+              {/* Show placeholder while loading */}
+              {!isLoaded && (
+                <div
+                  className="absolute inset-0 flex items-center justify-center text-6xl"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor}22, ${primaryColor}44)` }}
+                >
+                  🎉
+                </div>
+              )}
+              {/* Show image when loaded */}
+              <img
+                key={activeUrl}
+                src={activeUrl}
+                alt={entry.title}
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                  isLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+            </>
           ) : (
             <div
               className="absolute inset-0 flex items-center justify-center text-6xl"

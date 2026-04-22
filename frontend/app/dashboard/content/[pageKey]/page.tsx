@@ -34,11 +34,17 @@ function entryToForm(entry: Entry, page: PredefinedPage): FormState {
   const form: FormState = { title: entry.title };
   for (const field of page.itemFields) {
     if (field.key !== 'title') {
-      const stored = entry.data[field.key];
-      if (field.type === 'images') {
-        form[field.key] = Array.isArray(stored) ? stored : [];
+      // Special handling for imageUrl field - check both entry.data and entry.imageUrl
+      if (field.key === 'imageUrl') {
+        const imageUrl = entry.data.imageUrl || entry.imageUrl;
+        form[field.key] = imageUrl ?? '';
       } else {
-        form[field.key] = stored ?? '';
+        const stored = entry.data[field.key];
+        if (field.type === 'images') {
+          form[field.key] = Array.isArray(stored) ? stored : [];
+        } else {
+          form[field.key] = stored ?? '';
+        }
       }
     }
   }
