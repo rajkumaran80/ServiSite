@@ -199,7 +199,7 @@ function SettingsPageInner() {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
       setCustomDomain(domainInput.trim().replace(/^www\./, ''));
       setDomainStatus('pending');
-      setDomainNameservers(result.nameservers || []);
+      setDomainNameservers([]);
       toast.success('Domain setup initiated — please update your registrar nameservers');
     } catch {
       toast.error('Failed to save custom domain');
@@ -213,7 +213,7 @@ function SettingsPageInner() {
     setIsVerifyingDomain(true);
     try {
       const result = await tenantService.verifyCustomDomain(tenant.id);
-      if (result.verified) {
+      if (result.status === 'active') {
         setDomainStatus('active');
         toast.success('Domain verified! Your custom domain is now active.');
       } else {

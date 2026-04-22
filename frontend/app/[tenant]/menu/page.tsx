@@ -756,7 +756,7 @@ function ItemCard({
           </div>
         )}
         <div className="p-4 flex flex-col flex-1">
-          <h3 className="font-semibold text-gray-900 leading-snug">{item.name}</h3>
+          <h3 className="font-bold text-gray-900 leading-snug">{item.name}</h3>
           {item.description && (
             <p className="text-sm text-gray-500 mt-1 line-clamp-2 flex-1">{item.description}</p>
           )}
@@ -1565,7 +1565,7 @@ export default function MenuPage() {
                                     </div>
                                     {/* Text */}
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold text-gray-900 leading-snug truncate">{item.name}</p>
+                                      <p className="text-sm font-bold text-gray-900 leading-snug truncate">{item.name}</p>
                                       {item.description && (
                                         <p className="text-xs text-gray-400 mt-0.5 truncate">{item.description}</p>
                                       )}

@@ -29,7 +29,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item, currency = 'GBP', prim
       <div className="flex-1 p-4 flex flex-col justify-between gap-2">
         <div>
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-semibold text-gray-900 text-base leading-snug">{item.name}</h3>
+            <h3 className="font-bold text-gray-900 text-base leading-snug">{item.name}</h3>
             <div className="flex items-center gap-1 flex-shrink-0">
               {item.isPopular && (
                 <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium whitespace-nowrap">
