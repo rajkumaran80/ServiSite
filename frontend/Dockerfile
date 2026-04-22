@@ -1,12 +1,12 @@
 # Stage 1: Install dependencies
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
 RUN npm ci --only=production --frozen-lockfile
 
 # Stage 2: Build (needs all deps including devDependencies for tailwindcss, etc.)
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
@@ -25,7 +25,7 @@ ENV NEXT_PUBLIC_INTERNAL_SECRET=$NEXT_PUBLIC_INTERNAL_SECRET
 RUN npm run build
 
 # Stage 3: Production runner
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
