@@ -164,7 +164,7 @@ const SECTION_DEFS: SectionDef[] = [
       showRating: true,
       showWriteReviewButton: true,
       minRating: 4,
-      platforms: { google: true, tripadvisor: false, facebook: false, instagram: false },
+      platforms: { google: true, tripadvisor: true, facebook: true, instagram: true },
     },
   },
   {
@@ -946,13 +946,36 @@ function GoogleReviewsEditor({ content, onChange }: { content: any; onChange: (c
         hint="e.g., #f5f5f4"
       />
 
-      {/* Platform toggles */}
+      {/* Google Reviews Toggle */}
       <div className="border-t pt-4">
-        <p className="text-xs font-medium text-gray-600 mb-2">Review Platforms</p>
-        <p className="text-xs text-gray-400 mb-3">Google reviews are auto-fetched. Other platforms show "Add a Review" buttons using URLs from Social settings.</p>
+        <div className="bg-blue-50 rounded-lg p-3 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-sm font-medium text-blue-900">Google Reviews Control</p>
+              <p className="text-xs text-blue-700">Turn off Google reviews if they're incorrect or outdated</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={content.platforms?.google !== false}
+                onChange={(e) => onChange({ ...content, platforms: { ...content.platforms, google: e.target.checked } })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+          {!content.platforms?.google && (
+            <p className="text-xs text-blue-600 mt-2">⚠️ Google reviews are currently hidden from visitors</p>
+          )}
+        </div>
+      </div>
+
+      {/* Other Platform Toggles */}
+      <div className="border-t pt-4">
+        <p className="text-xs font-medium text-gray-600 mb-2">Other Review Platforms</p>
+        <p className="text-xs text-gray-400 mb-3">Show "Add a Review" buttons for these platforms using URLs from Social settings.</p>
         <div className="space-y-2">
           {([
-            { key: 'google',      label: 'Google',      color: 'text-blue-600' },
             { key: 'tripadvisor', label: 'TripAdvisor', color: 'text-green-600' },
             { key: 'facebook',    label: 'Facebook',    color: 'text-indigo-600' },
             { key: 'instagram',   label: 'Instagram',   color: 'text-pink-600' },
@@ -961,7 +984,7 @@ function GoogleReviewsEditor({ content, onChange }: { content: any; onChange: (c
               <input
                 type="checkbox"
                 id={`platform-${key}`}
-                checked={content.platforms?.[key] !== false && (key === 'google' ? true : !!content.platforms?.[key])}
+                checked={!!content.platforms?.[key]}
                 onChange={(e) => onChange({ ...content, platforms: { ...content.platforms, [key]: e.target.checked } })}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
