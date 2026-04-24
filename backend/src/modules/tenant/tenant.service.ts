@@ -20,6 +20,7 @@ import { AzureAppServiceService } from './azure-appservice.service';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { normalizeEmail, isDisposableEmail, isSuspiciousEmail } from '../../common/utils/email.util';
+import { NavigationService } from '../navigation/navigation.service';
 
 @Injectable()
 export class TenantService {
@@ -35,6 +36,7 @@ export class TenantService {
     private readonly billing: BillingService,
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
+    private readonly navigation: NavigationService,
   ) {}
 
   async create(createTenantDto: CreateTenantDto, clientIp?: string): Promise<{ message: string }> {
@@ -139,6 +141,9 @@ export class TenantService {
 
     // ── 10. Fire-and-forget: start trial, create Stripe customer ─────────
     this.billing.onTenantCreated(tenant.id, emailLower, tenant.name).catch(() => {});
+
+    // ── 11. Seed default nav items (Home + Contact) ───────────────────────
+    this.navigation.seedDefaults(tenant.id).catch(() => {});
 
     return { message: 'Account created. Please check your email to verify your address before logging in.' };
   }
@@ -262,6 +267,54 @@ export class TenantService {
       this.prisma.galleryImage.count({ where: { tenantId } }),
     ]);
     return { menuItems: menuItemCount, categories: categoryCount, galleryImages: galleryCount };
+  }
+
+  // ── Home Page Sections ─────────────────────────────────────────────────────
+
+  async getHomeSections(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { themeSettings: true }
+    });
+    
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const settings = tenant.themeSettings as any || {};
+    return settings.homeSections || [];
+  }
+
+  async updateHomeSections(tenantId: string, sections: any[]) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId }
+    });
+    
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const settings = (tenant.themeSettings as any) || {};
+    settings.homeSections = sections;
+
+    const updated = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { themeSettings: settings }
+    });
+
+    // Revalidate tenant pages to reflect changes
+    this.notify.revalidate(tenant.slug, ['tenant']);
+
+    return (updated.themeSettings as any).homeSections || [];
+  }
+
+  async getHomeSectionsBySlug(slug: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { slug },
+      select: { themeSettings: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return (tenant.themeSettings as any)?.homeSections || [];
   }
 
   // ── Custom Domain ──────────────────────────────────────────────────────────

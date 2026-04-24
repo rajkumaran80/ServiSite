@@ -1,4 +1,5 @@
 export type TenantType = 'RESTAURANT' | 'CAFE' | 'BARBER_SHOP' | 'SALON' | 'GYM' | 'REPAIR_SHOP' | 'OTHER';
+export type ServiceProfile = 'FOOD_SERVICE' | 'GENERAL_SERVICE';
 
 export interface ThemeSettings {
   primaryColor: string;
@@ -16,6 +17,7 @@ export interface Tenant {
   name: string;
   slug: string;
   type: TenantType;
+  serviceProfile: ServiceProfile;
   logo: string | null;
   banner: string | null;
   themeSettings: ThemeSettings | null;

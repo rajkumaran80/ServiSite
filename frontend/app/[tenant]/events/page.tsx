@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getPredefinedPage, resolveNavPages } from '../../../config/predefined-pages';
+import { getPredefinedPage } from '../../../config/predefined-pages';
 import { EntryListPage } from '../../../components/tenant/EntryListPage';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -24,8 +24,9 @@ async function getEntries(tenantSlug: string, pageKey: string) {
   } catch { return []; }
 }
 
-export async function generateMetadata({ params }: { params: { tenant: string } }): Promise<Metadata> {
-  const tenant = await getTenant(params.tenant);
+export async function generateMetadata({ params }: { params: Promise<{ tenant: string }> }): Promise<Metadata> {
+  const { tenant: tenantSlug } = await params;
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) return { title: 'Events' };
   return {
     title: 'Special Events',
@@ -39,15 +40,13 @@ export async function generateMetadata({ params }: { params: { tenant: string } 
   };
 }
 
-export default async function EventsPage({ params }: { params: { tenant: string } }) {
-  const tenant = await getTenant(params.tenant);
+export default async function EventsPage({ params }: { params: Promise<{ tenant: string }> }) {
+  const { tenant: tenantSlug } = await params;
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) notFound();
 
-  const navPages = resolveNavPages(tenant.themeSettings?.navPages);
-  if (!navPages['events']) notFound();
-
   const pageDef = getPredefinedPage('events')!;
-  const entries = await getEntries(params.tenant, 'events');
+  const entries = await getEntries(tenantSlug, 'events');
   const primaryColor = (tenant.themeSettings as any)?.primaryColor || '#3B82F6';
 
   return <EntryListPage pageDef={pageDef} entries={entries} primaryColor={primaryColor} />;

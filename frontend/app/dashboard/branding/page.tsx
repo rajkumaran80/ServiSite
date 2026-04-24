@@ -309,6 +309,7 @@ export default function BrandingPage() {
           menuGroupStyle,
           fontFamily: selectedTypo?.font || ts.fontFamily,
           fontGroup: fontGroupId || null,
+          sectionBgMode,
         },
       });
       setTenant(updated);

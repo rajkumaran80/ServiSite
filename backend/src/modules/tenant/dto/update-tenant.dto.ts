@@ -7,7 +7,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { TenantType } from '@prisma/client';
+import { TenantType, ServiceProfile } from '@prisma/client';
 
 export class UpdateTenantDto {
   @ApiPropertyOptional()
@@ -60,4 +60,9 @@ export class UpdateTenantDto {
   @IsString()
   @IsOptional()
   qrCodeUrl?: string;
+
+  @ApiPropertyOptional({ enum: ServiceProfile })
+  @IsEnum(ServiceProfile)
+  @IsOptional()
+  serviceProfile?: ServiceProfile;
 }

@@ -7,11 +7,31 @@ import tenantService from '../../services/tenant.service';
 import { api } from '../../services/api';
 import type { TenantStats, Tenant } from '../../types/tenant.types';
 
+// Safe auth store hook that prevents SSR access
+function useSafeAuthStore() {
+  const [isMounted, setIsMounted] = useState(false);
+  const authStore = useAuthStore();
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  // Always return the same structure to prevent hooks order issues
+  return {
+    user: isMounted ? authStore.user : null,
+  };
+}
+
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user } = useSafeAuthStore();
+  const [isClient, setIsClient] = useState(false);
   const [stats, setStats] = useState<TenantStats | null>(null);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.com';
   const isLocalDev = APP_DOMAIN === 'localhost';
@@ -21,7 +41,7 @@ export default function DashboardPage() {
       : `https://${slug}.${APP_DOMAIN}`;
 
   useEffect(() => {
-    if (!user?.tenantId) return;
+    if (!isClient || !user?.tenantId) return;
 
     const loadData = async () => {
       try {
@@ -39,7 +59,7 @@ export default function DashboardPage() {
     };
 
     loadData();
-  }, [user?.tenantId]);
+  }, [user?.tenantId, isClient]);
 
   const statCards = [
     {
@@ -78,7 +98,7 @@ export default function DashboardPage() {
     },
   ];
 
-  if (isLoading) {
+  if (!isClient || isLoading) {
     return (
       <div className="animate-pulse space-y-6">
         <div className="h-8 bg-gray-200 rounded w-1/3" />

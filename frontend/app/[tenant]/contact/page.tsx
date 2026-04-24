@@ -18,8 +18,9 @@ async function getTenant(slug: string) {
   } catch { return null; }
 }
 
-export async function generateMetadata({ params }: { params: { tenant: string } }): Promise<Metadata> {
-  const tenant = await getTenant(params.tenant);
+export async function generateMetadata({ params }: { params: Promise<{ tenant: string }> }): Promise<Metadata> {
+  const { tenant: tenantSlug } = await params;
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) return { title: 'Contact' };
   const contact = tenant.contactInfo;
   const address = [contact?.address, contact?.city, contact?.country].filter(Boolean).join(', ');
@@ -38,13 +39,14 @@ export async function generateMetadata({ params }: { params: { tenant: string } 
   };
 }
 
-export default async function ContactPage({ params }: { params: { tenant: string } }) {
-  const tenant = await getTenant(params.tenant);
+export default async function ContactPage({ params }: { params: Promise<{ tenant: string }> }) {
+  const { tenant: tenantSlug } = await params;
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) notFound();
 
   const publicUrl = tenant.customDomain
     ? `https://www.${tenant.customDomain}`
-    : `https://${params.tenant}.${APP_DOMAIN}`;
+    : `https://${tenantSlug}.${APP_DOMAIN}`;
 
   // contactInfo is already included in the tenant response via findBySlug
   const contact = tenant.contactInfo ?? null;
@@ -63,14 +65,24 @@ export default async function ContactPage({ params }: { params: { tenant: string
     .filter(Boolean)
     .join(', ');
 
-  // Build a reliable map embed URL:
-  // - Use mapUrl directly if it already contains "embed" (proper embed URL)
-  // - Otherwise generate one from the address
-  const mapEmbedUrl = contact?.mapUrl?.includes('embed')
-    ? contact.mapUrl
-    : fullAddress
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&output=embed`
-    : null;
+  const buildMapEmbedUrl = () => {
+    const url = contact?.mapUrl;
+    if (url) {
+      if (url.includes('/maps/embed')) return url; // already a proper embed URL
+      // Extract place name from /maps/place/PLACE_NAME/... URLs
+      const placeMatch = url.match(/\/maps\/place\/([^/]+)/);
+      if (placeMatch) {
+        const query = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+        return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+      }
+      // ?q= style URL
+      const qMatch = url.match(/[?&]q=([^&]+)/);
+      if (qMatch) return `https://maps.google.com/maps?q=${qMatch[1]}&output=embed`;
+    }
+    if (fullAddress) return `https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&output=embed`;
+    return null;
+  };
+  const mapEmbedUrl = buildMapEmbedUrl();
 
   return (
     <div className="min-h-screen bg-gray-50">

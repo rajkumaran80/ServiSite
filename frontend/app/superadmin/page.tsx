@@ -7,6 +7,26 @@ import { useAuthStore } from '../../store/auth.store';
 import superAdminService, { TenantSummary, CreateTenantPayload } from '../../services/superadmin.service';
 import { BUSINESS_TEMPLATES, BusinessTemplate } from '../../config/templates';
 
+// Safe auth store hook that prevents SSR access
+function useSafeAuthStore() {
+  const [isMounted, setIsMounted] = useState(false);
+  const authStore = useAuthStore();
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  if (!isMounted) {
+    return {
+      user: null,
+      isAuthenticated: false,
+      logout: authStore.logout,
+    };
+  }
+  
+  return authStore;
+}
+
 const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white';
 
 function slugify(str: string) {
@@ -677,7 +697,7 @@ function TenantPricingModal({
 
 export default function SuperAdminPage() {
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout } = useSafeAuthStore();
   const [tenants, setTenants] = useState<TenantSummary[]>([]);
   const [stats, setStats] = useState({ tenantCount: 0, userCount: 0, itemCount: 0 });
   const [loading, setLoading] = useState(true);
@@ -690,12 +710,35 @@ export default function SuperAdminPage() {
   const [changeEmailTarget, setChangeEmailTarget] = useState<TenantSummary | null>(null);
   const [changePlanTarget, setChangePlanTarget] = useState<TenantSummary | null>(null);
   const [tenantPricingTarget, setTenantPricingTarget] = useState<TenantSummary | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [seedingId, setSeedingId] = useState<string | null>(null);
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
 
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
     if (!isAuthenticated) { router.replace('/superadmin/login'); return; }
     if (user?.role !== 'SUPER_ADMIN') { router.replace('/dashboard'); return; }
     loadData();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, isClient]);
+
+  // Show loading state during SSR/hydration
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">S</div>
+          <h1 className="text-2xl font-bold text-gray-900">ServiSite Admin</h1>
+          <div className="mt-4 animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-32 mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const loadData = async () => {
     try {
@@ -718,9 +761,6 @@ export default function SuperAdminPage() {
     } catch { toast.error('Failed to delete tenant'); }
     finally { setDeletingId(null); }
   };
-
-  const [seedingId, setSeedingId] = useState<string | null>(null);
-  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
 
   const buildTenantUrl = (slug: string, path: string) => {
     const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? 'localhost';

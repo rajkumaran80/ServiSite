@@ -6,22 +6,84 @@ import toast from 'react-hot-toast';
 import { api } from '../../../services/api';
 import type { CmsPage } from '../../../types/page.types';
 
+interface NavItem {
+  id: string;
+  label: string;
+  linkType: string;
+  href: string | null;
+  pageId: string | null;
+  featureKey: string | null;
+  parentId: string | null;
+  isSystemReserved: boolean;
+  sortOrder: number;
+  isActive: boolean;
+  openInNewTab: boolean;
+  children?: NavItem[];
+  depth?: number;
+}
+
+interface FlatNavItem extends Omit<NavItem, 'children'> {
+  depth: number;
+}
+
+function flattenNavTree(items: NavItem[], depth = 0): FlatNavItem[] {
+  const result: FlatNavItem[] = [];
+  for (const item of items) {
+    const { children, ...rest } = item;
+    result.push({ ...rest, depth });
+    if (children?.length) result.push(...flattenNavTree(children, depth + 1));
+  }
+  return result;
+}
+
 export default function PagesListPage() {
   const router = useRouter();
   const [pages, setPages] = useState<CmsPage[]>([]);
+  const [navItems, setNavItems] = useState<FlatNavItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newSlug, setNewSlug] = useState('');
+  const [selectedParent, setSelectedParent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = async () => {
     try {
-      const res = await api.get('/pages/admin');
-      setPages(res.data.data || []);
+      const [pagesRes, navRes] = await Promise.all([
+        api.get('/pages/admin'),
+        api.get('/navigation')
+      ]);
+      const pages = pagesRes.data.data || [];
+      
+      // Fetch home page sections
+      let homeSections: any[] = [];
+      try {
+        const homeRes = await api.get('/tenant/current/home-sections');
+        homeSections = homeRes.data.data || [];
+      } catch {
+        // If home sections endpoint fails, use empty array
+        homeSections = [];
+      }
+
+      // Add home page as a special non-deletable page
+      const homePage: CmsPage = {
+        id: 'home',
+        title: 'Home',
+        slug: '',
+        sections: homeSections,
+        isPublished: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tenantId: '',
+        isHomePage: true // Special flag to identify home page
+      };
+      
+      setPages([homePage, ...pages]);
+      const flatNavItems = flattenNavTree(navRes.data.data || []);
+      setNavItems(flatNavItems);
     } catch {
-      toast.error('Failed to load pages');
+      toast.error('Failed to load data');
     } finally {
       setIsLoading(false);
     }
@@ -47,12 +109,31 @@ export default function PagesListPage() {
     }
     setIsCreating(true);
     try {
-      const res = await api.post('/pages', { title: newTitle, slug: newSlug, sections: [] });
-      toast.success('Page created');
+      // Create the page first
+      const pageRes = await api.post('/pages', { title: newTitle, slug: newSlug, sections: [], isPublished: true });
+      const createdPage = pageRes.data.data;
+      
+      // If parent is selected, create navigation item
+      if (selectedParent) {
+        await api.post('/navigation', {
+          label: newTitle,
+          linkType: 'CUSTOM_PAGE',
+          pageId: createdPage.id,
+          parentId: selectedParent,
+          isActive: true,
+          openInNewTab: false,
+        });
+        toast.success('Page created and added to navigation');
+      } else {
+        toast.success('Page created');
+      }
+      
       setShowCreate(false);
       setNewTitle('');
       setNewSlug('');
-      router.push(`/dashboard/pages/${res.data.data.id}`);
+      setSelectedParent('');
+      load(); // Reload to get updated nav items
+      router.push(`/dashboard/pages/${createdPage.id}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to create page');
     } finally {
@@ -61,11 +142,16 @@ export default function PagesListPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this page? This cannot be undone.')) return;
+    if (!confirm('Delete this page? This will also remove it from navigation if it exists. This cannot be undone.')) return;
     setDeletingId(id);
     try {
+      // Find and delete navigation items that link to this page
+      const navItemsForPage = navItems.filter(item => item.pageId === id);
+      await Promise.all(navItemsForPage.map(item => api.delete(`/navigation/${item.id}`)));
+      
+      // Delete the page
       await api.delete(`/pages/${id}`);
-      toast.success('Page deleted');
+      toast.success('Page deleted and removed from navigation');
       load();
     } catch {
       toast.error('Failed to delete page');
@@ -127,13 +213,17 @@ export default function PagesListPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-900">{page.title}</span>
+                    {page.isHomePage && (
+                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Home</span>
+                    )}
                     {!page.isPublished && (
                       <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">draft</span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-400 font-mono">/{page.slug}</p>
+                  <p className="text-sm text-gray-400 font-mono">{page.isHomePage ? '/' : `/${page.slug}`}</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     {page.sections.length} section{page.sections.length !== 1 ? 's' : ''}
+                    {page.isHomePage && ' • System page'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -159,19 +249,21 @@ export default function PagesListPage() {
                     </svg>
                     Edit
                   </button>
-                  <button
-                    onClick={() => handleDelete(page.id)}
-                    disabled={deletingId === page.id}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    {deletingId === page.id ? (
-                      <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    )}
-                  </button>
+                  {!page.isHomePage && (
+                    <button
+                      onClick={() => handleDelete(page.id)}
+                      disabled={deletingId === page.id}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      {deletingId === page.id ? (
+                        <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
                 </div>
               </li>
             ))}
@@ -211,10 +303,30 @@ export default function PagesListPage() {
                 </div>
                 <p className="text-xs text-gray-400 mt-1">This will be the URL: /{newSlug || 'slug'}</p>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Add to Navigation <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <select
+                  value={selectedParent}
+                  onChange={(e) => setSelectedParent(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Don't add to navigation</option>
+                  {navItems
+                    .filter(item => (item.depth || 0) < 2) // Allow nesting up to 3 levels (depth 0, 1, 2)
+                    .map(item => (
+                      <option key={item.id} value={item.id}>
+                        {'  '.repeat(item.depth || 0) + `Under "${item.label}"`} {(item.depth || 0) > 0 && `(L${(item.depth || 0) + 1})`}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">Choose a parent navigation item to place this page under</p>
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => { setShowCreate(false); setNewTitle(''); setNewSlug(''); }}
+                onClick={() => { setShowCreate(false); setNewTitle(''); setNewSlug(''); setSelectedParent(''); }}
                 className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
               >
                 Cancel
