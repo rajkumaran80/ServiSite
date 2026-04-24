@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   for (const tag of tags) {
     // Tags are namespaced: tenant:{slug}:{resource} or tenant:{slug}
     const fullTag = tag === 'tenant' ? `tenant:${slug}` : `tenant:${slug}:${tag}`;
-    revalidateTag(fullTag);
+    revalidateTag(fullTag, {});
     revalidated.push(fullTag);
   }
 

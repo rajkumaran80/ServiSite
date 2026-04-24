@@ -1,18 +1,58 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '../../store/auth.store';
+import { useTenantStore } from '../../store/tenant.store';
+
+// Safe auth store hook that prevents SSR access
+function useSafeAuthStore() {
+  const [isMounted, setIsMounted] = useState(false);
+  const authStore = useAuthStore();
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  if (!isMounted) {
+    return {
+      user: null,
+      logout: authStore.logout,
+    };
+  }
+  
+  return authStore;
+}
+
+// Safe tenant store hook that prevents SSR access
+function useSafeTenantStore() {
+  const [isMounted, setIsMounted] = useState(false);
+  const tenantStore = useTenantStore();
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  if (!isMounted) {
+    return {
+      currentTenant: null,
+    };
+  }
+  
+  return tenantStore;
+}
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
+  foodOnly?: boolean;
 }
 
 interface NavGroup {
-  label?: string; // undefined = no group header (top-level items)
+  label?: string;
+  foodOnly?: boolean;
   items: NavItem[];
 }
 
@@ -57,22 +97,43 @@ const navGroups: NavGroup[] = [
         ),
       },
       {
-        href: '/dashboard/menu',
-        label: 'Menu / Services',
+        href: '/dashboard/pages',
+        label: 'Pages',
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        ),
+      },
+      {
+        href: '/dashboard/gallery',
+        label: 'Gallery',
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         ),
       },
     ],
   },
   {
-    label: 'Pricing & Offers',
+    label: 'Food Menu',
+    foodOnly: true,
     items: [
+      {
+        href: '/dashboard/menu',
+        label: 'Menu / Items',
+        foodOnly: true,
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+        ),
+      },
       {
         href: '/dashboard/menu/modifiers',
         label: 'Modifiers',
+        foodOnly: true,
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -82,6 +143,7 @@ const navGroups: NavGroup[] = [
       {
         href: '/dashboard/menu/bundles',
         label: 'Bundles',
+        foodOnly: true,
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -91,6 +153,7 @@ const navGroups: NavGroup[] = [
       {
         href: '/dashboard/menu/pricing',
         label: 'Pricing Rules',
+        foodOnly: true,
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -105,6 +168,7 @@ const navGroups: NavGroup[] = [
       {
         href: '/dashboard/ordering',
         label: 'Orders',
+        foodOnly: true,
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -127,8 +191,32 @@ const navGroups: NavGroup[] = [
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { user, logout } = useSafeAuthStore();
+  const { currentTenant } = useSafeTenantStore();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const isFoodService = !currentTenant || currentTenant.serviceProfile === 'FOOD_SERVICE';
+
+  // Show loading state during SSR/hydration
+  if (!isClient) {
+    return (
+      <div className="w-64 bg-white border-r border-gray-200 p-4">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded"></div>
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-10 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleLogout = async () => {
     await logout();
@@ -156,34 +244,41 @@ export const Sidebar: React.FC = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
-        {navGroups.map((group, gi) => (
-          <div key={gi}>
-            {group.label && (
-              <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">
-                {group.label}
-              </p>
-            )}
-            <div className="space-y-0.5">
-              {group.items.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                    isActive(item.href)
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <span className={isActive(item.href) ? 'text-blue-600' : 'text-gray-400'}>
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </Link>
-              ))}
+        {navGroups.map((group, gi) => {
+          if (group.foodOnly && !isFoodService) return null;
+
+          const visibleItems = group.items.filter((item) => !item.foodOnly || isFoodService);
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={gi}>
+              {group.label && (
+                <p className="px-3 mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                  {group.label}
+                </p>
+              )}
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                      isActive(item.href)
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <span className={isActive(item.href) ? 'text-blue-600' : 'text-gray-400'}>
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* User section */}

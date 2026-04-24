@@ -72,6 +72,32 @@ export class TenantController {
     return { data: tenant, success: true };
   }
 
+  @Get('current/home-sections')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get home page sections for current tenant' })
+  async getHomeSections(@CurrentUser() user: any) {
+    const sections = await this.tenantService.getHomeSections(user.tenantId);
+    return { data: sections, success: true };
+  }
+
+  @Put('current/home-sections')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update home page sections for current tenant' })
+  async updateHomeSections(@CurrentUser() user: any, @Body() body: { sections: any[] }) {
+    const sections = await this.tenantService.updateHomeSections(user.tenantId, body.sections);
+    return { data: sections, success: true };
+  }
+
+  @Public()
+  @Get(':slug/home-sections')
+  @ApiOperation({ summary: 'Get public home sections for a tenant by slug' })
+  async getHomeSectionsBySlug(@Param('slug') slug: string) {
+    const sections = await this.tenantService.getHomeSectionsBySlug(slug);
+    return { data: sections, success: true };
+  }
+
   @Public()
   @Get(':slug')
   @ApiOperation({ summary: 'Get tenant public profile by slug' })
@@ -144,4 +170,5 @@ export class TenantController {
   async removeCustomDomain(@Param('id') id: string) {
     await this.tenantService.removeCustomDomain(id);
   }
+
 }

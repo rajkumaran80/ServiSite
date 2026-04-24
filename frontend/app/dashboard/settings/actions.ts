@@ -8,9 +8,9 @@ import { revalidateTag } from 'next/cache';
  */
 export async function revalidateTenantCache(slug: string): Promise<void> {
   if (!slug) return;
-  revalidateTag(`tenant:${slug}`);
-  revalidateTag(`tenant:${slug}:menu`);
-  revalidateTag(`tenant:${slug}:gallery`);
-  revalidateTag(`tenant:${slug}:entries`);
-  revalidateTag(`tenant:${slug}:pages`);
+  revalidateTag(`tenant:${slug}`, {});
+  revalidateTag(`tenant:${slug}:menu`, {});
+  revalidateTag(`tenant:${slug}:gallery`, {});
+  revalidateTag(`tenant:${slug}:entries`, {});
+  revalidateTag(`tenant:${slug}:pages`, {});
 }

@@ -7,7 +7,7 @@ import { useAuthStore } from '../../../store/auth.store';
 function ImpersonateContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { initialize } = useAuthStore();
+  const { setTokens, setUser, clearAuth } = useAuthStore();
 
   useEffect(() => {
     const accessToken = searchParams.get('accessToken');
@@ -21,18 +21,18 @@ function ImpersonateContent() {
 
     try {
       const parsedUser = JSON.parse(decodeURIComponent(user));
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      localStorage.setItem('user', JSON.stringify(parsedUser));
+      // Clear any existing session (e.g. superadmin) before setting impersonated state
+      clearAuth();
+      setTokens(accessToken, refreshToken);
+      setUser(parsedUser);
       if (parsedUser?.tenant?.slug) {
         localStorage.setItem('tenantSlug', parsedUser.tenant.slug);
       }
-      initialize();
       router.replace('/dashboard');
     } catch {
       router.replace('/auth/login');
     }
-  }, [searchParams, router, initialize]);
+  }, [searchParams, router, setTokens, setUser, clearAuth]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

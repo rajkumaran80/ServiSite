@@ -21,6 +21,18 @@ enum TenantType {
   OTHER
 }
 
+enum ServiceProfile {
+  FOOD_SERVICE    // Enables Food Menu module (Groups/Categories/Items)
+  GENERAL_SERVICE // Page Builder + Navigation only; Food Menu hidden
+}
+
+enum NavLinkType {
+  INTERNAL_FEATURE // Points to a built-in feature (food_menu, gallery, contact)
+  CUSTOM_PAGE      // Points to a Page row created in the Page Builder
+  EXTERNAL_URL     // Any arbitrary URL
+  PARENT_ONLY      // Parent menu item without direct link (shows sub-menu on hover)
+}
+
 enum UserRole {
   SUPER_ADMIN
   ADMIN
@@ -106,6 +118,7 @@ model Tenant {
   name           String
   slug           String       @unique
   type           TenantType   @default(RESTAURANT)
+  serviceProfile ServiceProfile @default(FOOD_SERVICE)
   logo           String?
   banner         String?
   themeSettings  Json?        @default("{}")
@@ -460,18 +473,29 @@ model GalleryImage {
 }
 
 model NavigationItem {
-  id           String   @id @default(cuid())
-  tenantId     String
-  label        String
-  href         String
-  sortOrder    Int      @default(0)
-  isActive     Boolean  @default(true)
-  openInNewTab Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String      @id @default(cuid())
+  tenantId         String
+  label            String
+  linkType         NavLinkType @default(EXTERNAL_URL)
+  // EXTERNAL_URL: use href; CUSTOM_PAGE: use pageId; INTERNAL_FEATURE: use featureKey
+  href             String?
+  pageId           String?
+  featureKey       String?     // e.g. "food_menu", "gallery", "contact"
+  parentId         String?
+  isSystemReserved Boolean     @default(false)
+  sortOrder        Int         @default(0)
+  isActive         Boolean     @default(true)
+  openInNewTab     Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  page     Page?           @relation(fields: [pageId], references: [id], onDelete: SetNull)
+  parent   NavigationItem? @relation("NavChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children NavigationItem[] @relation("NavChildren")
 
+  @@index([tenantId, parentId])
+  @@index([pageId])
   @@map("navigation_items")
 }
 
@@ -485,7 +509,8 @@ model Page {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  navigationItems NavigationItem[]
 
   @@unique([tenantId, slug])
   @@map("pages")

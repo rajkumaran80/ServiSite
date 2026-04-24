@@ -8,11 +8,13 @@ import toast from 'react-hot-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { useAuthStore } from '../../../store/auth.store';
+import { useTenantStore } from '../../../store/tenant.store';
 import tenantService from '../../../services/tenant.service';
 import { api } from '../../../services/api';
-import type { Tenant, ContactInfo } from '../../../types/tenant.types';
+import type { Tenant, ContactInfo, ServiceProfile } from '../../../types/tenant.types';
 import { revalidateTenantCache } from './actions';
 import facebookService, { FacebookConnection } from '../../../services/facebook.service';
+import instagramService, { InstagramConnection } from '../../../services/instagram.service';
 
 const tenantSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(100),
@@ -47,21 +49,28 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'MXN', 'BRL', 'CAD', 'AED', 'JPY'];
 
 function SettingsPageInner() {
   const { user } = useAuthStore();
+  const { setTenant: setStoreTenant } = useTenantStore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [serviceProfile, setServiceProfile] = useState<ServiceProfile>('FOOD_SERVICE');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingTenant, setIsSavingTenant] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [activeSection, setActiveSection] = useState<'business' | 'contact' | 'hours' | 'domain' | 'social'>('business');
-  const [socialLinks, setSocialLinks] = useState({ instagram: '', facebook: '', tiktok: '', twitter: '', youtube: '' });
+  const [socialLinks, setSocialLinks] = useState({ instagram: '', facebook: '', tiktok: '', twitter: '', youtube: '', tripadvisor: '' });
   const [facebookHashtags, setFacebookHashtags] = useState('');
   const [isSavingSocial, setIsSavingSocial] = useState(false);
   // Facebook
   const [fbConnection, setFbConnection] = useState<FacebookConnection | null>(null);
   const [isConnectingFb, setIsConnectingFb] = useState(false);
   const [isDisconnectingFb, setIsDisconnectingFb] = useState(false);
+  // Instagram
+  const [igConnection, setIgConnection] = useState<InstagramConnection | null>(null);
+  const [isConnectingIg, setIsConnectingIg] = useState(false);
+  const [isDisconnectingIg, setIsDisconnectingIg] = useState(false);
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
@@ -99,10 +108,17 @@ function SettingsPageInner() {
   useEffect(() => {
     const section = searchParams.get('section');
     const fb = searchParams.get('fb');
+    const ig = searchParams.get('ig');
     if (section === 'social') setActiveSection('social');
     if (fb === 'connected') {
       toast.success('Facebook page connected!');
       facebookService.getConnection().then(setFbConnection).catch(() => {});
+      // Remove query params without full reload
+      router.replace('/dashboard/settings?section=social');
+    }
+    if (ig === 'connected') {
+      toast.success('Instagram account connected!');
+      instagramService.getConnection().then(setIgConnection).catch(() => {});
       // Remove query params without full reload
       router.replace('/dashboard/settings?section=social');
     }
@@ -113,19 +129,23 @@ function SettingsPageInner() {
 
     const loadData = async () => {
       try {
-        const [tenantRes, contactData, fbConn] = await Promise.all([
+        const [tenantRes, contactData, fbConn, igConn] = await Promise.all([
           api.get<{ data: Tenant }>('/tenant/current'),
           tenantService.getContact(),
           facebookService.getConnection().catch(() => null),
+          instagramService.getConnection().catch(() => null),
         ]);
         setFbConnection(fbConn);
+        setIgConnection(igConn);
 
         const currentTenant = tenantRes.data.data;
         if (currentTenant) {
           setTenant(currentTenant);
+          setStoreTenant(currentTenant);
+          setServiceProfile(currentTenant.serviceProfile ?? 'FOOD_SERVICE');
           setGooglePlaceId((currentTenant.themeSettings as any)?.googlePlaceId || '');
           const sl = (currentTenant.themeSettings as any)?.socialLinks || {};
-          setSocialLinks({ instagram: sl.instagram || '', facebook: sl.facebook || '', tiktok: sl.tiktok || '', twitter: sl.twitter || '', youtube: sl.youtube || '' });
+          setSocialLinks({ instagram: sl.instagram || '', facebook: sl.facebook || '', tiktok: sl.tiktok || '', twitter: sl.twitter || '', youtube: sl.youtube || '', tripadvisor: sl.tripadvisor || '' });
           setFacebookHashtags((currentTenant.themeSettings as any)?.facebookHashtags || '');
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
@@ -240,6 +260,22 @@ function SettingsPageInner() {
     }
   };
 
+  const handleSaveProfile = async (profile: ServiceProfile) => {
+    if (!tenant) return;
+    setIsSavingProfile(true);
+    try {
+      const updated = await tenantService.update(tenant.id, { serviceProfile: profile } as any);
+      setTenant(updated);
+      setStoreTenant(updated);
+      setServiceProfile(profile);
+      toast.success(profile === 'FOOD_SERVICE' ? 'Switched to Food Service mode' : 'Switched to General Service mode');
+    } catch {
+      toast.error('Failed to update service profile');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const handleSaveBusiness = async (data: TenantForm) => {
     if (!tenant) return;
     setIsSavingTenant(true);
@@ -260,6 +296,7 @@ function SettingsPageInner() {
         tenantService.updateContact(contactData),
       ]);
       setTenant(updated);
+      setStoreTenant(updated);
       await revalidateTenantCache(tenant.slug);
       // Auto-lookup Place ID if not already set
       if (!googlePlaceId && (contactData.address || contactData.city)) {
@@ -355,6 +392,31 @@ function SettingsPageInner() {
       toast.error('Failed to disconnect Facebook');
     } finally {
       setIsDisconnectingFb(false);
+    }
+  };
+
+  const handleConnectInstagram = async () => {
+    setIsConnectingIg(true);
+    try {
+      const url = await instagramService.getAuthUrl();
+      window.location.href = url;
+    } catch {
+      toast.error('Failed to get Instagram authorisation URL');
+      setIsConnectingIg(false);
+    }
+  };
+
+  const handleDisconnectInstagram = async () => {
+    if (!confirm('Disconnect your Instagram account?')) return;
+    setIsDisconnectingIg(true);
+    try {
+      await instagramService.disconnect();
+      setIgConnection(null);
+      toast.success('Instagram disconnected');
+    } catch {
+      toast.error('Failed to disconnect Instagram');
+    } finally {
+      setIsDisconnectingIg(false);
     }
   };
 
@@ -504,6 +566,53 @@ function SettingsPageInner() {
             Save Settings
           </button>
         </form>
+
+        {/* Service Profile */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">Service Profile</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Controls which features are available. Switch to General if you don't use a food menu.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {([
+              {
+                value: 'FOOD_SERVICE' as ServiceProfile,
+                title: 'Food Service',
+                desc: 'Restaurant, café, takeaway — includes Food Menu module (Groups, Categories, Items).',
+                icon: '🍽️',
+              },
+              {
+                value: 'GENERAL_SERVICE' as ServiceProfile,
+                title: 'General Service',
+                desc: 'Salon, gym, repair shop — uses Page Builder and Navigation only. Food Menu is hidden.',
+                icon: '🏪',
+              },
+            ]).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={isSavingProfile}
+                onClick={() => serviceProfile !== opt.value && handleSaveProfile(opt.value)}
+                className={`text-left p-4 rounded-xl border-2 transition-all ${
+                  serviceProfile === opt.value
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                } ${isSavingProfile ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <div className="text-2xl mb-2">{opt.icon}</div>
+                <div className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                  {opt.title}
+                  {serviceProfile === opt.value && (
+                    <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">{opt.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
         </>
       )}
 
@@ -581,13 +690,28 @@ function SettingsPageInner() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Google Maps Embed URL</label>
-              <input
-                {...contactForm.register('mapUrl')}
-                placeholder="https://maps.google.com/embed?..."
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-gray-400 mt-1">Google Maps → Share → Embed a map → copy the src URL</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Google Maps URL</label>
+              <div className="flex gap-2">
+                <input
+                  {...contactForm.register('mapUrl')}
+                  placeholder="Auto-generated from your address"
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const address = contactForm.getValues('address') || '';
+                    const city = contactForm.getValues('city') || '';
+                    const country = contactForm.getValues('country') || '';
+                    const fullAddr = [address, city, country].filter(Boolean).join(', ');
+                    if (fullAddr) contactForm.setValue('mapUrl', `https://maps.google.com/maps?q=${encodeURIComponent(fullAddr)}&output=embed`);
+                  }}
+                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                >
+                  Auto-fill
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Leave blank to auto-generate from address, or paste any Google Maps URL to pin an exact location.</p>
             </div>
 
             <div>
@@ -609,7 +733,7 @@ function SettingsPageInner() {
                   Auto-find
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">Required to show Google Reviews on your site</p>
+              <p className="text-xs text-gray-400 mt-1">Leave blank to auto-find from address, or paste your Place ID manually. Required to show Google Reviews.</p>
             </div>
           </div>
 
@@ -882,6 +1006,57 @@ function SettingsPageInner() {
               )}
             </div>
 
+            {/* Instagram Account Connection */}
+            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D, #F56040, #F77737, #FCAF45, #FFDC80)' }}>
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1 1 12.324 0 6.162 6.162 0 0 1-12.324 0zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm4.965-10.405a1.44 1.44 0 1 1 2.881.001 1.44 1.44 0 0 1-2.881-.001z"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">Instagram Account Feed</p>
+                  <p className="text-xs text-gray-500">
+                    {igConnection
+                      ? `Connected to: @${igConnection.username}`
+                      : 'Authorise ServiSite to display your latest Instagram posts'}
+                  </p>
+                </div>
+                {igConnection ? (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      Connected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleDisconnectInstagram}
+                      disabled={isDisconnectingIg}
+                      className="text-xs text-red-600 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg border border-red-200 hover:border-red-300 transition-colors"
+                    >
+                      {isDisconnectingIg ? 'Disconnecting…' : 'Disconnect'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleConnectInstagram}
+                    disabled={isConnectingIg}
+                    className="flex-shrink-0 flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+                    style={{ background: 'linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D, #F56040, #F77737, #FCAF45, #FFDC80)' }}
+                  >
+                    {isConnectingIg && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    Connect
+                  </button>
+                )}
+              </div>
+              {!igConnection && (
+                <p className="text-xs text-gray-400 bg-gray-50 rounded-lg p-2.5">
+                  Once connected, your latest Instagram posts will automatically appear in the Social Media Feed section on your pages, with cached performance.
+                </p>
+              )}
+            </div>
+
             {/* Facebook Hashtags */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -900,11 +1075,12 @@ function SettingsPageInner() {
             </div>
 
             {([
-              { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourbusiness' },
-              { key: 'facebook',  label: 'Facebook',  placeholder: 'https://facebook.com/yourbusiness' },
-              { key: 'tiktok',    label: 'TikTok',    placeholder: 'https://tiktok.com/@yourbusiness' },
-              { key: 'twitter',   label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
-              { key: 'youtube',   label: 'YouTube',   placeholder: 'https://youtube.com/@yourbusiness' },
+              { key: 'instagram',   label: 'Instagram',   placeholder: 'https://instagram.com/yourbusiness' },
+              { key: 'facebook',   label: 'Facebook',    placeholder: 'https://facebook.com/yourbusiness' },
+              { key: 'tripadvisor',label: 'TripAdvisor', placeholder: 'https://tripadvisor.com/Restaurant_Review-...' },
+              { key: 'tiktok',     label: 'TikTok',      placeholder: 'https://tiktok.com/@yourbusiness' },
+              { key: 'twitter',    label: 'X / Twitter', placeholder: 'https://x.com/yourbusiness' },
+              { key: 'youtube',    label: 'YouTube',     placeholder: 'https://youtube.com/@yourbusiness' },
             ] as const).map(({ key, label, placeholder }) => (
               <div key={key}>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>

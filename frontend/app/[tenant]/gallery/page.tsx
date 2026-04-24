@@ -28,8 +28,9 @@ async function getGallery(slug: string): Promise<GalleryImage[]> {
   } catch { return []; }
 }
 
-export async function generateMetadata({ params }: { params: { tenant: string } }): Promise<Metadata> {
-  const tenant = await getTenant(params.tenant);
+export async function generateMetadata({ params }: { params: Promise<{ tenant: string }> }): Promise<Metadata> {
+  const { tenant: tenantSlug } = await params;
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) return { title: 'Gallery' };
   return {
     title: 'Gallery',
@@ -43,13 +44,12 @@ export async function generateMetadata({ params }: { params: { tenant: string } 
   };
 }
 
-export default async function GalleryPage({ params }: { params: { tenant: string } }) {
-  const [tenant, images] = await Promise.all([
-    getTenant(params.tenant),
-    getGallery(params.tenant),
-  ]);
-
+export default async function GalleryPage({ params }: { params: Promise<{ tenant: string }> }) {
+  const { tenant: tenantSlug } = await params;
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) notFound();
+
+  const images = await getGallery(tenantSlug);
 
   return (
     <div className="min-h-screen bg-gray-50">

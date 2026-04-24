@@ -14,8 +14,6 @@ const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.co.uk';
 async function getTenant(slug: string) {
   try {
     const res = await fetch(`${API_URL}/tenant/${slug}`, {
-      // Tag-based caching: data is cached and immediately busted by revalidateTenantCache()
-      // after every admin save. Fallback TTL of 60s in case revalidation is missed.
       next: { tags: [`tenant:${slug}`], revalidate: 60 },
     });
     if (!res.ok) return null;
@@ -23,6 +21,20 @@ async function getTenant(slug: string) {
     return data.data;
   } catch {
     return null;
+  }
+}
+
+async function getNavItems(slug: string) {
+  try {
+    const res = await fetch(`${API_URL}/navigation`, {
+      next: { tags: [`tenant:${slug}:nav`], revalidate: 60 },
+      headers: { 'X-Tenant-ID': slug },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  } catch {
+    return [];
   }
 }
 
@@ -41,9 +53,10 @@ function buildDescription(tenant: Awaited<ReturnType<typeof getTenant>>): string
 export async function generateMetadata({
   params,
 }: {
-  params: { tenant: string };
+  params: Promise<{ tenant: string }>;
 }): Promise<Metadata> {
-  const tenant = await getTenant(params.tenant);
+  const { tenant: tenantSlug } = await params;
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) return { title: 'Not Found' };
 
   const canonicalUrl = tenant.customDomain
@@ -78,9 +91,13 @@ export default async function TenantLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { tenant: string };
+  params: Promise<{ tenant: string }>;
 }) {
-  const tenant = await getTenant(params.tenant);
+  const { tenant: tenantSlug } = await params;
+  const [tenant, navItems] = await Promise.all([
+    getTenant(tenantSlug),
+    getNavItems(tenantSlug),
+  ]);
 
   if (!tenant) notFound();
 
@@ -169,7 +186,7 @@ export default async function TenantLayout({
         className="tenant-site min-h-screen flex flex-col bg-white"
         data-group={colorGroup.id}
       >
-        <Navbar tenant={tenant} />
+        <Navbar tenant={tenant} navItems={navItems} />
         <main className="flex-1">{children}</main>
         <Footer tenant={tenant} />
         <StickyActionBar

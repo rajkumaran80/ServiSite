@@ -61,10 +61,32 @@ function groupOpeningHours(raw: Record<string, any>): Array<{ label: string; hou
   });
 }
 
-function getLiveStatus(openingHours: Record<string, any>): { open: boolean; label: string } | null {
+function getLiveStatus(openingHours: Record<string, any>, tenantTimezone: string): { open: boolean; label: string } | null {
   if (!openingHours || Object.keys(openingHours).length === 0) return null;
+  
+  // Get current time in tenant's timezone
   const now = new Date();
-  const dayName = DAYS[now.getDay() === 0 ? 6 : now.getDay() - 1];
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: tenantTimezone,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'long',
+  };
+  const formatter = new Intl.DateTimeFormat('en-US', options);
+  const parts = formatter.formatToParts(now);
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+  const weekday = parts.find(p => p.type === 'weekday')?.value?.toLowerCase() || '';
+  
+  // Map weekday name to our format
+  const dayMap: Record<string, number> = {
+    'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+    'friday': 4, 'saturday': 5, 'sunday': 6
+  };
+  const dayIndex = dayMap[weekday] ?? 0;
+  const dayName = DAYS[dayIndex];
+  
   const raw = openingHours[dayName];
   if (!raw) return null;
   let entry: HoursEntry;
@@ -76,7 +98,7 @@ function getLiveStatus(openingHours: Record<string, any>): { open: boolean; labe
   if (entry.closed) return { open: false, label: 'Closed today' };
   if (!entry.open) return null;
   const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return isNaN(h) ? -1 : h * 60 + (m || 0); };
-  const cur = now.getHours() * 60 + now.getMinutes();
+  const cur = hour * 60 + minute;
   const openMins = toMins(entry.open);
   const closeMins = entry.close ? toMins(entry.close) : -1;
   if (openMins < 0) return null;
@@ -113,7 +135,8 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
 
   const openingHours = (contact as any)?.openingHours || {};
   const hoursGroups = groupOpeningHours(openingHours);
-  const liveStatus = getLiveStatus(openingHours);
+  const tenantTimezone = tenant.timezone || 'UTC';
+  const liveStatus = getLiveStatus(openingHours, tenantTimezone);
 
   const footerTagline: string = (tenant.themeSettings as any)?.footerTagline || '';
   const footerSecondary: string = (tenant.themeSettings as any)?.footerSecondary || '';

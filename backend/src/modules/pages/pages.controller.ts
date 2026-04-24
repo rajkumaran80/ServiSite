@@ -9,7 +9,9 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UsePipes,
   BadRequestException,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import {
@@ -21,6 +23,7 @@ import {
   IsIn,
   IsInt,
   Min,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -29,6 +32,7 @@ import { Public } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Tenant } from '../../common/decorators/tenant.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CustomValidationPipe } from '../../common/pipes/validation.pipe';
 
 const SECTION_TYPES = [
   'hero',
@@ -56,6 +60,7 @@ class PageSectionDto {
   order: number;
 
   @ApiProperty()
+  @IsObject()
   content: Record<string, any>;
 }
 
@@ -143,6 +148,7 @@ export class PagesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false }))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new page' })
   async create(@Body() dto: CreatePageBody, @CurrentUser() user: any) {
@@ -152,6 +158,7 @@ export class PagesController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false }))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a page' })
   async update(

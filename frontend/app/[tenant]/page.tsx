@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import HeroSection, { type HeroContent } from '../../components/tenant/HeroSection';
+import { SectionRenderer } from '../../components/tenant/SectionRenderer';
 import { getPageTemplate, getBusinessPreset, resolveDesignTokens } from '../../config/page-templates';
 import ScrollReveal from '../../components/ui/ScrollReveal';
 import { generateTheme, getColorGroup, getBrightness, SECTION_BG_PALETTES, type SectionBgEntry } from '../../lib/theme';
@@ -72,20 +73,33 @@ async function getGoogleReviews(slug: string) {
   } catch { return []; }
 }
 
+async function getHomeSections(slug: string) {
+  try {
+    const res = await fetch(`${API_URL}/tenant/${slug}/home-sections`, {
+      next: { tags: [`tenant:${slug}:home-sections`], revalidate: 60 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  } catch { return []; }
+}
+
 function formatPrice(price: number | string, currency: string): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency', currency, minimumFractionDigits: 2,
   }).format(typeof price === 'string' ? parseFloat(price) : price);
 }
 
-export default async function TenantHomePage({ params }: { params: { tenant: string } }) {
-  const [tenant, featuredItems, menuGroups, googleReviews, manualReviewEntries, homeBlockEntries] = await Promise.all([
-    getTenant(params.tenant),
-    getFeaturedItems(params.tenant),
-    getMenuGroups(params.tenant),
-    getGoogleReviews(params.tenant),
-    getPageEntries(params.tenant, 'reviews'),
-    getPageEntries(params.tenant, 'home-blocks'),
+export default async function TenantHomePage({ params }: { params: Promise<{ tenant: string }> }) {
+  const { tenant: tenantSlug } = await params;
+  const [tenant, featuredItems, menuGroups, googleReviews, manualReviewEntries, homeBlockEntries, homeSections] = await Promise.all([
+    getTenant(tenantSlug),
+    getFeaturedItems(tenantSlug),
+    getMenuGroups(tenantSlug),
+    getGoogleReviews(tenantSlug),
+    getPageEntries(tenantSlug, 'reviews'),
+    getPageEntries(tenantSlug, 'home'),
+    getHomeSections(tenantSlug),
   ]);
 
   if (!tenant) notFound();
@@ -142,157 +156,161 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
       {/* Content — overlaps hero on hanging templates */}
       <div className={hangingHero ? 'relative z-10 -mt-16 rounded-t-[40px] overflow-hidden bg-white' : ''}>
 
-      {/* Menu Groups — category showcase grid (Grand template) or pill nav */}
-      {menuGroups.length > 0 && (
-        template.showCategoryGrid ? (
-          <section className="grid grid-cols-2 lg:grid-cols-4" style={{ backgroundColor: '#0a0a0a' }}>
-            {menuGroups.slice(0, 4).map((group: any, idx: number) => {
-              const darkBgs = [
-                'linear-gradient(135deg, #1a1209 0%, #2d1f08 100%)',
-                'linear-gradient(135deg, #0a0f1a 0%, #131f35 100%)',
-                'linear-gradient(135deg, #0f0a14 0%, #1e1028 100%)',
-                'linear-gradient(135deg, #0a1208 0%, #142010 100%)',
-              ];
-              return (
-                <Link
-                  key={group.id}
-                  href={`/menu?group=${group.id}`}
-                  className="relative flex items-end overflow-hidden group"
-                  style={{ minHeight: 280 }}
-                >
-                  {group.imageUrl ? (
-                    <img
-                      src={group.imageUrl}
-                      alt={group.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
-                  ) : (
-                    <div className="absolute inset-0" style={{ background: darkBgs[idx % darkBgs.length] }} />
-                  )}
-                  {/* Gold border accent top */}
-                  <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: primaryColor, opacity: 0.6 }} />
-                  {/* Dark gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent group-hover:from-black/90 transition-all duration-300" />
-                  <div className="relative z-10 p-6 w-full">
-                    {group.icon && (
-                      <span className="text-3xl mb-2 block">{group.icon}</span>
-                    )}
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] mb-1" style={{ color: primaryColor }}>
-                      Explore
-                    </p>
-                    <h3
-                      className="text-xl font-black text-white leading-tight group-hover:text-amber-100 transition-colors"
+          {/* Menu Groups — category showcase grid (Grand template) or pill nav */}
+          {menuGroups.length > 0 && (
+            template.showCategoryGrid ? (
+              <section className="grid grid-cols-2 lg:grid-cols-4" style={{ backgroundColor: '#0a0a0a' }}>
+                {menuGroups.slice(0, 4).map((group: any, idx: number) => {
+                  const darkBgs = [
+                    'linear-gradient(135deg, #1a1209 0%, #2d1f08 100%)',
+                    'linear-gradient(135deg, #0a0f1a 0%, #131f35 100%)',
+                    'linear-gradient(135deg, #0f0a14 0%, #1e1028 100%)',
+                    'linear-gradient(135deg, #0a1208 0%, #142010 100%)',
+                  ];
+                  return (
+                    <Link
+                      key={group.id}
+                      href={`/menu?group=${group.id}`}
+                      className="relative flex items-end overflow-hidden group"
+                      style={{ minHeight: 280 }}
                     >
-                      {group.name}
-                    </h3>
-                    <div className="w-8 h-px mt-3 group-hover:w-16 transition-all duration-300" style={{ backgroundColor: primaryColor }} />
+                      {group.imageUrl ? (
+                        <img
+                          src={group.imageUrl}
+                          alt={group.name}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                      ) : (
+                        <div className="absolute inset-0" style={{ background: darkBgs[idx % darkBgs.length] }} />
+                      )}
+                      {/* Gold border accent top */}
+                      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: primaryColor, opacity: 0.6 }} />
+                      {/* Dark gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent group-hover:from-black/90 transition-all duration-300" />
+                      <div className="relative z-10 p-6 w-full">
+                        {group.icon && (
+                          <span className="text-3xl mb-2 block">{group.icon}</span>
+                        )}
+                        <p className="text-xs font-bold uppercase tracking-[0.2em] mb-1" style={{ color: primaryColor }}>
+                          Explore
+                        </p>
+                        <h3
+                          className="text-xl font-black text-white leading-tight group-hover:text-amber-100 transition-colors"
+                        >
+                          {group.name}
+                        </h3>
+                        <div className="w-8 h-px mt-3 group-hover:w-16 transition-all duration-300" style={{ backgroundColor: primaryColor }} />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </section>
+            ) : (
+              <section className="py-10 bg-gray-50 border-b border-gray-100">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {menuGroups.map((group: any) => (
+                      <Link
+                        key={group.id}
+                        href={`/menu?group=${group.id}`}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all text-sm font-semibold text-gray-700"
+                      >
+                        {group.icon && <span className="text-lg">{group.icon}</span>}
+                        <span>{group.name}</span>
+                      </Link>
+                    ))}
+                    <Link
+                      href={`/menu`}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white shadow hover:shadow-lg hover:-translate-y-0.5 transition-all"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      View All →
+                    </Link>
                   </div>
-                </Link>
-              );
-            })}
-          </section>
-        ) : (
-          <section className="py-10 bg-gray-50 border-b border-gray-100">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex flex-wrap justify-center gap-3">
-                {menuGroups.map((group: any) => (
+                </div>
+              </section>
+            )
+          )}
+
+          {/* Featured Items */}
+          {featuredItems.length > 0 && (
+            <section
+              className="py-16"
+              style={{
+                background: glassEffect
+                  ? `linear-gradient(135deg, #0f0f0f 0%, ${primaryColor}33 50%, #0f0f0f 100%)`
+                  : template.showCategoryGrid ? '#0f0f0f' : '#ffffff',
+              }}
+            >
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex items-end justify-between mb-10">
+                  <div>
+                    <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>
+                      {preset.featuredEyebrow}
+                    </p>
+                    <h2 className={`section-heading tenant-h2 text-3xl md:text-4xl leading-tight ${glassEffect || template.showCategoryGrid ? 'text-white' : 'text-gray-900'}`}>
+                      {preset.featuredHeading}
+                    </h2>
+                  </div>
                   <Link
-                    key={group.id}
-                    href={`/menu?group=${group.id}`}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all text-sm font-semibold text-gray-700"
+                    href={`/menu`}
+                    className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold"
+                    style={{ color: primaryColor }}
                   >
-                    {group.icon && <span className="text-lg">{group.icon}</span>}
-                    <span>{group.name}</span>
+                    View full {preset.menuLabel.toLowerCase()} →
                   </Link>
-                ))}
-                <Link
-                  href={`/menu`}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white shadow hover:shadow-lg hover:-translate-y-0.5 transition-all"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  View All →
-                </Link>
+                </div>
+
+                {/* 3×3 square tile grid */}
+                <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                  {featuredItems.map((item: any, idx: number) => (
+                    <ScrollReveal key={item.id} delay={idx * 40}>
+                    <Link href={`/menu#item-${item.id}`}
+                      className="item-card group relative bg-gray-100 block transition-shadow duration-300 overflow-hidden"
+                      style={{ aspectRatio: '1/1', boxShadow: `0 4px 16px ${smartTheme.tileShadow}`, borderRadius: cardRadius }}
+                    >
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-4xl sm:text-5xl" style={{ backgroundColor: `${primaryColor}18` }}>🍽️</div>
+                      )}
+                      {/* Overlay — slides up on hover */}
+                      <div className="absolute inset-0 flex flex-col justify-end p-2 sm:p-3 translate-y-1 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300"
+                        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)' }}>
+                        <h3 className="text-white font-bold text-xs sm:text-sm leading-tight line-clamp-1">{item.name}</h3>
+                        <p className="text-white/80 font-semibold text-xs mt-0.5">{formatPrice(item.price, tenant.currency || 'GBP')}</p>
+                      </div>
+                      {item.isPopular && (
+                        <span className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-amber-400 text-amber-900 text-[9px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full">⭐</span>
+                      )}
+                    </Link>
+                    </ScrollReveal>
+                  ))}
+                </div>
+
+                <div className="text-center mt-10 sm:hidden">
+                  <Link href={`/menu`}
+                    className="btn-primary inline-block font-bold px-8 py-3.5 shadow-lg transition-opacity"
+                    style={{ backgroundColor: primaryColor }}>
+                    View Full {preset.menuLabel}
+                  </Link>
+                </div>
               </div>
-            </div>
-          </section>
-        )
+            </section>
       )}
 
-      {/* Featured Items */}
-      {featuredItems.length > 0 && (
-        <section
-          className="py-16"
-          style={{
-            background: glassEffect
-              ? `linear-gradient(135deg, #0f0f0f 0%, ${primaryColor}33 50%, #0f0f0f 100%)`
-              : template.showCategoryGrid ? '#0f0f0f' : '#ffffff',
-          }}
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-end justify-between mb-10">
-              <div>
-                <p className="tenant-eyebrow mb-3" style={{ color: primaryColor }}>
-                  {preset.featuredEyebrow}
-                </p>
-                <h2 className={`section-heading tenant-h2 text-3xl md:text-4xl leading-tight ${glassEffect || template.showCategoryGrid ? 'text-white' : 'text-gray-900'}`}>
-                  {preset.featuredHeading}
-                </h2>
-              </div>
-              <Link
-                href={`/menu`}
-                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold"
-                style={{ color: primaryColor }}
-              >
-                View full {preset.menuLabel.toLowerCase()} →
-              </Link>
-            </div>
-
-            {/* 3×3 square tile grid */}
-            <div className="grid grid-cols-3 gap-1 sm:gap-2">
-              {featuredItems.map((item: any, idx: number) => (
-                <ScrollReveal key={item.id} delay={idx * 40}>
-                <Link href={`/menu#item-${item.id}`}
-                  className="item-card group relative bg-gray-100 block transition-shadow duration-300 overflow-hidden"
-                  style={{ aspectRatio: '1/1', boxShadow: `0 4px 16px ${smartTheme.tileShadow}`, borderRadius: cardRadius }}
-                >
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-4xl sm:text-5xl" style={{ backgroundColor: `${primaryColor}18` }}>🍽️</div>
-                  )}
-                  {/* Overlay — slides up on hover */}
-                  <div className="absolute inset-0 flex flex-col justify-end p-2 sm:p-3 translate-y-1 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300"
-                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)' }}>
-                    <h3 className="text-white font-bold text-xs sm:text-sm leading-tight line-clamp-1">{item.name}</h3>
-                    <p className="text-white/80 font-semibold text-xs mt-0.5">{formatPrice(item.price, tenant.currency || 'GBP')}</p>
-                  </div>
-                  {item.isPopular && (
-                    <span className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-amber-400 text-amber-900 text-[9px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full">⭐</span>
-                  )}
-                </Link>
-                </ScrollReveal>
-              ))}
-            </div>
-
-            <div className="text-center mt-10 sm:hidden">
-              <Link href={`/menu`}
-                className="btn-primary inline-block font-bold px-8 py-3.5 shadow-lg transition-opacity"
-                style={{ backgroundColor: primaryColor }}>
-                View Full {preset.menuLabel}
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Home Blocks — group-aware card layout */}
-      {showHomeBlocks && (
+      {/* Home Blocks — new CMS sections take priority over legacy page-entries */}
+      {homeSections.length > 0 ? (
+        homeSections.map((section: any) => (
+          <SectionRenderer key={section.id} section={section} primaryColor={primaryColor} themeSettings={theme} />
+        ))
+      ) : showHomeBlocks && (
         <div>
           {homeBlockEntries.map((entry: any, idx: number) => {
             const sectionType: 'content' | 'awards' | 'social-proof' = entry.data?.sectionType || 'content';
             const gid = colorGroup.id;
 
-            // ── Background from global sectionBgMode — cycles by index ────────
+            // Background from global sectionBgMode - cycles by index
             const rawBgMode: string = (theme as any).sectionBgMode || 'soft';
             const bgMode = (['dark', 'soft', 'contrast'] as const).includes(rawBgMode as any)
               ? (rawBgMode as 'dark' | 'soft' | 'contrast')
@@ -316,7 +334,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
             const bgBase = bgEntry.bg;
             const isDark = bgEntry.dark;
 
-            // ── Pattern overlay ──────────────────────────────────────────────
+            // Pattern overlay
             const pattern: string = entry.data?.pattern || 'none';
             const pc = isDark ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.045)';
             const patternStyle: React.CSSProperties = (() => {
@@ -333,7 +351,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
 
             const sectionStyle: React.CSSProperties = { backgroundColor: bgBase, ...patternStyle };
 
-            // ── Text colours — always resolved for both dark and light slots ──
+            // Text colours - always resolved for both dark and light slots
             // Light sections: always use near-black for headings for maximum readability
             // (tinted headingOnWhite colors like dark-green or gold can still look washed
             // out on same-hue light backgrounds). headingOnWhite used only for accents.
@@ -348,9 +366,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               ? primaryColor
               : colorGroup.headingOnWhite;
 
-            // ══════════════════════════════════════════════════════════════════
             // AWARDS STRIP
-            // ══════════════════════════════════════════════════════════════════
             if (sectionType === 'awards') {
               const awards: { name: string; subtitle: string }[] = (entry.data?.awards || []).filter((a: any) => a.name?.trim());
               if (!awards.length) return null;
@@ -389,9 +405,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               );
             }
 
-            // ══════════════════════════════════════════════════════════════════
             // SOCIAL PROOF BAR
-            // ══════════════════════════════════════════════════════════════════
             if (sectionType === 'social-proof') {
               const rating = parseFloat(entry.data?.rating || '5') || 5;
               const reviewText: string = entry.data?.reviewText || '';
@@ -430,9 +444,7 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
               );
             }
 
-            // ══════════════════════════════════════════════════════════════════
             // CONTENT BLOCK (existing, enhanced)
-            // ══════════════════════════════════════════════════════════════════
             const imagePos = entry.data?.imagePosition || (idx % 2 === 0 ? 'left' : 'right');
             const hasImage = !!entry.imageUrl;
             const hasDescription = !!entry.data?.description?.trim();
@@ -582,10 +594,36 @@ export default async function TenantHomePage({ params }: { params: { tenant: str
       {showReviewsSection && (
         <section className="py-16 bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-10">
-              <p className="tenant-eyebrow mb-3 justify-center" style={{ color: primaryColor }}>Reviews</p>
-              <h2 className="section-heading tenant-h2 text-3xl md:text-4xl text-gray-900">What Our Customers Say</h2>
-            </div>
+            {(() => {
+              const placeId = (theme as any).googlePlaceId;
+              const mapUrl = (tenant as any).contactInfo?.mapUrl;
+              const reviewUrl = placeId
+                ? `https://search.google.com/local/writereview?placeid=${placeId}`
+                : mapUrl || null;
+              return (
+                <div className="text-center mb-10">
+                  <p className="tenant-eyebrow mb-3 justify-center" style={{ color: primaryColor }}>Reviews</p>
+                  <h2 className="section-heading tenant-h2 text-3xl md:text-4xl text-gray-900">What Our Customers Say</h2>
+                  {reviewUrl && (
+                    <a
+                      href={reviewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-full text-sm font-semibold border transition-all hover:shadow-md"
+                      style={{ color: primaryColor, borderColor: primaryColor }}
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21.35 11.1h-9.18v2.93h5.34c-.23 1.24-.95 2.29-2.03 3l3.28 2.54c1.91-1.76 3.01-4.35 3.01-7.47 0-.58-.05-1.14-.14-1.7z" fill="#4285F4"/>
+                        <path d="M11.17 22c2.7 0 4.96-.9 6.62-2.43l-3.28-2.54c-.9.6-2.04.96-3.34.96-2.57 0-4.74-1.74-5.52-4.07H2.3v2.63A9.99 9.99 0 0011.17 22z" fill="#34A853"/>
+                        <path d="M5.65 13.92A5.97 5.97 0 015.35 12c0-.67.12-1.32.3-1.93V7.44H2.3A9.99 9.99 0 001.17 12c0 1.62.39 3.14 1.13 4.56l3.35-2.64z" fill="#FBBC05"/>
+                        <path d="M11.17 5.97c1.45 0 2.75.5 3.77 1.48l2.83-2.83C16.13 2.99 13.87 2 11.17 2A9.99 9.99 0 002.3 7.44l3.35 2.63c.78-2.33 2.95-4.1 5.52-4.1z" fill="#EA4335"/>
+                      </svg>
+                      Write a Google Review
+                    </a>
+                  )}
+                </div>
+              );
+            })()}
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {reviewEntries.map((entry: any, idx: number) => {
                 const isGoogle = reviewsSource === 'google';

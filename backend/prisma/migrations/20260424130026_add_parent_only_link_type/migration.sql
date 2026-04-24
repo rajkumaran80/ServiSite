@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "NavLinkType" ADD VALUE 'PARENT_ONLY';

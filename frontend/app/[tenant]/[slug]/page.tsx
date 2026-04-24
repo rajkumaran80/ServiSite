@@ -19,11 +19,11 @@ async function getTenant(tenantSlug: string) {
   }
 }
 
-async function getPage(tenantId: string, slug: string): Promise<CmsPage | null> {
+async function getPage(tenantSlug: string, slug: string): Promise<CmsPage | null> {
   try {
     const res = await fetch(`${API_URL}/pages/${slug}`, {
-      headers: { 'x-tenant-id': tenantId },
-      next: { tags: [`tenant:${tenantId}:pages`], revalidate: 60 },
+      headers: { 'x-tenant-id': tenantSlug },
+      next: { tags: [`tenant:${tenantSlug}:pages:${slug}`], revalidate: 60 },
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -36,12 +36,13 @@ async function getPage(tenantId: string, slug: string): Promise<CmsPage | null> 
 export async function generateMetadata({
   params,
 }: {
-  params: { tenant: string; slug: string };
+  params: Promise<{ tenant: string; slug: string }>;
 }): Promise<Metadata> {
-  if (RESERVED_SLUGS.includes(params.slug)) return {};
-  const tenant = await getTenant(params.tenant);
+  const { tenant: tenantSlug, slug } = await params;
+  if (RESERVED_SLUGS.includes(slug)) return {};
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) return { title: 'Not Found' };
-  const page = await getPage(tenant.id, params.slug);
+  const page = await getPage(tenantSlug, slug);
   if (!page) return { title: 'Not Found' };
   return { title: page.title };
 }
@@ -49,17 +50,19 @@ export async function generateMetadata({
 export default async function DynamicPage({
   params,
 }: {
-  params: { tenant: string; slug: string };
+  params: Promise<{ tenant: string; slug: string }>;
 }) {
+  const { tenant: tenantSlug, slug } = await params;
+  
   // Let reserved slugs fall through to their own pages
-  if (RESERVED_SLUGS.includes(params.slug)) {
+  if (RESERVED_SLUGS.includes(slug)) {
     notFound();
   }
 
-  const tenant = await getTenant(params.tenant);
+  const tenant = await getTenant(tenantSlug);
   if (!tenant) notFound();
 
-  const page = await getPage(tenant.id, params.slug);
+  const page = await getPage(tenantSlug, slug);
   if (!page) notFound();
 
   const primaryColor = (tenant.themeSettings as any)?.primaryColor || '#3B82F6';
