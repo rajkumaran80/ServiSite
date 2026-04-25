@@ -405,13 +405,13 @@ export class TenantService {
 
   /**
    * Step 1: Tenant submits their custom domain.
-   * Creates a Cloudflare custom hostname and returns the TXT record
-   * the tenant must add at their registrar to prove ownership.
+   * For external DNS providers (IONOS), returns Azure Front Door CNAME records
+   * and verification TXT records that tenant must add at their registrar.
    */
   async setCustomDomain(
     tenantId: string,
     domain: string,
-  ): Promise<{ cname: string }> {
+  ): Promise<{ cname: string; txtRecords: Array<{ name: string; value: string }> }> {
     const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     const apex = normalised.replace(/^www\./, '');
 
@@ -423,36 +423,56 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // Register both www and apex in Cloudflare so SSL is provisioned for both.
-    // Azure App Service also needs bindings for both to accept incoming requests.
-    const wwwHostname = `www.${apex}`;
-    const [{ id: wwwId }, { id: apexId }] = await Promise.all([
-      this.cloudflare.createCustomHostname(wwwHostname),
-      this.cloudflare.createCustomHostname(apex),
-    ]);
-
+    // For external DNS providers, we don't create Cloudflare hostnames
+    // Instead, we provide the DNS records the tenant needs to add
+    const azureFrontDoorEndpoint = this.config.get<string>('AZURE_FRONT_DOOR_ENDPOINT', 'servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net');
+    
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
         customDomain: apex,
         customDomainStatus: 'pending',
-        customDomainToken: wwwId,
-        customDomainApexToken: apexId,
+        customDomainToken: null, // Not used for external DNS
+        customDomainApexToken: null, // Not used for external DNS
         customDomainZoneId: null,
-        customDomainNsRecords: [],
+        customDomainNsRecords: [], // Not changing nameservers
         customDomainVerifiedAt: null,
         customDomainTxtName: null,
         customDomainTxtValue: null,
       },
     });
 
-    // Add hostname bindings to Azure App Service for both www and apex
-    await Promise.all([
-      this.azureAppService.addHostnameBinding(wwwHostname),
-      this.azureAppService.addHostnameBinding(apex),
-    ]);
+    // Return DNS records that need to be added at the registrar
+    return {
+      cname: azureFrontDoorEndpoint,
+      txtRecords: [
+        {
+          name: `_dnsauth`,
+          value: `"azure-verification-pending"`, // Will be updated with actual Azure verification
+        },
+        {
+          name: `_dnsauth.www`,
+          value: `"azure-verification-pending"`, // Will be updated with actual Azure verification
+        }
+      ]
+    };
 
-    return { cname: 'origin.servisite.co.uk' };
+    // For external DNS, Azure Front Door handles routing automatically
+    // No need to add hostname bindings manually
+
+    return { 
+      cname: azureFrontDoorEndpoint,
+      txtRecords: [
+        {
+          name: `_dnsauth`,
+          value: `"azure-verification-pending"`,
+        },
+        {
+          name: `_dnsauth.www`,
+          value: `"azure-verification-pending"`,
+        }
+      ]
+    };
   }
 
   async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string }> {
