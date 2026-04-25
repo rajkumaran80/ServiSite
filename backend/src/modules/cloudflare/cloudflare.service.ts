@@ -38,7 +38,7 @@ export class CloudflareService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    this.apiToken = this.configService.get<string>('CLOUDFLARE_API_TOKEN') || '';
+    this.apiToken = this.configService.get<string>('CLOUDFLARE_API_KEY') || '';
     this.zoneId = this.configService.get<string>('CLOUDFLARE_ZONE_ID') || '';
     this.zoneName = this.configService.get<string>('CLOUDFLARE_ZONE_NAME', 'servisite.co.uk');
 
