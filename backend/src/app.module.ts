@@ -22,7 +22,6 @@ import { PricingModule } from './modules/pricing/pricing.module';
 import { GoogleReviewsModule } from './modules/google-reviews/google-reviews.module';
 import { FacebookModule } from './modules/facebook/facebook.module';
 import { CloudflareModule } from './modules/cloudflare/cloudflare.module';
-import { DnsModule } from './modules/dns/dns.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { InternalSecretMiddleware } from './common/middleware/internal-secret.middleware';
 import { CacheModule } from './common/cache/cache.module';
@@ -59,7 +58,6 @@ import { NotifyModule } from './common/notify/notify.module';
     GoogleReviewsModule,
     FacebookModule,
     CloudflareModule,
-    DnsModule,
   ],
   controllers: [AppController],
   providers: [

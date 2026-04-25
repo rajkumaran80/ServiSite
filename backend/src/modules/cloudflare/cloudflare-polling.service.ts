@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CloudflareService } from './cloudflare.service';
-import { DnsService } from '../dns/dns.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -13,7 +12,6 @@ export class CloudflarePollingService {
 
   constructor(
     private readonly cloudflareService: CloudflareService,
-    private readonly dnsService: DnsService,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
@@ -98,13 +96,6 @@ export class CloudflarePollingService {
       if (statusChanged) {
         this.logger.log(`Domain status changed for ${hostname}: ${tenant.customDomainStatus} → ${customHostname.status}`);
         
-        // Sync DNS records to database
-        try {
-          await this.dnsService.syncFromCloudflare(hostname);
-        } catch (error) {
-          this.logger.error(`Failed to sync DNS records for ${hostname}:`, error);
-        }
-        
         await this.prisma.tenant.update({
           where: { id: tenant.id },
           data: {
@@ -118,13 +109,6 @@ export class CloudflarePollingService {
             where: { id: tenant.id },
             data: { customDomainVerifiedAt: new Date() },
           });
-        }
-      } else {
-        // Status unchanged, but still sync DNS records to ensure they're up to date
-        try {
-          await this.dnsService.syncFromCloudflare(hostname);
-        } catch (error) {
-          this.logger.error(`Failed to sync DNS records for ${hostname}:`, error);
         }
       }
 
