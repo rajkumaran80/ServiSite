@@ -28,7 +28,9 @@ export class CloudflarePollingService {
     this.isPolling = true;
 
     // Initial poll
-    await this.pollAllDomains();
+    await this.pollAllDomains().catch(error => {
+      this.logger.error('Initial poll failed:', error);
+    });
 
     // Set up recurring polling
     this.pollTimer = setInterval(() => {
@@ -70,8 +72,12 @@ export class CloudflarePollingService {
         },
       });
 
+      if (!tenants) return; // Exit early if database query fails
+
       for (const tenant of tenants) {
-        await this.pollTenantDomain(tenant);
+        await this.pollTenantDomain(tenant).catch(error => {
+          this.logger.error(`Error polling tenant ${tenant.slug}:`, error);
+        });
       }
     } catch (error) {
       this.logger.error('Error polling domains:', error);

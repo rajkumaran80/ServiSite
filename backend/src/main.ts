@@ -109,11 +109,16 @@ async function bootstrap() {
   }
 
   // Start Cloudflare polling service
-  const cloudflarePollingService = app.get(CloudflarePollingService);
-  if (configService.get('CLOUDFLARE_POLLING_ENABLED', 'true') === 'true') {
-    cloudflarePollingService.startPolling().catch(error => {
-      console.error('Failed to start Cloudflare polling:', error);
-    });
+  try {
+    const cloudflarePollingService = app.get(CloudflarePollingService);
+    if (configService.get('CLOUDFLARE_POLLING_ENABLED', 'true') === 'true') {
+      cloudflarePollingService.startPolling().catch(error => {
+        console.error('Failed to start Cloudflare polling:', error);
+      });
+    }
+  } catch (error) {
+    console.error('Cloudflare polling service not available:', error);
+    // Continue without polling service
   }
 
   await app.listen(port);
