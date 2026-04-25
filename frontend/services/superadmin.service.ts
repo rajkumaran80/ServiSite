@@ -9,6 +9,7 @@ export interface TenantSummary {
   status: string;
   plan: string;
   createdAt: string;
+  serviceProfile?: 'FOOD_SERVICE' | 'GENERAL_SERVICE';
   _count: { users: number; menuItems: number };
   users: Array<{ email: string; createdAt: string }>;
 }
@@ -93,6 +94,10 @@ class SuperAdminService {
 
   async changeTenantPlan(tenantId: string, plan: 'BASIC' | 'ORDERING'): Promise<void> {
     await api.post(`/superadmin/tenants/${tenantId}/change-plan`, { plan });
+  }
+
+  async changeCategory(tenantId: string, serviceProfile: 'FOOD_SERVICE' | 'GENERAL_SERVICE'): Promise<void> {
+    await api.post(`/superadmin/tenants/${tenantId}/change-category`, { serviceProfile });
   }
 }
 

@@ -7,14 +7,9 @@ import toast from 'react-hot-toast';
 import tenantService from '../../../services/tenant.service';
 import type { TenantType } from '../../../types/tenant.types';
 
-const BUSINESS_TYPES: { value: TenantType; label: string; icon: string }[] = [
-  { value: 'RESTAURANT', label: 'Restaurant', icon: '🍽️' },
-  { value: 'CAFE', label: 'Café / Coffee Shop', icon: '☕' },
-  { value: 'BARBER_SHOP', label: 'Barber Shop', icon: '✂️' },
-  { value: 'SALON', label: 'Hair & Beauty Salon', icon: '💇' },
-  { value: 'GYM', label: 'Gym / Fitness', icon: '🏋️' },
-  { value: 'REPAIR_SHOP', label: 'Repair Shop', icon: '🔧' },
-  { value: 'OTHER', label: 'Other Business', icon: '🏪' },
+const BUSINESS_TYPES: { value: TenantType; label: string; icon: string; description: string }[] = [
+  { value: 'RESTAURANT', label: 'Food & Drink', icon: '🍽️', description: 'Restaurant, café, bakery, food truck — includes full menu management' },
+  { value: 'OTHER', label: 'Other Business', icon: '🏢', description: 'Salon, barber, gym, repair shop — page builder & services' },
 ];
 
 // PLANS kept for future multi-plan support — not used in current signup flow
@@ -253,21 +248,29 @@ function SignupForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Business Type *</label>
-            <div className="grid grid-cols-2 gap-2">
-              {BUSINESS_TYPES.map(({ value, label, icon }) => (
+            <label className="block text-sm font-medium text-gray-700 mb-2">Business Category *</label>
+            <div className="grid grid-cols-1 gap-3">
+              {BUSINESS_TYPES.map(({ value, label, icon, description }) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => set('type', value)}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm text-left transition-colors ${
+                  className={`flex items-start gap-3 px-4 py-3.5 rounded-xl border text-left transition-colors ${
                     form.type === value
-                      ? 'border-blue-500 bg-blue-50 text-blue-900 font-medium'
+                      ? 'border-blue-500 bg-blue-50 text-blue-900'
                       : 'border-gray-200 hover:border-gray-300 text-gray-700'
                   }`}
                 >
-                  <span className="text-lg">{icon}</span>
-                  {label}
+                  <span className="text-2xl mt-0.5">{icon}</span>
+                  <div>
+                    <p className="font-semibold text-sm">{label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{description}</p>
+                  </div>
+                  {form.type === value && (
+                    <svg className="w-5 h-5 text-blue-500 ml-auto flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  )}
                 </button>
               ))}
             </div>

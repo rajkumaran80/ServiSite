@@ -26,6 +26,7 @@ interface HeroSectionProps {
     youtube?: string;
   };
   heroContent?: HeroContent;
+  showMenu?: boolean;
 }
 
 interface SocialLinksBarProps {
@@ -184,7 +185,7 @@ const HeroCustomContent: React.FC<{
   );
 };
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, heroStyle = 'dark', primaryColor, fontFamily, socialLinks, heroContent }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, heroStyle = 'dark', primaryColor, fontFamily, socialLinks, heroContent, showMenu = false }) => {
   const tenantBase = ``;
   const hc: HeroContent = heroContent || {};
   const ctaLabel = hc.primaryCtaLabel || 'View Menu';
@@ -230,10 +231,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </p>
             )}
             <div className="flex flex-wrap gap-3">
-              <Link href={ctaHref} className="inline-flex items-center gap-2 text-white font-bold px-7 py-3.5 rounded-xl transition-all hover:scale-[1.03] shadow-xl text-base" style={{ backgroundColor: primaryColor }}>
+              {showMenu && <Link href={ctaHref} className="inline-flex items-center gap-2 text-white font-bold px-7 py-3.5 rounded-xl transition-all hover:scale-[1.03] shadow-xl text-base" style={{ backgroundColor: primaryColor }}>
                 {ctaLabel}
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
-              </Link>
+              </Link>}
                             <Link href={`${tenantBase}/contact`} className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold px-7 py-3.5 rounded-xl transition-all hover:scale-[1.03] border border-white/25 text-base">{secondaryCtaLabel}</Link>
             </div>
             {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
@@ -269,12 +270,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           </div>
           <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} center={true} />
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href={ctaHref}
+            {showMenu && <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3.5 rounded-none border-2 transition-all hover:scale-[1.02] tracking-widest uppercase text-sm"
               style={{ borderColor: primaryColor, backgroundColor: primaryColor }}
             >
               {ctaLabel}
-            </Link>
+            </Link>}
                       </div>
           {socialLinks && <SocialLinksBar links={socialLinks} dark={true} />}
         </div>
@@ -297,13 +298,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </div>
               <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
               <div className="flex flex-wrap gap-3">
-                <Link href={ctaHref}
+                {showMenu && <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-black px-7 py-3.5 text-base transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor }}
                 >
                   {ctaLabel}
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                </Link>
+                </Link>}
                                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 border-2 text-gray-900 font-black px-7 py-3.5 text-base transition-all hover:bg-gray-900 hover:text-white"
                   style={{ borderColor: primaryColor }}
@@ -349,13 +350,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           </p>
           <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
           <div className="flex flex-wrap gap-3">
-            <Link href={ctaHref}
+            {showMenu && <Link href={ctaHref}
               className="inline-flex items-center gap-2 font-bold px-8 py-3.5 rounded-sm text-black text-base transition-all hover:scale-[1.03]"
               style={{ backgroundColor: primaryColor, boxShadow: `0 0 20px ${primaryColor}88` }}
             >
               {ctaLabel}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
-            </Link>
+            </Link>}
                         <Link href={`${tenantBase}/contact`}
               className="inline-flex items-center gap-2 bg-transparent border text-white font-bold px-8 py-3.5 rounded-sm transition-all hover:bg-white/5 text-base"
               style={{ borderColor: `${primaryColor}66` }}
@@ -392,13 +393,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           </div>
           <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
           <div className="flex flex-wrap gap-3">
-            <Link href={ctaHref}
+            {showMenu && <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-black px-8 py-4 text-base transition-all hover:opacity-90"
               style={{ backgroundColor: primaryColor }}
             >
               {ctaLabel}
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-            </Link>
+            </Link>}
                         <Link href={`${tenantBase}/contact`}
               className="inline-flex items-center gap-2 border-2 border-gray-900 text-gray-900 font-black px-8 py-4 text-base transition-all hover:bg-gray-900 hover:text-white">{secondaryCtaLabel}</Link>
           </div>
@@ -436,13 +437,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           </div>
           <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} center={true} />
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href={ctaHref}
+            {showMenu && <Link href={ctaHref}
               className="inline-flex items-center gap-2 bg-white font-black px-8 py-3.5 rounded-2xl text-base transition-all hover:scale-[1.03] shadow-xl"
               style={{ color: primaryColor }}
             >
               {ctaLabel}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
-            </Link>
+            </Link>}
                         <Link href={`${tenantBase}/contact`}
               className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold px-8 py-3.5 rounded-2xl transition-all hover:scale-[1.03] border border-white/30 text-base">{secondaryCtaLabel}</Link>
           </div>
@@ -477,13 +478,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </div>
               <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
               <div className="flex flex-wrap gap-3">
-                <Link href={ctaHref}
+                {showMenu && <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-black px-7 py-3.5 text-base transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor }}
                 >
                   {ctaLabel}
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                </Link>
+                </Link>}
                                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 border-2 border-gray-900 text-gray-900 font-black px-7 py-3.5 text-base transition-all hover:bg-gray-900 hover:text-white">{secondaryCtaLabel}</Link>
               </div>
@@ -535,12 +536,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </div>
               <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
               <div className="flex flex-wrap gap-3">
-                <Link href={ctaHref}
+                {showMenu && <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3.5 text-sm uppercase tracking-widest transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor }}
                 >
                   {ctaLabel}
-                </Link>
+                </Link>}
                                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 border text-gray-600 font-semibold px-8 py-3.5 text-sm uppercase tracking-widest transition-all hover:bg-gray-100"
                   style={{ borderColor: `${primaryColor}55` }}
@@ -595,13 +596,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             </div>
             <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
             <div className="flex flex-wrap gap-3">
-              <Link href={ctaHref}
+              {showMenu && <Link href={ctaHref}
                 className="inline-flex items-center gap-2 font-black px-8 py-4 text-white text-base transition-all hover:opacity-90 uppercase tracking-wide"
                 style={{ backgroundColor: primaryColor }}
               >
                 {ctaLabel}
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-              </Link>
+              </Link>}
                             <Link href={`${tenantBase}/contact`}
                 className="inline-flex items-center gap-2 border-2 text-white font-black px-8 py-4 text-base transition-all hover:bg-white/10 uppercase tracking-wide"
                 style={{ borderColor: `${primaryColor}88` }}
@@ -636,13 +637,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </span>
               <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
               <div className="flex flex-wrap gap-3">
-                <Link href={ctaHref}
+                {showMenu && <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-bold px-7 py-3.5 rounded-full transition-all hover:scale-[1.02] shadow-lg text-base"
                   style={{ backgroundColor: primaryColor }}
                 >
                   {ctaLabel}
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
-                </Link>
+                </Link>}
                                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 font-bold px-7 py-3.5 rounded-full border-2 transition-all hover:scale-[1.02] text-base"
                   style={{ borderColor: `${primaryColor}55`, color: '#3d2b1f' }}
@@ -705,12 +706,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div />
             <div className="flex flex-wrap gap-3 flex-shrink-0">
-              <Link href={ctaHref}
+              {showMenu && <Link href={ctaHref}
                 className="inline-flex items-center gap-2 text-black font-black px-7 py-3 text-sm uppercase tracking-wider transition-all hover:opacity-90"
                 style={{ backgroundColor: primaryColor }}
               >
                 {ctaLabel}
-              </Link>
+              </Link>}
                             <Link href={`${tenantBase}/contact`}
                 className="inline-flex items-center gap-2 border border-white/30 text-white font-bold px-7 py-3 text-sm uppercase tracking-wider hover:bg-white/10 transition-all">{secondaryCtaLabel}</Link>
             </div>
@@ -740,13 +741,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
           </div>
           <div className="relative flex flex-col sm:flex-row gap-3">
-            <Link href={ctaHref}
+            {showMenu && <Link href={ctaHref}
               className="inline-flex items-center justify-center gap-2 bg-white font-black px-7 py-3.5 text-base transition-all hover:opacity-90"
               style={{ color: primaryColor }}
             >
               {ctaLabel}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-            </Link>
+            </Link>}
                         <Link href={`${tenantBase}/contact`}
               className="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-7 py-3.5 text-base transition-all border border-white/30">{secondaryCtaLabel}</Link>
           </div>
@@ -805,12 +806,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
             <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
 
             <div className="flex flex-wrap gap-3">
-              <Link href={ctaHref}
+              {showMenu && <Link href={ctaHref}
                 className="inline-flex items-center gap-2 font-black px-7 py-3 text-sm uppercase tracking-widest transition-all hover:opacity-90 text-white"
                 style={{ backgroundColor: primaryColor }}
               >
                 {ctaLabel}
-              </Link>
+              </Link>}
                             <Link href={`${tenantBase}/contact`}
                 className="inline-flex items-center gap-2 border border-white/25 text-white/80 font-bold px-7 py-3 text-sm uppercase tracking-widest hover:bg-white/10 transition-all">{secondaryCtaLabel}</Link>
             </div>
@@ -848,13 +849,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
 
               <div className="flex flex-wrap gap-3">
-                <Link href={ctaHref}
+                {showMenu && <Link href={ctaHref}
                   className="inline-flex items-center gap-2 text-white font-black px-8 py-4 text-base transition-all hover:opacity-90"
                   style={{ backgroundColor: primaryColor }}
                 >
                   {ctaLabel}
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                </Link>
+                </Link>}
                                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 border-2 border-gray-200 text-gray-700 font-black px-8 py-4 text-base hover:border-gray-400 transition-all">{secondaryCtaLabel}</Link>
               </div>
@@ -905,13 +906,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
               </p>
               <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={true} />
               <div className="flex flex-wrap gap-3">
-                <Link href={ctaHref}
+                {showMenu && <Link href={ctaHref}
                   className="inline-flex items-center gap-2 bg-white font-black px-8 py-4 text-base transition-all hover:opacity-90 shadow-xl"
                   style={{ color: primaryColor }}
                 >
                   {ctaLabel}
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                </Link>
+                </Link>}
                                 <Link href={`${tenantBase}/contact`}
                   className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold px-8 py-4 text-base border border-white/30 transition-all">{secondaryCtaLabel}</Link>
               </div>
@@ -962,13 +963,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ tenant, bannerImages, 
           </span>
           <HeroCustomContent tenant={tenant} primaryColor={primaryColor} fontFamily={fontFamily} content={hc} dark={false} />
           <div className="flex flex-wrap gap-3">
-            <Link href={ctaHref}
+            {showMenu && <Link href={ctaHref}
               className="inline-flex items-center gap-2 text-white font-bold px-7 py-3.5 rounded-2xl transition-all hover:scale-[1.02] shadow-lg text-base"
               style={{ backgroundColor: primaryColor }}
             >
               {ctaLabel}
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
-            </Link>
+            </Link>}
                         <Link href={`${tenantBase}/contact`}
               className="inline-flex items-center gap-2 bg-white text-gray-700 hover:text-gray-900 font-bold px-7 py-3.5 rounded-2xl border border-gray-200 hover:border-gray-300 transition-all hover:scale-[1.02] shadow-sm text-base">{secondaryCtaLabel}</Link>
           </div>

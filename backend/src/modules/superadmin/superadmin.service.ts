@@ -4,8 +4,17 @@ import { BillingService } from '../billing/billing.service';
 import { TenantCacheService } from '../../common/cache/tenant-cache.service';
 import { NotifyNextjsService } from '../../common/notify/notify-nextjs.service';
 import { AuthService } from '../auth/auth.service';
+import { NavigationService } from '../navigation/navigation.service';
+import { TenantService } from '../tenant/tenant.service';
+import { StripeService } from '../billing/stripe.service';
 import { MENU_TEMPLATE_DATA, MENU_TEMPLATE_THEMES } from '../menu/menu-templates';
-import { TenantType, TenantStatus, UserRole } from '@prisma/client';
+import { TenantType, TenantStatus, UserRole, ServiceProfile } from '@prisma/client';
+
+function deriveServiceProfile(type: TenantType): ServiceProfile {
+  return type === TenantType.RESTAURANT || type === TenantType.CAFE
+    ? ServiceProfile.FOOD_SERVICE
+    : ServiceProfile.GENERAL_SERVICE;
+}
 import * as bcrypt from 'bcrypt';
 
 
@@ -22,6 +31,9 @@ export class SuperAdminService {
     private readonly tenantCache: TenantCacheService,
     private readonly notify: NotifyNextjsService,
     private readonly auth: AuthService,
+    private readonly navigation: NavigationService,
+    private readonly tenantService: TenantService,
+    private readonly stripe: StripeService,
   ) {}
 
   async impersonateTenant(tenantId: string, superAdmin: { id: string; email: string }) {
@@ -42,6 +54,13 @@ export class SuperAdminService {
       },
     });
     return tenants;
+  }
+
+  async changeCategory(tenantId: string, serviceProfile: ServiceProfile) {
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { serviceProfile },
+    });
   }
 
   async createTenant(dto: {
@@ -66,6 +85,7 @@ export class SuperAdminService {
         name: dto.name,
         slug: dto.slug,
         type: dto.type,
+        serviceProfile: deriveServiceProfile(dto.type),
         currency: dto.currency,
         themeSettings: theme,
         emailVerified: true, // superadmin-created tenants are pre-verified
@@ -88,6 +108,8 @@ export class SuperAdminService {
     } catch (err) {
       this.logger.error(`applyTemplate failed for tenant ${tenant.id} (${dto.type}): ${err.message}`);
     }
+
+    this.navigation.seedDefaults(tenant.id, deriveServiceProfile(dto.type)).catch(() => {});
 
     // Fire-and-forget: set trial, create Stripe customer, send registration email
     this.billing.onTenantCreated(tenant.id, dto.adminEmail, dto.name).catch(() => {});
@@ -147,9 +169,26 @@ export class SuperAdminService {
     const tenant = await this.prisma.tenant.findUnique({ where: { id } });
     if (!tenant) throw new NotFoundException('Tenant not found');
     if (tenant.slug === 'platform') throw new ConflictException('Cannot delete platform tenant');
+
+    // Cancel Stripe subscription so billing stops immediately
+    if (tenant.stripeSubscriptionId) {
+      await this.stripe.cancelSubscription(tenant.stripeSubscriptionId).catch((err) =>
+        this.logger.warn(`Failed to cancel Stripe subscription for tenant ${id}: ${err.message}`),
+      );
+    }
+
+    // Remove custom domain from Cloudflare + Azure before deleting the tenant record
+    if (tenant.customDomain) {
+      await this.tenantService.removeCustomDomain(id).catch((err) =>
+        this.logger.warn(`Failed to remove custom domain for tenant ${id}: ${err.message}`),
+      );
+    }
+
+    // Delete tenant — all child rows cascade via FK constraints
     await this.prisma.tenant.delete({ where: { id } });
-    await this.tenantCache.invalidate(tenant.slug, 'profile', 'identity', 'menu', 'gallery', 'entries', 'contact', 'pages');
-    this.notify.revalidate(tenant.slug, ['tenant', 'menu', 'gallery']);
+
+    await this.tenantCache.invalidate(tenant.slug, 'profile', 'identity', 'menu', 'gallery', 'entries', 'contact', 'pages', 'nav');
+    this.notify.revalidate(tenant.slug, ['tenant', 'menu', 'gallery', 'nav', 'pages']);
   }
 
   async resetAdminPassword(tenantId: string, newPassword: string) {
@@ -221,6 +260,7 @@ export class SuperAdminService {
     }
 
     await this.applyTemplate(tenantId, tenant.type);
+    this.navigation.seedDefaults(tenantId).catch(() => {});
   }
 
   async setTenantStatus(tenantId: string, status: TenantStatus) {

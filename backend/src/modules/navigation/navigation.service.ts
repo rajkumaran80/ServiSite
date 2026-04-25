@@ -64,6 +64,18 @@ export class NavigationService {
       orderBy: { sortOrder: 'asc' },
       include: { page: { select: { slug: true } } },
     });
+
+    // Auto-seed if this tenant has never had nav items set up
+    if (items.length === 0) {
+      await this.seedDefaults(tenantId).catch(() => {});
+      const seeded = await this.prisma.navigationItem.findMany({
+        where: { tenantId, isActive: true },
+        orderBy: { sortOrder: 'asc' },
+        include: { page: { select: { slug: true } } },
+      });
+      return this.buildTree(seeded as any[]);
+    }
+
     return this.buildTree(items as any[]);
   }
 
@@ -170,7 +182,13 @@ export class NavigationService {
     this.notify.revalidate(await this.getSlug(tenantId), ['nav']);
   }
 
-  async seedDefaults(tenantId: string): Promise<void> {
+  async seedDefaults(tenantId: string, serviceProfile?: string): Promise<void> {
+    // Resolve serviceProfile from DB if not provided
+    if (!serviceProfile) {
+      const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { serviceProfile: true } });
+      serviceProfile = tenant?.serviceProfile ?? 'GENERAL_SERVICE';
+    }
+
     const existing = await this.prisma.navigationItem.findMany({
       where: { tenantId, isSystemReserved: true },
       select: { featureKey: true },
@@ -178,8 +196,13 @@ export class NavigationService {
     const existingKeys = new Set(existing.map((e) => e.featureKey));
 
     const defaults = [
-      { featureKey: 'home', label: 'Home', sortOrder: 0 },
-      { featureKey: 'contact', label: 'Contact', sortOrder: 999 },
+      { featureKey: 'home',      label: 'Home',       sortOrder: 0 },
+      { featureKey: 'about',     label: 'About Us',   sortOrder: 1 },
+      ...(serviceProfile === 'FOOD_SERVICE'
+        ? [{ featureKey: 'food_menu', label: 'Food Menu', sortOrder: 2 }]
+        : []),
+      { featureKey: 'gallery',   label: 'Gallery',    sortOrder: 3 },
+      { featureKey: 'contact',   label: 'Contact',    sortOrder: 999 },
     ];
 
     await Promise.all(
@@ -197,6 +220,26 @@ export class NavigationService {
               isActive: true,
               openInNewTab: false,
             },
+          }),
+        ),
+    );
+
+    // Seed only the About Us page — gallery and contact are managed via their own dashboards.
+    const defaultPages = [
+      { slug: 'about', title: 'About Us' },
+    ];
+    const existingPages = await this.prisma.page.findMany({
+      where: { tenantId, slug: { in: defaultPages.map((p) => p.slug) } },
+      select: { slug: true },
+    });
+    const existingSlugs = new Set(existingPages.map((p) => p.slug));
+
+    await Promise.all(
+      defaultPages
+        .filter((p) => !existingSlugs.has(p.slug))
+        .map((p) =>
+          this.prisma.page.create({
+            data: { tenantId, slug: p.slug, title: p.title, sections: [], isPublished: true },
           }),
         ),
     );

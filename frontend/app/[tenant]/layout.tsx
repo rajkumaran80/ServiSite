@@ -38,6 +38,15 @@ async function getNavItems(slug: string) {
   }
 }
 
+function isMenuEnabled(navItems: any[]): boolean {
+  // Check if there's an active navigation item with featureKey 'food_menu'
+  return navItems.some(item => 
+    item.featureKey === 'food_menu' && 
+    item.isActive && 
+    item.linkType === 'INTERNAL_FEATURE'
+  );
+}
+
 function buildDescription(tenant: Awaited<ReturnType<typeof getTenant>>): string {
   if (!tenant) return '';
   const contact = tenant.contactInfo;
@@ -195,6 +204,7 @@ export default async function TenantLayout({
           whatsappNumber={tenant.whatsappNumber ?? null}
           businessName={tenant.name}
           primaryColor={primaryColor}
+          showMenu={tenant.serviceProfile === 'FOOD_SERVICE' && isMenuEnabled(navItems)}
         />
       </div>
     </>

@@ -244,6 +244,25 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant, navItems = [] }) => {
     return pathname.startsWith(href);
   };
 
+  // Filter navigation items based on gallery settings
+  const galleryEnabled = (tenant.themeSettings as any)?.galleryEnabled !== false;
+  const filterNavItems = (items: NavNode[]): NavNode[] => {
+    return items
+      .filter(item => {
+        // Remove gallery navigation items if gallery is disabled
+        if (item.linkType === 'INTERNAL_FEATURE' && item.featureKey === 'gallery') {
+          return galleryEnabled;
+        }
+        return true;
+      })
+      .map(item => ({
+        ...item,
+        children: filterNavItems(item.children)
+      }));
+  };
+
+  const filteredNavItems = filterNavItems(navItems);
+
   return (
     <>
       <nav
@@ -293,7 +312,7 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant, navItems = [] }) => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-1">
-              {navItems.map((item) => (
+              {filteredNavItems.map((item) => (
                 <DesktopNavItem
                   key={item.id}
                   item={item}
@@ -371,7 +390,7 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant, navItems = [] }) => {
             }}
           >
             <div className="px-4 py-3 space-y-1">
-              {navItems.map((item) => {
+              {filteredNavItems.map((item) => {
                 const href = resolveHref(item);
                 return (
                   <React.Fragment key={item.id}>

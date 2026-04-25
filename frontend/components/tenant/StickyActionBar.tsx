@@ -9,6 +9,7 @@ interface StickyActionBarProps {
   whatsappNumber: string | null;
   businessName: string;
   primaryColor: string;
+  showMenu?: boolean;
 }
 
 export default function StickyActionBar({
@@ -17,6 +18,7 @@ export default function StickyActionBar({
   whatsappNumber,
   businessName,
   primaryColor,
+  showMenu = true,
 }: StickyActionBarProps) {
   const [visible, setVisible] = useState(false);
 
@@ -38,18 +40,20 @@ export default function StickyActionBar({
     >
       <div className="flex border-t border-white/10 shadow-[0_-4px_24px_rgba(0,0,0,0.18)]" style={{ backgroundColor: primaryColor }}>
         {/* View Menu */}
-        <Link
-          href={menuHref}
-          className="flex-1 flex flex-col items-center justify-center gap-1 py-3 text-white hover:bg-white/10 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h10" />
-          </svg>
-          <span className="text-[11px] font-semibold tracking-wide">View Menu</span>
-        </Link>
-
-        {/* Divider */}
-        <div className="w-px bg-white/15 my-2" />
+        {showMenu && (
+          <>
+            <Link
+              href={menuHref}
+              className="flex-1 flex flex-col items-center justify-center gap-1 py-3 text-white hover:bg-white/10 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h10" />
+              </svg>
+              <span className="text-[11px] font-semibold tracking-wide">View Menu</span>
+            </Link>
+            <div className="w-px bg-white/15 my-2" />
+          </>
+        )}
 
         {/* Call Us */}
         {phone ? (
