@@ -411,7 +411,7 @@ export class TenantService {
   async setCustomDomain(
     tenantId: string,
     domain: string,
-  ): Promise<{ aRecords: Array<{ name: string; value: string; type: string }>; txtRecords: Array<{ name: string; value: string }>; instructions: string }> {
+  ): Promise<{ aRecords: Array<{ name: string; value: string; type: string }>; cnameRecord: { name: string; value: string; type: string }; txtRecords: Array<{ name: string; value: string }>; instructions: string }> {
     const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     const apex = normalised.replace(/^www\./, '');
 
@@ -454,31 +454,32 @@ export class TenantService {
       },
     });
 
-    // Return DNS records for external nameserver setup
+    // Return DNS records for optimal external nameserver setup
     return {
       aRecords: [
         {
           name: '@',
-          value: '104.16.0.1', // Cloudflare edge IP
+          value: '104.16.0.1', // Primary Cloudflare edge IP
           type: 'A'
         },
         {
-          name: 'www',
-          value: '104.16.1.1', // Cloudflare edge IP
+          name: '@',
+          value: '104.16.1.1', // Secondary Cloudflare edge IP (redundancy)
           type: 'A'
         }
       ],
+      cnameRecord: {
+        name: 'www',
+        value: 'app.servisite.co.uk', // Point to your app subdomain
+        type: 'CNAME'
+      },
       txtRecords: [
         {
           name: apexVerification?.ownership_verification?.name || '_cloudflare-verification',
           value: apexVerification?.ownership_verification?.value || '"verification-pending"',
-        },
-        {
-          name: wwwVerification?.ownership_verification?.name || '_cloudflare-verification.www',
-          value: wwwVerification?.ownership_verification?.value || '"verification-pending"',
         }
       ],
-      instructions: 'Add A records pointing to Cloudflare edge IPs and TXT verification records at your DNS provider (IONOS)'
+      instructions: 'Add 2 A records for root domain, CNAME for www, and TXT verification record at your DNS provider (IONOS)'
     };
   }
 
