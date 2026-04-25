@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { CloudflarePollingService } from './modules/cloudflare/cloudflare-polling.service';
 
 // BigInt is not natively JSON-serializable; convert to string to avoid runtime errors.
 (BigInt.prototype as any).toJSON = function () {
@@ -105,6 +106,14 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup('docs', app, document);
+  }
+
+  // Start Cloudflare polling service
+  const cloudflarePollingService = app.get(CloudflarePollingService);
+  if (configService.get('CLOUDFLARE_POLLING_ENABLED', 'true') === 'true') {
+    cloudflarePollingService.startPolling().catch(error => {
+      console.error('Failed to start Cloudflare polling:', error);
+    });
   }
 
   await app.listen(port);

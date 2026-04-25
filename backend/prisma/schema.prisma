@@ -104,13 +104,68 @@ model AppConfig {
 // IP-based registration rate limiting
 model RegistrationAttempt {
   id        String   @id @default(cuid())
-  ip        String
   email     String
+  ip        String
+  userAgent String?
   createdAt DateTime @default(now())
 
-  @@index([ip])
-  @@index([createdAt])
   @@map("registration_attempts")
+}
+
+model DnsRecord {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  hostname             String
+  recordType           String    // A, AAAA, CNAME, TXT, MX, etc.
+  name                 String
+  value                String
+  ttl                  Int       @default(300)
+  priority             Int?      // For MX records
+  status               String    @default("pending") // pending, active, error, deleted
+  provider             String    @default("cloudflare") // cloudflare, route53, etc.
+  providerRecordId     String?   // ID from external DNS provider
+  isOwnershipVerification Boolean  @default(false)
+  isSSLValidation      Boolean   @default(false)
+  isSystemManaged      Boolean   @default(false) // Managed by our system
+  verifiedAt           DateTime?
+  expiresAt            DateTime?
+  lastSyncAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  dnsZoneId            String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dnsZone DnsZone? @relation(fields: [dnsZoneId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([hostname])
+  @@index([status])
+  @@index([provider])
+  @@index([dnsZoneId])
+  @@map("dns_records")
+}
+
+model DnsZone {
+  id                 String    @id @default(cuid())
+  tenantId           String    @unique
+  zoneName           String
+  provider           String    @default("cloudflare")
+  providerZoneId     String?
+  status             String    @default("active")
+  nameservers        String[]
+  originUrl          String?   // Where traffic should be routed
+  customDomainStatus String    @default("pending")
+  sslStatus          String    @default("pending")
+  ownershipStatus    String    @default("pending")
+  lastVerifiedAt     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dnsRecords DnsRecord[]
+
+  @@index([zoneName])
+  @@map("dns_zones")
 }
 
 model Tenant {
@@ -131,7 +186,7 @@ model Tenant {
   plan           TenantPlan   @default(BASIC)
   // Custom domain support
   customDomain           String?   @unique
-  customDomainStatus     String?
+  customDomainStatus     String?   // pending, active, error, deleted
   customDomainToken      String?   // Cloudflare custom hostname ID for www
   customDomainApexToken  String?   // Cloudflare custom hostname ID for apex (root domain)
   customDomainZoneId     String?   // Cloudflare DNS zone ID for customer domain
@@ -139,6 +194,12 @@ model Tenant {
   customDomainTxtValue   String?   // TXT record value for ownership verification (legacy)
   customDomainVerifiedAt DateTime?
   customDomainNsRecords  String[]  // Nameservers customer must set at their registrar
+  // Cloudflare for SaaS specific fields
+  sslValidationStatus    String?   // pending, active, error
+  ownershipVerificationStatus String? // pending, verified, failed
+  sslValidationRecords   Json?     // Store SSL validation records
+  ownershipVerificationRecords Json? // Store ownership verification records
+  lastCloudflareSyncAt   DateTime? // Last time we synced with Cloudflare API
   // Email verification — site is only public after admin verifies email
   emailVerified Boolean @default(false)
   // Billing / subscription
@@ -181,6 +242,8 @@ model Tenant {
   halfHalfConfigs HalfHalfConfig[]
   billingEvents   BillingEvent[]
   auditLogs       AuditLog[]
+  dnsZone         DnsZone?
+  dnsRecords      DnsRecord[]
 
   @@map("tenants")
 }
