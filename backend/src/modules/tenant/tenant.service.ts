@@ -428,16 +428,35 @@ export class TenantService {
     const wwwHostname = `www.${apex}`;
     
     // Create Cloudflare custom hostnames for SaaS functionality
-    const [{ id: wwwId }, { id: apexId }] = await Promise.all([
-      this.cloudflare.addCustomHostname(wwwHostname),
-      this.cloudflare.addCustomHostname(apex),
-    ]);
+    // Add error handling for missing Cloudflare configuration
+    let wwwId: string, apexId: string;
+    try {
+      const results = await Promise.all([
+        this.cloudflare.addCustomHostname(wwwHostname),
+        this.cloudflare.addCustomHostname(apex),
+      ]);
+      wwwId = results[0].id;
+      apexId = results[1].id;
+    } catch (error) {
+      this.logger.error('Failed to create Cloudflare custom hostnames:', error.message);
+      throw new BadRequestException('Cloudflare configuration missing or invalid. Please check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID environment variables.');
+    }
 
     // Get verification records from Cloudflare
-    const [wwwVerification, apexVerification] = await Promise.all([
-      this.cloudflare.getCustomHostname(wwwHostname),
-      this.cloudflare.getCustomHostname(apex),
-    ]);
+    let wwwVerification, apexVerification;
+    try {
+      const results = await Promise.all([
+        this.cloudflare.getCustomHostname(wwwHostname),
+        this.cloudflare.getCustomHostname(apex),
+      ]);
+      wwwVerification = results[0];
+      apexVerification = results[1];
+    } catch (error) {
+      this.logger.error('Failed to get Cloudflare verification records:', error.message);
+      // Continue with null values - will use fallbacks
+      wwwVerification = null;
+      apexVerification = null;
+    }
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
@@ -446,7 +465,7 @@ export class TenantService {
         customDomainStatus: 'pending',
         customDomainToken: wwwId,
         customDomainApexToken: apexId,
-        customDomainZoneId: this.cloudflare['zoneId'],
+        customDomainZoneId: (this.cloudflare as any).zoneId || null,
         customDomainNsRecords: [], // Not changing nameservers
         customDomainVerifiedAt: null,
         customDomainTxtName: apexVerification?.ownership_verification?.name || null,
