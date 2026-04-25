@@ -78,7 +78,7 @@ function HeroSection({ content, primaryColor }: { content: HeroContent; primaryC
   );
 }
 
-function TextSection({ content }: { content: TextContent }) {
+function TextSection({ content, headingColor, bodyColor }: { content: TextContent; headingColor?: string; bodyColor?: string }) {
   const alignClass =
     content.align === 'center'
       ? 'text-center'
@@ -89,9 +89,9 @@ function TextSection({ content }: { content: TextContent }) {
   return (
     <section className={`py-16 px-6 max-w-3xl mx-auto ${alignClass}`}>
       {content.heading && (
-        <h2 className="text-3xl font-bold text-gray-900 mb-6">{content.heading}</h2>
+        <h2 className="text-3xl font-bold mb-6" style={{ color: headingColor || '#111827' }}>{content.heading}</h2>
       )}
-      <div className="text-gray-600 leading-relaxed text-lg whitespace-pre-line">
+      <div className="leading-relaxed text-lg whitespace-pre-line" style={{ color: bodyColor || '#4B5563' }}>
         {content.body.split('\n').map((line, i) => (
           <p key={i} className={line === '' ? 'mt-4' : ''}>
             {renderText(line)}
@@ -102,7 +102,7 @@ function TextSection({ content }: { content: TextContent }) {
   );
 }
 
-function ImageTextSection({ content, primaryColor }: { content: ImageTextContent; primaryColor?: string }) {
+function ImageTextSection({ content, primaryColor, headingColor, bodyColor }: { content: ImageTextContent; primaryColor?: string; headingColor?: string; bodyColor?: string }) {
   const isRight = content.imagePosition === 'right';
   return (
     <section className="py-16 px-6">
@@ -118,9 +118,9 @@ function ImageTextSection({ content, primaryColor }: { content: ImageTextContent
         )}
         <div className="flex-1">
           {content.heading && (
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">{content.heading}</h2>
+            <h2 className="text-3xl font-bold mb-4" style={{ color: headingColor || '#111827' }}>{content.heading}</h2>
           )}
-          <p className="text-gray-600 leading-relaxed text-lg whitespace-pre-line">{content.body}</p>
+          <p className="leading-relaxed text-lg whitespace-pre-line" style={{ color: bodyColor || '#4B5563' }}>{content.body}</p>
           {content.buttonLabel && content.buttonHref && (
             <a
               href={content.buttonHref}
@@ -136,7 +136,7 @@ function ImageTextSection({ content, primaryColor }: { content: ImageTextContent
   );
 }
 
-function FeaturesSection({ content, primaryColor }: { content: FeaturesContent; primaryColor?: string }) {
+function FeaturesSection({ content, primaryColor, headingColor, bodyColor, isDark = false }: { content: FeaturesContent; primaryColor?: string; headingColor?: string; bodyColor?: string; isDark?: boolean }) {
   const cols = content.columns ?? 3;
   const gridClass =
     cols === 2
@@ -144,22 +144,23 @@ function FeaturesSection({ content, primaryColor }: { content: FeaturesContent; 
       : cols === 4
       ? 'md:grid-cols-4'
       : 'md:grid-cols-3';
+  const cardBg = isDark ? 'rgba(255,255,255,0.08)' : '#ffffff';
 
   return (
-    <section className="py-16 px-6 bg-gray-50">
+    <section className="py-16 px-6">
       <div className="max-w-6xl mx-auto">
         {content.heading && (
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">{content.heading}</h2>
-            {content.subheading && <p className="text-gray-500 text-lg">{content.subheading}</p>}
+            <h2 className="text-3xl font-bold mb-3" style={{ color: headingColor || '#111827' }}>{content.heading}</h2>
+            {content.subheading && <p className="text-lg" style={{ color: bodyColor || '#6B7280' }}>{content.subheading}</p>}
           </div>
         )}
         <div className={`grid grid-cols-1 ${gridClass} gap-8`}>
           {content.features.map((feature, i) => (
-            <div key={i} className="text-center p-6 bg-white rounded-2xl shadow-sm">
+            <div key={i} className="text-center p-6 rounded-2xl shadow-sm" style={{ backgroundColor: cardBg }}>
               {feature.icon && <div className="text-4xl mb-4">{feature.icon}</div>}
-              <h3 className="text-xl font-bold text-gray-900 mb-2">{feature.title}</h3>
-              <p className="text-gray-500 leading-relaxed">{feature.description}</p>
+              <h3 className="text-xl font-bold mb-2" style={{ color: headingColor || '#111827' }}>{feature.title}</h3>
+              <p className="leading-relaxed" style={{ color: bodyColor || '#6B7280' }}>{feature.description}</p>
             </div>
           ))}
         </div>
@@ -202,14 +203,14 @@ function CtaSection({ content, primaryColor }: { content: CtaContent; primaryCol
   );
 }
 
-function ContactInfoSection({ content }: { content: ContactInfoContent }) {
+function ContactInfoSection({ content, headingColor, bodyColor }: { content: ContactInfoContent; headingColor?: string; bodyColor?: string }) {
   return (
-    <section className="py-16 px-6 bg-gray-50">
+    <section className="py-16 px-6">
       <div className="max-w-4xl mx-auto">
         {content.heading && (
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">{content.heading}</h2>
+          <h2 className="text-3xl font-bold mb-8 text-center" style={{ color: headingColor || '#111827' }}>{content.heading}</h2>
         )}
-        <p className="text-gray-500 text-center">Contact information will be displayed here from your contact settings.</p>
+        <p className="text-center" style={{ color: bodyColor || '#6B7280' }}>Contact information will be displayed here from your contact settings.</p>
       </div>
     </section>
   );
@@ -223,17 +224,20 @@ function DividerSection() {
   );
 }
 
-function DataTableSection({ content, primaryColor }: { content: DataTableContent; primaryColor?: string }) {
+function DataTableSection({ content, primaryColor, headingColor, bodyColor, isDark = false }: { content: DataTableContent; primaryColor?: string; headingColor?: string; bodyColor?: string; isDark?: boolean }) {
   const hasHeaders = content.headers?.some((h) => h.trim());
   const rows = content.rows ?? [];
   const color = primaryColor || '#3B82F6';
+  const cellBg = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff';
+  const cellAltBg = isDark ? 'rgba(255,255,255,0.10)' : '#f9fafb';
+  const cellColor = isDark ? 'rgba(255,255,255,0.85)' : '#374151';
   return (
     <section className="py-16 px-6">
       <div className="max-w-5xl mx-auto">
         {content.heading && (
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">{content.heading}</h2>
-            {content.subheading && <p className="text-gray-500">{content.subheading}</p>}
+            <h2 className="text-3xl font-bold mb-2" style={{ color: headingColor || '#111827' }}>{content.heading}</h2>
+            {content.subheading && <p style={{ color: bodyColor || '#6B7280' }}>{content.subheading}</p>}
           </div>
         )}
         <div className={`overflow-x-auto rounded-2xl ${content.showBorder ? 'border border-gray-200' : 'shadow-sm'}`}>
@@ -251,12 +255,9 @@ function DataTableSection({ content, primaryColor }: { content: DataTableContent
             )}
             <tbody>
               {rows.map((row, ri) => (
-                <tr
-                  key={ri}
-                  className={content.striped && ri % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
-                >
+                <tr key={ri} style={{ backgroundColor: content.striped && ri % 2 === 1 ? cellAltBg : cellBg }}>
                   {row.map((cell, ci) => (
-                    <td key={ci} className="px-5 py-3.5 text-gray-700 border-b border-gray-100 last-of-type:border-b-0">
+                    <td key={ci} className="px-5 py-3.5 border-b border-gray-100 last-of-type:border-b-0" style={{ color: cellColor }}>
                       {cell}
                     </td>
                   ))}
@@ -264,7 +265,7 @@ function DataTableSection({ content, primaryColor }: { content: DataTableContent
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={Math.max(content.headers?.length ?? 1, 1)} className="px-5 py-8 text-center text-gray-400">
+                  <td colSpan={Math.max(content.headers?.length ?? 1, 1)} className="px-5 py-8 text-center" style={{ color: bodyColor || '#9CA3AF' }}>
                     No data yet
                   </td>
                 </tr>
@@ -1141,51 +1142,57 @@ function ImageOnlySection({ content, primaryColor }: { content: ImageOnlyContent
 }
 
 export function SectionRenderer({ section, primaryColor, themeSettings }: Props) {
-  // Apply section background mode for home page sections only
-  const getSectionStyle = () => {
-    if (!themeSettings?.sectionBgMode) return {}; // Don't apply to other pages
-    
+  const getSectionInfo = (): { style: React.CSSProperties; isDark: boolean } => {
+    if (!themeSettings?.sectionBgMode) return { style: {}, isDark: false };
+
     const sectionBgMode: SectionBgMode = themeSettings.sectionBgMode;
     const colorGroup = getColorGroup(primaryColor || '#3B82F6');
     const colorGroupId = colorGroup.id as keyof typeof SECTION_BG_PALETTES;
     const palette = SECTION_BG_PALETTES[colorGroupId] || SECTION_BG_PALETTES.modern;
-    
+
     const entries = palette[sectionBgMode];
+    if (!entries || entries.length === 0) return { style: {}, isDark: false };
     const sectionIndex = section.order || 0;
     const entry = entries[sectionIndex % entries.length];
-    
-    return {
-      backgroundColor: entry.bg,
-    };
+    if (!entry) return { style: {}, isDark: false };
+
+    return { style: { backgroundColor: entry.bg }, isDark: entry.dark };
   };
 
-  const sectionStyle = getSectionStyle();
-  
+  const { style: sectionStyle, isDark } = getSectionInfo();
+
+  // Resolve text colors from color group for current light/dark context
+  const cg = getColorGroup(primaryColor || '#3B82F6');
+  const headingColor = isDark
+    ? cg.headingOnDark
+    : (cg.headingOnWhite === 'var(--primary-hex)' ? (primaryColor || '#111827') : cg.headingOnWhite);
+  const bodyColor = isDark ? cg.bodyOnDark : cg.bodyOnWhite;
+
   let content;
   switch (section.type) {
     case 'hero':
       content = <HeroSection content={section.content as HeroContent} primaryColor={primaryColor} />;
       break;
     case 'text':
-      content = <TextSection content={section.content as TextContent} />;
+      content = <TextSection content={section.content as TextContent} headingColor={headingColor} bodyColor={bodyColor} />;
       break;
     case 'image_text':
-      content = <ImageTextSection content={section.content as ImageTextContent} primaryColor={primaryColor} />;
+      content = <ImageTextSection content={section.content as ImageTextContent} primaryColor={primaryColor} headingColor={headingColor} bodyColor={bodyColor} />;
       break;
     case 'features':
-      content = <FeaturesSection content={section.content as FeaturesContent} primaryColor={primaryColor} />;
+      content = <FeaturesSection content={section.content as FeaturesContent} primaryColor={primaryColor} headingColor={headingColor} bodyColor={bodyColor} isDark={isDark} />;
       break;
     case 'cta':
       content = <CtaSection content={section.content as CtaContent} primaryColor={primaryColor} />;
       break;
     case 'contact_info':
-      content = <ContactInfoSection content={section.content as ContactInfoContent} />;
+      content = <ContactInfoSection content={section.content as ContactInfoContent} headingColor={headingColor} bodyColor={bodyColor} />;
       break;
     case 'divider':
       content = <DividerSection />;
       break;
     case 'data_table':
-      content = <DataTableSection content={section.content as DataTableContent} primaryColor={primaryColor} />;
+      content = <DataTableSection content={section.content as DataTableContent} primaryColor={primaryColor} headingColor={headingColor} bodyColor={bodyColor} isDark={isDark} />;
       break;
     case 'awards':
       content = <AwardsSection content={section.content as AwardsContent} primaryColor={primaryColor} />;
@@ -1206,7 +1213,6 @@ export function SectionRenderer({ section, primaryColor, themeSettings }: Props)
       content = null;
   }
 
-  // Wrap section with background style if needed
   if (Object.keys(sectionStyle).length > 0) {
     return <div style={sectionStyle}>{content}</div>;
   }
