@@ -1256,7 +1256,7 @@ export default function MenuPage() {
                       <button
                         key={group.id}
                         onClick={() => handleTabChange(group.id)}
-                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-all ${
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm font-bold transition-all ${
                           isActive ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                         style={{ borderRadius: groupTabRadius, ...(isActive ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}) }}
@@ -1269,7 +1269,7 @@ export default function MenuPage() {
                   {menu.uncategorized.length > 0 && (
                     <button
                       onClick={() => handleTabChange('uncategorized')}
-                      className={`flex-shrink-0 px-4 py-2 text-sm font-medium transition-all ${
+                      className={`flex-shrink-0 px-4 py-2 text-sm font-bold transition-all ${
                         activeTab === 'uncategorized' ? 'text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                       style={{ borderRadius: groupTabRadius, ...(activeTab === 'uncategorized' ? { backgroundColor: primaryColor, boxShadow: `0 2px 8px ${primaryColor}55` } : {}) }}

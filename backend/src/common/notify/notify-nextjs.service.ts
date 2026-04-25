@@ -9,7 +9,8 @@ export type CacheTag =
   | 'gallery'
   | 'entries'
   | 'pages'
-  | 'nav';
+  | 'nav'
+  | 'home-sections';
 
 // Tenant pages that Cloudflare may have cached
 const TENANT_URL_PATTERNS = [

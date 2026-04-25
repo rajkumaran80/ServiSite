@@ -387,7 +387,7 @@ export class TenantService {
     });
 
     // Revalidate tenant pages to reflect changes
-    this.notify.revalidate(tenant.slug, ['tenant']);
+    this.notify.revalidate(tenant.slug, ['tenant', 'home-sections']);
 
     return (updated.themeSettings as any).homeSections || [];
   }
