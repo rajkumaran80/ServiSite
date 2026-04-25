@@ -669,8 +669,13 @@ function renderSourceBadge(source: string) {
   }
 }
 
-function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdProp, socialLinks, sectionBg }: { content: GoogleReviewsContent; primaryColor?: string; googlePlaceId?: string; socialLinks?: any; sectionBg?: string }) {
+function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdProp, socialLinks, sectionBg, isDark = false, headingColor, bodyColor }: { content: GoogleReviewsContent; primaryColor?: string; googlePlaceId?: string; socialLinks?: any; sectionBg?: string; isDark?: boolean; headingColor?: string; bodyColor?: string }) {
   const bgColor = sectionBg || content.backgroundColor || '#f5f5f4';
+  const cardBg = isDark ? 'rgba(255,255,255,0.10)' : '#ffffff';
+  const cardBorderClass = isDark ? 'border-white/10' : 'border-gray-100';
+  const nameColor = isDark ? '#ffffff' : '#111827';
+  const reviewTextColor = isDark ? 'rgba(255,255,255,0.80)' : '#4B5563';
+  const timeColor = isDark ? 'rgba(255,255,255,0.50)' : '#9CA3AF';
   const [googleReviews, setGoogleReviews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -750,11 +755,11 @@ function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdPro
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-10">
-          <h2 className="font-caviar font-bold text-2xl lg:text-3xl tracking-wide mb-3" style={{ fontFamily: 'var(--heading-font, Georgia, serif)', color: primaryColor }}>
+          <h2 className="font-caviar font-bold text-2xl lg:text-3xl tracking-wide mb-3" style={{ fontFamily: 'var(--heading-font, Georgia, serif)', color: headingColor || primaryColor }}>
             {content.heading || 'What Our Customers Say'}
           </h2>
           {content.subheading && (
-            <p className="text-gray-600 max-w-lg mx-auto">{content.subheading}</p>
+            <p className="max-w-lg mx-auto" style={{ color: bodyColor || '#4B5563' }}>{content.subheading}</p>
           )}
         </div>
 
@@ -797,12 +802,13 @@ function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdPro
                 reviews.map((review, index) => (
                   <div
                     key={index}
-                    className={`bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-shadow border border-gray-100 ${review.reviewUrl ? 'cursor-pointer' : ''}`}
+                    className={`rounded-xl p-6 shadow-sm hover:shadow-lg transition-shadow border ${cardBorderClass} ${review.reviewUrl ? 'cursor-pointer' : ''}`}
+                    style={{ backgroundColor: cardBg }}
                     onClick={() => review.reviewUrl && window.open(review.reviewUrl, '_blank')}
                   >
                     <div className="flex items-start gap-4">
                       {/* Profile Photo */}
-                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-gray-100">
+                      <div className={`w-12 h-12 rounded-full overflow-hidden flex-shrink-0 ring-2 ${isDark ? 'ring-white/20' : 'ring-gray-100'}`}>
                         <img
                           src={review.profilePhotoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.authorName)}&background=6366f1&color=fff&size=48`}
                           alt={review.authorName}
@@ -818,20 +824,20 @@ function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdPro
                       <div className="flex-1 min-w-0">
                         {/* Author Name and Rating */}
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-semibold text-gray-900 truncate">{review.authorName}</h3>
+                          <h3 className="font-semibold truncate" style={{ color: nameColor }}>{review.authorName}</h3>
                           <div className="flex-shrink-0">
                             {renderStars(review.rating)}
                           </div>
                         </div>
 
                         {/* Review Text */}
-                        <p className="text-gray-600 text-sm leading-relaxed line-clamp-3">
+                        <p className="text-sm leading-relaxed line-clamp-3" style={{ color: reviewTextColor }}>
                           {review.text}
                         </p>
 
                         {/* Time + Source */}
                         <div className="flex items-center justify-between mt-2">
-                          <p className="text-xs text-gray-400">{review.time}</p>
+                          <p className="text-xs" style={{ color: timeColor }}>{review.time}</p>
                           {renderSourceBadge(review.source)}
                         </div>
                       </div>
@@ -1198,7 +1204,7 @@ export function SectionRenderer({ section, primaryColor, themeSettings }: Props)
       content = <SocialMediaSection content={section.content as SocialMediaContent} primaryColor={primaryColor} sectionBg={sectionStyle.backgroundColor as string | undefined} />;
       break;
     case 'google_reviews':
-      content = <GoogleReviewsSection content={section.content as GoogleReviewsContent} primaryColor={primaryColor} googlePlaceId={themeSettings?.googlePlaceId} socialLinks={themeSettings?.socialLinks} sectionBg={sectionStyle.backgroundColor as string | undefined} />;
+      content = <GoogleReviewsSection content={section.content as GoogleReviewsContent} primaryColor={primaryColor} googlePlaceId={themeSettings?.googlePlaceId} socialLinks={themeSettings?.socialLinks} sectionBg={sectionStyle.backgroundColor as string | undefined} isDark={isDark} headingColor={headingColor} bodyColor={bodyColor} />;
       break;
     case 'review_buttons':
       content = <ReviewButtonsSection content={section.content as ReviewButtonsContent} primaryColor={primaryColor} googlePlaceId={themeSettings?.googlePlaceId} sectionBg={sectionStyle.backgroundColor as string | undefined} />;
