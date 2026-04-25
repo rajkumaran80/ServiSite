@@ -212,6 +212,11 @@ export const Navbar: React.FC<NavbarProps> = ({ tenant, navItems = [] }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
+  // Debug navigation items
+  console.log(`[Navbar] Received navItems:`, navItems);
+  console.log(`[Navbar] NavItems count:`, navItems.length);
+  console.log(`[Navbar] Tenant:`, tenant?.slug || 'unknown');
+
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 60);
     window.addEventListener('scroll', onScroll, { passive: true });
