@@ -150,7 +150,8 @@ export default async function TenantHomePage({ params }: { params: Promise<{ ten
 // Google reviews take priority; fall back to manually added entries
   const reviewEntries = (googleReviews.length > 0 ? googleReviews : manualReviewEntries).slice(0, 4);
   const reviewsSource: 'google' | 'manual' = googleReviews.length > 0 ? 'google' : 'manual';
-  const showReviewsSection = reviewEntries.length > 0 && theme.showReviews !== false;
+  // Hide legacy auto-reviews when custom homeSections are set — user controls the page layout via CMS
+  const showReviewsSection = reviewEntries.length > 0 && theme.showReviews !== false && homeSections.length === 0;
 
   // Banner images: prefer themeSettings.bannerImages array, fall back to single banner field
   const bannerImages: string[] =
