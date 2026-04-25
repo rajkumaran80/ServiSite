@@ -305,9 +305,8 @@ function AwardsSection({ content, primaryColor }: { content: AwardsContent; prim
   );
 }
 
-function SocialMediaSection({ content, primaryColor }: { content: SocialMediaContent; primaryColor?: string }) {
-  const defaultBg = '#f5f5f4'; // sage-50 equivalent
-  const bgColor = content.backgroundColor || defaultBg;
+function SocialMediaSection({ content, primaryColor, sectionBg }: { content: SocialMediaContent; primaryColor?: string; sectionBg?: string }) {
+  const bgColor = sectionBg || content.backgroundColor || '#f5f5f4';
   const [livePosts, setLivePosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -670,9 +669,8 @@ function renderSourceBadge(source: string) {
   }
 }
 
-function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdProp, socialLinks }: { content: GoogleReviewsContent; primaryColor?: string; googlePlaceId?: string; socialLinks?: any }) {
-  const defaultBg = '#f5f5f4'; // sage-50 equivalent
-  const bgColor = content.backgroundColor || defaultBg;
+function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdProp, socialLinks, sectionBg }: { content: GoogleReviewsContent; primaryColor?: string; googlePlaceId?: string; socialLinks?: any; sectionBg?: string }) {
+  const bgColor = sectionBg || content.backgroundColor || '#f5f5f4';
   const [googleReviews, setGoogleReviews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -922,9 +920,8 @@ function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdPro
   );
 }
 
-function ReviewButtonsSection({ content, primaryColor, googlePlaceId: placeIdProp }: { content: ReviewButtonsContent; primaryColor?: string; googlePlaceId?: string }) {
-  const defaultBg = '#f5f5f4'; // sage-50 equivalent
-  const bgColor = content.backgroundColor || defaultBg;
+function ReviewButtonsSection({ content, primaryColor, googlePlaceId: placeIdProp, sectionBg }: { content: ReviewButtonsContent; primaryColor?: string; googlePlaceId?: string; sectionBg?: string }) {
+  const bgColor = sectionBg || content.backgroundColor || '#f5f5f4';
   const columns = content.columns || 3;
   const buttonStyle = content.buttonStyle || 'default';
   const showIcons = content.showIcons !== false;
@@ -1198,13 +1195,13 @@ export function SectionRenderer({ section, primaryColor, themeSettings }: Props)
       content = <AwardsSection content={section.content as AwardsContent} primaryColor={primaryColor} />;
       break;
     case 'social_media':
-      content = <SocialMediaSection content={section.content as SocialMediaContent} primaryColor={primaryColor} />;
+      content = <SocialMediaSection content={section.content as SocialMediaContent} primaryColor={primaryColor} sectionBg={sectionStyle.backgroundColor as string | undefined} />;
       break;
     case 'google_reviews':
-      content = <GoogleReviewsSection content={section.content as GoogleReviewsContent} primaryColor={primaryColor} googlePlaceId={themeSettings?.googlePlaceId} socialLinks={themeSettings?.socialLinks} />;
+      content = <GoogleReviewsSection content={section.content as GoogleReviewsContent} primaryColor={primaryColor} googlePlaceId={themeSettings?.googlePlaceId} socialLinks={themeSettings?.socialLinks} sectionBg={sectionStyle.backgroundColor as string | undefined} />;
       break;
     case 'review_buttons':
-      content = <ReviewButtonsSection content={section.content as ReviewButtonsContent} primaryColor={primaryColor} googlePlaceId={themeSettings?.googlePlaceId} />;
+      content = <ReviewButtonsSection content={section.content as ReviewButtonsContent} primaryColor={primaryColor} googlePlaceId={themeSettings?.googlePlaceId} sectionBg={sectionStyle.backgroundColor as string | undefined} />;
       break;
     case 'image_only':
       content = <ImageOnlySection content={section.content as ImageOnlyContent} primaryColor={primaryColor} />;
