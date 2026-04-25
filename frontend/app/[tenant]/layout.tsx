@@ -26,14 +26,28 @@ async function getTenant(slug: string) {
 
 async function getNavItems(slug: string) {
   try {
+    console.log(`[Layout] Fetching navigation for tenant: ${slug}`);
+    console.log(`[Layout] API URL: ${API_URL}/navigation`);
+    
     const res = await fetch(`${API_URL}/navigation`, {
       next: { tags: [`tenant:${slug}:nav`], revalidate: 60 },
       headers: { 'X-Tenant-ID': slug },
     });
-    if (!res.ok) return [];
+    
+    console.log(`[Layout] Navigation response status: ${res.status}`);
+    
+    if (!res.ok) {
+      console.log(`[Layout] Navigation fetch failed with status: ${res.status}`);
+      return [];
+    }
+    
     const data = await res.json();
+    console.log(`[Layout] Navigation response data:`, data);
+    console.log(`[Layout] Navigation items count:`, data.data?.length || 0);
+    
     return data.data || [];
-  } catch {
+  } catch (error) {
+    console.log(`[Layout] Navigation fetch error:`, error);
     return [];
   }
 }

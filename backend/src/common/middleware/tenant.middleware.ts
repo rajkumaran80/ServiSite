@@ -52,6 +52,7 @@ export class TenantMiddleware implements NestMiddleware {
     const tenantHeader = req.headers['x-tenant-id'] as string;
     if (tenantHeader) {
       slug = tenantHeader;
+      console.log(`[TenantMiddleware] Using X-Tenant-ID header: ${slug}`);
     } else {
       const hostWithoutPort = forwardedHost.split(':')[0];
       const domainWithoutPort = appDomain.split(':')[0];
@@ -76,28 +77,36 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     if (!slug) {
+      console.log(`[TenantMiddleware] No slug resolved, skipping tenant context`);
       return next();
     }
+
+    console.log(`[TenantMiddleware] Resolved slug: ${slug}`);
 
     // Fetch tenant identity from Redis or DB
     const cached = await this.tenantCache.get<TenantRequest['tenant']>(slug, 'identity');
     if (cached) {
+      console.log(`[TenantMiddleware] Found tenant in cache:`, cached);
       req.tenant = cached;
       return next();
     }
 
+    console.log(`[TenantMiddleware] Looking up tenant in database with slug: ${slug}`);
     const tenant = await this.prisma.tenant.findUnique({
       where: { slug },
       select: { id: true, slug: true, name: true, type: true, status: true },
     });
 
     if (!tenant) {
+      console.log(`[TenantMiddleware] Tenant not found in database: ${slug}`);
       if (resolvedByCustomDomain) {
         // Stale cache entry — clear it and continue without tenant
         return next();
       }
       throw new NotFoundException(`Tenant '${slug}' not found`);
     }
+
+    console.log(`[TenantMiddleware] Found tenant in database:`, tenant);
 
     // Block suspended tenants from serving public pages.
     // Allow billing endpoints so they can still pay to reactivate.
