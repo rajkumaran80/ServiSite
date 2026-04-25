@@ -65,8 +65,15 @@ export class NavigationService {
       include: { page: { select: { slug: true } } },
     });
 
-    // Auto-seed if this tenant has never had nav items set up
-    if (items.length === 0) {
+    // Auto-seed if defaults are missing. The migration only seeded "Home" for
+    // pre-existing tenants, so check that all required system items are present
+    // rather than just checking if items.length === 0.
+    const systemKeys = new Set(
+      items.filter((i) => (i as any).isSystemReserved).map((i) => (i as any).featureKey).filter(Boolean),
+    );
+    const missingDefaults = ['home', 'about', 'gallery', 'contact'].some((k) => !systemKeys.has(k));
+
+    if (missingDefaults) {
       await this.seedDefaults(tenantId).catch(() => {});
       const seeded = await this.prisma.navigationItem.findMany({
         where: { tenantId, isActive: true },
