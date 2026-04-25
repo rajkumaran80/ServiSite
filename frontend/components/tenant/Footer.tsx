@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Tenant } from '../../types/tenant.types';
+import LiveStatusBadge from './LiveStatusBadge';
 
 interface FooterProps {
   tenant: Tenant;
@@ -61,52 +62,6 @@ function groupOpeningHours(raw: Record<string, any>): Array<{ label: string; hou
   });
 }
 
-function getLiveStatus(openingHours: Record<string, any>, tenantTimezone: string): { open: boolean; label: string } | null {
-  if (!openingHours || Object.keys(openingHours).length === 0) return null;
-  
-  // Get current time in tenant's timezone
-  const now = new Date();
-  const options: Intl.DateTimeFormatOptions = {
-    timeZone: tenantTimezone,
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    weekday: 'long',
-  };
-  const formatter = new Intl.DateTimeFormat('en-US', options);
-  const parts = formatter.formatToParts(now);
-  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
-  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
-  const weekday = parts.find(p => p.type === 'weekday')?.value?.toLowerCase() || '';
-  
-  // Map weekday name to our format
-  const dayMap: Record<string, number> = {
-    'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
-    'friday': 4, 'saturday': 5, 'sunday': 6
-  };
-  const dayIndex = dayMap[weekday] ?? 0;
-  const dayName = DAYS[dayIndex];
-  
-  const raw = openingHours[dayName];
-  if (!raw) return null;
-  let entry: HoursEntry;
-  if (typeof raw === 'object' && 'open' in raw) entry = raw as HoursEntry;
-  else if (typeof raw === 'string') {
-    if (raw.toLowerCase() === 'closed') return { open: false, label: 'Closed today' };
-    entry = { open: raw, close: '', closed: false };
-  } else return null;
-  if (entry.closed) return { open: false, label: 'Closed today' };
-  if (!entry.open) return null;
-  const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return isNaN(h) ? -1 : h * 60 + (m || 0); };
-  const cur = hour * 60 + minute;
-  const openMins = toMins(entry.open);
-  const closeMins = entry.close ? toMins(entry.close) : -1;
-  if (openMins < 0) return null;
-  if (cur < openMins) return { open: false, label: `Opens ${fmt24(entry.open)}` };
-  if (closeMins > 0 && cur >= closeMins) return { open: false, label: `Closed · Opens tomorrow` };
-  if (closeMins > 0) return { open: true, label: `Open · Closes ${fmt24(entry.close)}` };
-  return { open: true, label: 'Open now' };
-}
 
 const SOCIAL_ICONS: Record<string, React.ReactNode> = {
   instagram: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>,
@@ -136,7 +91,6 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
   const openingHours = (contact as any)?.openingHours || {};
   const hoursGroups = groupOpeningHours(openingHours);
   const tenantTimezone = tenant.timezone || 'UTC';
-  const liveStatus = getLiveStatus(openingHours, tenantTimezone);
 
   const footerTagline: string = (tenant.themeSettings as any)?.footerTagline || '';
   const footerSecondary: string = (tenant.themeSettings as any)?.footerSecondary || '';
@@ -169,19 +123,19 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
                   {phone && (
                     <a href={`tel:${phone}`} className="flex items-center justify-center md:justify-start gap-3 group">
                       <span className="text-base w-5 flex-shrink-0">📞</span>
-                      <p className="text-white/80 group-hover:text-white transition-colors">{phone}</p>
+                      <p className="text-white/90 font-semibold group-hover:text-white transition-colors">{phone}</p>
                     </a>
                   )}
                   {address && (
                     <div className="flex items-start justify-center md:justify-start gap-3">
                       <span className="text-base w-5 flex-shrink-0 mt-0.5">📍</span>
-                      <p className="text-white/80 text-left">{address}</p>
+                      <p className="text-white/90 font-semibold text-left">{address}</p>
                     </div>
                   )}
                   {email && (
                     <a href={`mailto:${email}`} className="flex items-center justify-center md:justify-start gap-3 group">
                       <span className="text-base w-5 flex-shrink-0">✉️</span>
-                      <p className="text-white/80 group-hover:text-white transition-colors">{email}</p>
+                      <p className="text-white/90 font-semibold group-hover:text-white transition-colors">{email}</p>
                     </a>
                   )}
                 </div>
@@ -265,27 +219,15 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
                     <p className="text-xs font-bold uppercase tracking-[0.15em]" style={{ color: accentColor }}>
                       Opening Hours
                     </p>
-                    {liveStatus && (
-                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                        liveStatus.open
-                          ? 'bg-green-500/15 text-green-400 border border-green-500/25'
-                          : 'bg-red-500/15 text-red-400 border border-red-500/25'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${liveStatus.open ? 'bg-green-400' : 'bg-red-400'}`} />
-                        {liveStatus.label.includes('·') ? (
-                          <>
-                            <span className="hidden sm:inline">{liveStatus.label}</span>
-                            <span className="sm:hidden">{liveStatus.label.split('·')[1].trim()}</span>
-                          </>
-                        ) : liveStatus.label}
-                      </span>
+                    {Object.keys(openingHours).length > 0 && (
+                      <LiveStatusBadge openingHours={openingHours} timezone={tenantTimezone} />
                     )}
                   </div>
                   <div className="space-y-1.5">
                     {hoursGroups.map(({ label, hours, closed }) => (
                       <div key={label} className="flex items-center justify-center md:justify-end gap-4">
-                        <span className="text-white/50 text-sm">{label}</span>
-                        <span className={`text-sm font-medium w-28 text-right ${closed ? 'text-red-400' : 'text-white/80'}`}>{hours}</span>
+                        <span className="text-white/70 text-sm font-semibold">{label}</span>
+                        <span className={`text-sm font-bold w-28 text-right ${closed ? 'text-red-400' : 'text-white/90'}`}>{hours}</span>
                       </div>
                     ))}
                   </div>
