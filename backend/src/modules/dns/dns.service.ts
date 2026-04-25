@@ -128,7 +128,7 @@ export class DnsService {
       const record = await this.prisma.dnsRecord.create({
         data: {
           tenantId,
-          dnsZoneId: dnsZone.id,
+          dnsZoneId: dnsZone?.id,
           hostname: data.hostname,
           recordType: data.recordType,
           name: data.name,
@@ -262,10 +262,10 @@ export class DnsService {
       });
 
       // Create records from Cloudflare data
-      const records = [];
+      const records: any[] = [];
 
       // Ownership verification records
-      if (customHostname.ownership_verification) {
+      if (customHostname.ownership_verification && dnsZone) {
         records.push({
           tenantId: tenant.id,
           dnsZoneId: dnsZone.id,
@@ -282,7 +282,7 @@ export class DnsService {
       }
 
       // SSL validation records
-      if (customHostname.ssl?.validation_records) {
+      if (customHostname.ssl?.validation_records && dnsZone) {
         for (const validationRecord of customHostname.ssl.validation_records) {
           records.push({
             tenantId: tenant.id,
@@ -303,18 +303,21 @@ export class DnsService {
       // Create all records
       if (records.length > 0) {
         await this.prisma.dnsRecord.createMany({
-          data: records,
+          data: records as any,
         });
 
         this.logger.log(`Synced ${records.length} DNS records from Cloudflare for ${hostname}`);
       }
 
       // Update DNS zone status
-      await this.updateDnsZone(tenant.id, {
-        customDomainStatus: customHostname.status,
-        sslStatus: customHostname.ssl?.status || 'pending',
-        ownershipStatus: customHostname.ownership_verification ? 'verified' : 'pending',
-        lastVerifiedAt: new Date(),
+      await this.prisma.dnsZone.update({
+        where: { tenantId: tenant.id },
+        data: {
+          customDomainStatus: customHostname.status,
+          sslStatus: customHostname.ssl?.status || 'pending',
+          ownershipStatus: customHostname.ownership_verification ? 'verified' : 'pending',
+          lastVerifiedAt: new Date(),
+        },
       });
 
     } catch (error) {
