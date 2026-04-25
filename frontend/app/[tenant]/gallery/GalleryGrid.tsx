@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Image from 'next/image';
 import type { GalleryImage } from '../../../types/tenant.types';
 
 function isVideoItem(item: GalleryImage) {
@@ -179,13 +178,12 @@ export default function GalleryGrid({ images, tenantName }: { images: GalleryIma
                     </div>
                   </div>
                 ) : (
-                  <Image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={image.url}
                     alt={image.caption || `${tenantName} gallery photo`}
-                    width={600}
-                    height={400}
-                    className="w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    style={{ height: 'auto' }}
+                    loading="lazy"
+                    className="w-full h-auto block group-hover:scale-105 transition-transform duration-300"
                   />
                 )}
               </div>
