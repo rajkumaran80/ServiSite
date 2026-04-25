@@ -15,7 +15,7 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Tenant, TenantType, ServiceProfile } from '@prisma/client';
 import { TenantCacheService, TTL } from '../../common/cache/tenant-cache.service';
 import { NotifyNextjsService } from '../../common/notify/notify-nextjs.service';
-import { CloudflareService } from './cloudflare.service';
+import { CloudflareService } from '../cloudflare/cloudflare.service';
 import { AzureAppServiceService } from './azure-appservice.service';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
@@ -405,13 +405,13 @@ export class TenantService {
 
   /**
    * Step 1: Tenant submits their custom domain.
-   * Creates a Cloudflare custom hostname and returns the TXT record
-   * the tenant must add at their registrar to prove ownership.
+   * For external DNS providers (IONOS), returns Azure Front Door CNAME records
+   * and verification TXT records that tenant must add at their registrar.
    */
   async setCustomDomain(
     tenantId: string,
     domain: string,
-  ): Promise<{ cname: string }> {
+  ): Promise<{ aRecords: Array<{ name: string; value: string; type: string }>; cnameRecord: { name: string; value: string; type: string }; txtRecords: Array<{ name: string; value: string }>; instructions: string }> {
     const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     const apex = normalised.replace(/^www\./, '');
 
@@ -423,12 +423,20 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // Register both www and apex in Cloudflare so SSL is provisioned for both.
-    // Azure App Service also needs bindings for both to accept incoming requests.
+    // For Cloudflare for SaaS with external nameservers
+    // Create Cloudflare custom hostname but tenant manages their own DNS
     const wwwHostname = `www.${apex}`;
+    
+    // Create Cloudflare custom hostnames for SaaS functionality
     const [{ id: wwwId }, { id: apexId }] = await Promise.all([
-      this.cloudflare.createCustomHostname(wwwHostname),
-      this.cloudflare.createCustomHostname(apex),
+      this.cloudflare.addCustomHostname(wwwHostname),
+      this.cloudflare.addCustomHostname(apex),
+    ]);
+
+    // Get verification records from Cloudflare
+    const [wwwVerification, apexVerification] = await Promise.all([
+      this.cloudflare.getCustomHostname(wwwHostname),
+      this.cloudflare.getCustomHostname(apex),
     ]);
 
     await this.prisma.tenant.update({
@@ -438,21 +446,41 @@ export class TenantService {
         customDomainStatus: 'pending',
         customDomainToken: wwwId,
         customDomainApexToken: apexId,
-        customDomainZoneId: null,
-        customDomainNsRecords: [],
+        customDomainZoneId: this.cloudflare['zoneId'],
+        customDomainNsRecords: [], // Not changing nameservers
         customDomainVerifiedAt: null,
-        customDomainTxtName: null,
-        customDomainTxtValue: null,
+        customDomainTxtName: apexVerification?.ownership_verification?.name || null,
+        customDomainTxtValue: apexVerification?.ownership_verification?.value || null,
       },
     });
 
-    // Add hostname bindings to Azure App Service for both www and apex
-    await Promise.all([
-      this.azureAppService.addHostnameBinding(wwwHostname),
-      this.azureAppService.addHostnameBinding(apex),
-    ]);
-
-    return { cname: 'origin.servisite.co.uk' };
+    // Return DNS records for optimal external nameserver setup
+    return {
+      aRecords: [
+        {
+          name: '@',
+          value: '104.16.0.1', // Primary Cloudflare edge IP
+          type: 'A'
+        },
+        {
+          name: '@',
+          value: '104.16.1.1', // Secondary Cloudflare edge IP (redundancy)
+          type: 'A'
+        }
+      ],
+      cnameRecord: {
+        name: 'www',
+        value: 'app.servisite.co.uk', // Point to your app subdomain
+        type: 'CNAME'
+      },
+      txtRecords: [
+        {
+          name: apexVerification?.ownership_verification?.name || '_cloudflare-verification',
+          value: apexVerification?.ownership_verification?.value || '"verification-pending"',
+        }
+      ],
+      instructions: 'Add 2 A records for root domain, CNAME for www, and TXT verification record at your DNS provider (IONOS)'
+    };
   }
 
   async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string }> {
@@ -476,7 +504,10 @@ export class TenantService {
       throw new BadRequestException('Domain not registered with Cloudflare — please re-save the domain');
     }
 
-    const { active, sslStatus, hostnameStatus } = await this.cloudflare.checkCustomHostname(tenant.customDomainToken);
+    const hostname = await this.cloudflare.getCustomHostname(tenant.customDomainToken);
+    const active = hostname?.status === 'active';
+    const sslStatus = hostname?.ssl?.status || 'pending';
+    const hostnameStatus = hostname?.status || 'pending';
 
     if (!active) {
       return {
@@ -511,16 +542,14 @@ export class TenantService {
         this.tenantCache.deleteDomainSlug(tenant.customDomain),
         this.tenantCache.deleteDomainSlug(wwwHostname),
         // Delete Cloudflare custom hostnames (www token + apex token)
-        tenant.customDomainZoneId
-          ? this.cloudflare.deleteZone(tenant.customDomainZoneId)
-          : Promise.all([
-              tenant.customDomainToken
-                ? this.cloudflare.deleteCustomHostname(tenant.customDomainToken)
-                : Promise.resolve(),
-              tenant.customDomainApexToken
-                ? this.cloudflare.deleteCustomHostname(tenant.customDomainApexToken)
-                : Promise.resolve(),
-            ]),
+        Promise.all([
+          tenant.customDomainToken
+            ? this.cloudflare.deleteCustomHostname(tenant.customDomainToken)
+            : Promise.resolve(),
+          tenant.customDomainApexToken
+            ? this.cloudflare.deleteCustomHostname(tenant.customDomainApexToken)
+            : Promise.resolve(),
+        ]),
         // Remove Azure App Service hostname bindings for both www and apex
         this.azureAppService.removeHostnameBinding(wwwHostname).catch(() => {}),
         this.azureAppService.removeHostnameBinding(tenant.customDomain).catch(() => {}),
