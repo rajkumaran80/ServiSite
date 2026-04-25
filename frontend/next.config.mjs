@@ -10,6 +10,13 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      // Azure Front Door CDN (production media delivery)
+      {
+        protocol: 'https',
+        hostname: '*.azurefd.net',
+        port: '',
+        pathname: '/**',
+      },
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'via.placeholder.com' },
       // Azurite local dev emulator
