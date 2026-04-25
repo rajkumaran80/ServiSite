@@ -189,6 +189,8 @@ export class NavigationService {
       serviceProfile = tenant?.serviceProfile ?? 'GENERAL_SERVICE';
     }
 
+    console.log(`[Navigation] Seeding defaults for tenant ${tenantId} with service profile: ${serviceProfile}`);
+
     const existing = await this.prisma.navigationItem.findMany({
       where: { tenantId, isSystemReserved: true },
       select: { featureKey: true },
@@ -205,10 +207,15 @@ export class NavigationService {
       { featureKey: 'contact',   label: 'Contact',    sortOrder: 999 },
     ];
 
-    await Promise.all(
-      defaults
-        .filter((d) => !existingKeys.has(d.featureKey))
-        .map((d) =>
+    console.log(`[Navigation] Default navigation items to create:`, defaults);
+    console.log(`[Navigation] Existing system reserved items:`, Array.from(existingKeys));
+
+    const itemsToCreate = defaults.filter((d) => !existingKeys.has(d.featureKey));
+    console.log(`[Navigation] Items to create after filtering existing:`, itemsToCreate);
+
+    if (itemsToCreate.length > 0) {
+      await Promise.all(
+        itemsToCreate.map((d) =>
           this.prisma.navigationItem.create({
             data: {
               tenantId,
@@ -222,7 +229,11 @@ export class NavigationService {
             },
           }),
         ),
-    );
+      );
+      console.log(`[Navigation] Created ${itemsToCreate.length} navigation items for tenant ${tenantId}`);
+    } else {
+      console.log(`[Navigation] No new navigation items to create for tenant ${tenantId}`);
+    }
 
     // Seed only the About Us page — gallery and contact are managed via their own dashboards.
     const defaultPages = [

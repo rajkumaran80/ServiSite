@@ -149,7 +149,12 @@ export class TenantService {
     this.billing.onTenantCreated(tenant.id, emailLower, tenant.name).catch(() => {});
 
     // ── 11. Seed default nav items ────────────────────────────────────────
-    this.navigation.seedDefaults(tenant.id, derivedServiceProfile).catch(() => {});
+    try {
+      await this.navigation.seedDefaults(tenant.id, derivedServiceProfile);
+      this.logger.log(`Default navigation seeded for tenant ${tenant.slug} (profile: ${derivedServiceProfile})`);
+    } catch (error) {
+      this.logger.error(`Failed to seed default navigation for tenant ${tenant.slug}:`, error);
+    }
 
     return { message: 'Account created. Please check your email to verify your address before logging in.' };
   }
