@@ -83,12 +83,6 @@ const SECTION_DEFS: SectionDef[] = [
     },
   },
   {
-    type: 'gallery',
-    label: 'Gallery',
-    icon: '🖼',
-    defaultContent: { heading: 'Gallery', images: [] },
-  },
-  {
     type: 'cta',
     label: 'Call to Action',
     icon: '📣',
@@ -482,61 +476,6 @@ function CtaEditor({ content, onChange }: { content: any; onChange: (c: any) => 
   );
 }
 
-function GalleryEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
-  const images = content.images || [];
-
-  const addImage = () => {
-    onChange({ ...content, images: [...images, { url: '', caption: '' }] });
-  };
-
-  const updateImage = (index: number, field: string, value: string) => {
-    const updated = images.map((img: any, i: number) => i === index ? { ...img, [field]: value } : img);
-    onChange({ ...content, images: updated });
-  };
-
-  const removeImage = (index: number) => {
-    onChange({ ...content, images: images.filter((_: any, i: number) => i !== index) });
-  };
-
-  return (
-    <div className="space-y-3">
-      <FieldInput label="Section Heading" value={content.heading || ''} onChange={(v) => onChange({ ...content, heading: v })} />
-      <div className="border-t border-gray-100 pt-3">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-medium text-gray-600">Images</p>
-          <button onClick={addImage} className="text-xs text-blue-600 hover:text-blue-700 font-medium">+ Add Image</button>
-        </div>
-        <div className="space-y-2">
-          {images.map((img: any, index: number) => (
-            <div key={index} className="bg-gray-50 rounded-xl p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={img.url || ''}
-                  onChange={(e) => updateImage(index, 'url', e.target.value)}
-                  className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Image URL"
-                />
-                <button onClick={() => removeImage(index)} className="p-1.5 text-gray-400 hover:text-red-500 transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <input
-                type="text"
-                value={img.caption || ''}
-                onChange={(e) => updateImage(index, 'caption', e.target.value)}
-                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Caption (optional)"
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ContactInfoEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
   return (
@@ -1401,7 +1340,6 @@ function SectionEditor({ section, onChange }: { section: PageSection; onChange: 
     case 'text': return <TextEditor content={section.content} onChange={onChange} />;
     case 'image_text': return <ImageTextEditor content={section.content} onChange={onChange} />;
     case 'features': return <FeaturesEditor content={section.content} onChange={onChange} />;
-    case 'gallery': return <GalleryEditor content={section.content} onChange={onChange} />;
     case 'cta': return <CtaEditor content={section.content} onChange={onChange} />;
     case 'contact_info': return <ContactInfoEditor content={section.content} onChange={onChange} />;
     case 'divider': return <DividerEditor content={section.content} onChange={onChange} />;
@@ -1411,6 +1349,28 @@ function SectionEditor({ section, onChange }: { section: PageSection; onChange: 
     case 'google_reviews': return <GoogleReviewsEditor content={section.content} onChange={onChange} />;
     case 'review_buttons': return <ReviewButtonsEditor content={section.content} onChange={onChange} />;
     case 'image_only': return <ImageOnlyEditor content={section.content} onChange={onChange} />;
+    case 'gallery': return (
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <span className="font-medium text-amber-800">Gallery Section (Deprecated)</span>
+        </div>
+        <p className="text-sm text-amber-700 mb-3">
+          Gallery sections are no longer supported. Please use the Gallery dashboard instead.
+        </p>
+        <button
+          onClick={() => {
+            // This section will be handled by the parent component
+            console.log('Gallery section should be removed');
+          }}
+          className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+        >
+          Gallery Section Deprecated
+        </button>
+      </div>
+    );
     default: return null;
   }
 }
@@ -1631,6 +1591,9 @@ export default function PageBuilderPage() {
 
   const getSectionDef = (type: SectionType) => SECTION_DEFS.find((d) => d.type === type);
 
+// Filter out gallery sections from the available section types
+const AVAILABLE_SECTION_DEFS = SECTION_DEFS.filter(def => def.type !== 'gallery');
+
   const handleParentChange = (newParent: string) => {
     setSelectedParent(newParent);
     setHasChanges(true);
@@ -1819,7 +1782,7 @@ export default function PageBuilderPage() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {SECTION_DEFS.map((def) => (
+              {AVAILABLE_SECTION_DEFS.map((def) => (
                 <button
                   key={def.type}
                   onClick={() => addSection(def)}

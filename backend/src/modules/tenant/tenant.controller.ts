@@ -130,9 +130,39 @@ export class TenantController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete tenant (admin only)' })
+  @ApiOperation({ summary: 'Soft delete tenant (mark as CANCELLED, admin only)' })
   async remove(@Param('id') id: string) {
     await this.tenantService.delete(id);
+  }
+
+  @Delete(':id/hard')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Hard delete tenant (permanent deletion, super admin only)' })
+  async hardDelete(@Param('id') id: string) {
+    await this.tenantService.hardDelete(id);
+  }
+
+  @Post(':id/disable')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Disable tenant (mark as SUSPENDED, admin only)' })
+  async disable(@Param('id') id: string) {
+    await this.tenantService.disable(id);
+    return { success: true, message: 'Tenant disabled' };
+  }
+
+  @Post(':id/enable')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Enable tenant (mark as ACTIVE, admin only)' })
+  async enable(@Param('id') id: string) {
+    await this.tenantService.enable(id);
+    return { success: true, message: 'Tenant enabled' };
   }
 
   // ── Custom Domain Endpoints ───────────────────────────────────────────────

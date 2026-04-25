@@ -12,7 +12,7 @@ import { BillingService } from '../billing/billing.service';
 import { EmailService } from '../../common/notifications/email.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
-import { Tenant } from '@prisma/client';
+import { Tenant, TenantType, ServiceProfile } from '@prisma/client';
 import { TenantCacheService, TTL } from '../../common/cache/tenant-cache.service';
 import { NotifyNextjsService } from '../../common/notify/notify-nextjs.service';
 import { CloudflareService } from './cloudflare.service';
@@ -100,9 +100,15 @@ export class TenantService {
     // ── 7. Create tenant + admin user ─────────────────────────────────────
     const passwordHash = await this.authService.hashPassword(adminPassword);
 
+    const derivedServiceProfile =
+      tenantData.type === TenantType.RESTAURANT || tenantData.type === TenantType.CAFE
+        ? ServiceProfile.FOOD_SERVICE
+        : ServiceProfile.GENERAL_SERVICE;
+
     const tenant = await this.prisma.tenant.create({
       data: {
         ...tenantData,
+        serviceProfile: derivedServiceProfile,
         currency: 'GBP',
         themeSettings: tenantData.themeSettings || {
           primaryColor: '#3B82F6',
@@ -142,8 +148,13 @@ export class TenantService {
     // ── 10. Fire-and-forget: start trial, create Stripe customer ─────────
     this.billing.onTenantCreated(tenant.id, emailLower, tenant.name).catch(() => {});
 
-    // ── 11. Seed default nav items (Home + Contact) ───────────────────────
-    this.navigation.seedDefaults(tenant.id).catch(() => {});
+    // ── 11. Seed default nav items ────────────────────────────────────────
+    try {
+      await this.navigation.seedDefaults(tenant.id, derivedServiceProfile);
+      this.logger.log(`Default navigation seeded for tenant ${tenant.slug} (profile: ${derivedServiceProfile})`);
+    } catch (error) {
+      this.logger.error(`Failed to seed default navigation for tenant ${tenant.slug}:`, error);
+    }
 
     return { message: 'Account created. Please check your email to verify your address before logging in.' };
   }
@@ -200,18 +211,15 @@ export class TenantService {
         _count: { select: { menuItems: true, gallery: true, categories: true } },
       },
     });
-
-    if (!tenant) throw new NotFoundException(`Tenant '${slug}' not found`);
-
-    if (!tenant.emailVerified) {
-      throw new ForbiddenException('This website is not yet active. The owner needs to verify their email address.');
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    
+    // Exclude inactive tenants from normal operations
+    if (tenant.status === 'CANCELLED' || tenant.status === 'SUSPENDED') {
+      throw new NotFoundException('Tenant not found or inactive');
     }
-
-    const cached = await this.tenantCache.get<any>(slug, 'profile');
-    if (cached) return cached;
-
+    
     await this.tenantCache.set(slug, 'profile', tenant, TTL.TENANT_PROFILE);
-    return tenant;
+    return tenant as Tenant & { contactInfo: any; _count: any };
   }
 
   async findById(id: string): Promise<Tenant> {
@@ -252,12 +260,88 @@ export class TenantService {
 
   async delete(id: string): Promise<void> {
     const tenant = await this.findById(id);
-    await this.prisma.tenant.delete({ where: { id } });
+    
+    // First, soft delete by marking as CANCELLED
+    await this.prisma.tenant.update({
+      where: { id },
+      data: { status: 'CANCELLED' },
+    });
+    
+    // Invalidate all cache entries
     await this.tenantCache.invalidate(tenant.slug, 'profile', 'identity', 'menu', 'gallery', 'entries', 'contact', 'pages');
+    
+    // Remove custom domain mappings
     if ((tenant as any).customDomain) {
       await this.tenantCache.deleteDomainSlug((tenant as any).customDomain);
     }
+    
+    // Clean up custom domain resources
+    if ((tenant as any).customDomain) {
+      await this.removeCustomDomain(id);
+    }
+    
+    // Notify frontend to clear cache
     this.notify.revalidate(tenant.slug, ['tenant', 'menu', 'gallery']);
+    
+    this.logger.log(`Tenant ${tenant.slug} marked as CANCELLED (soft deleted)`);
+  }
+
+  async hardDelete(id: string): Promise<void> {
+    const tenant = await this.findById(id);
+    
+    // Clean up custom domain resources first
+    if ((tenant as any).customDomain) {
+      await this.removeCustomDomain(id);
+    }
+    
+    // Perform hard delete - this will cascade delete all related data due to onDelete: Cascade
+    await this.prisma.tenant.delete({ where: { id } });
+    
+    // Clean up any remaining cache entries
+    await this.tenantCache.invalidate(tenant.slug, 'profile', 'identity', 'menu', 'gallery', 'entries', 'contact', 'pages');
+    
+    if ((tenant as any).customDomain) {
+      await this.tenantCache.deleteDomainSlug((tenant as any).customDomain);
+    }
+    
+    // Notify frontend to clear cache
+    this.notify.revalidate(tenant.slug, ['tenant', 'menu', 'gallery']);
+    
+    this.logger.log(`Tenant ${tenant.slug} permanently deleted (hard delete)`);
+  }
+
+  async disable(id: string): Promise<void> {
+    const tenant = await this.findById(id);
+    
+    await this.prisma.tenant.update({
+      where: { id },
+      data: { status: 'SUSPENDED' },
+    });
+    
+    // Invalidate cache to make changes take effect immediately
+    await this.tenantCache.invalidate(tenant.slug, 'profile', 'identity', 'menu', 'gallery', 'entries', 'contact', 'pages');
+    
+    // Notify frontend to clear cache
+    this.notify.revalidate(tenant.slug, ['tenant', 'menu', 'gallery']);
+    
+    this.logger.log(`Tenant ${tenant.slug} disabled (status: SUSPENDED)`);
+  }
+
+  async enable(id: string): Promise<void> {
+    const tenant = await this.findById(id);
+    
+    await this.prisma.tenant.update({
+      where: { id },
+      data: { status: 'ACTIVE' },
+    });
+    
+    // Invalidate cache to make changes take effect immediately
+    await this.tenantCache.invalidate(tenant.slug, 'profile', 'identity', 'menu', 'gallery', 'entries', 'contact', 'pages');
+    
+    // Notify frontend to clear cache
+    this.notify.revalidate(tenant.slug, ['tenant', 'menu', 'gallery']);
+    
+    this.logger.log(`Tenant ${tenant.slug} enabled (status: ACTIVE)`);
   }
 
   async getTenantStats(tenantId: string) {

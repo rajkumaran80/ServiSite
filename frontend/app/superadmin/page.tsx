@@ -713,6 +713,7 @@ export default function SuperAdminPage() {
   const [isClient, setIsClient] = useState(false);
   const [seedingId, setSeedingId] = useState<string | null>(null);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+  const [changingCategoryId, setChangingCategoryId] = useState<string | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -860,15 +861,25 @@ export default function SuperAdminPage() {
     router.replace('/superadmin/login');
   };
 
-  const typeLabel: Record<string, string> = {
-    RESTAURANT: '🍽️ Restaurant',
-    CAFE: '☕ Café',
-    BARBER_SHOP: '✂️ Barber Shop',
-    SALON: '💅 Salon',
-    GYM: '💪 Gym',
-    REPAIR_SHOP: '🔧 Repair Shop',
-    OTHER: '🏢 Other',
+  const handleChangeCategory = async (t: TenantSummary) => {
+    const isFood = t.serviceProfile === 'FOOD_SERVICE';
+    const newProfile = isFood ? 'GENERAL_SERVICE' : 'FOOD_SERVICE';
+    const label = newProfile === 'FOOD_SERVICE' ? 'Food & Drink' : 'Other Business';
+    if (!confirm(`Switch "${t.name}" to ${label}?\n\nThis changes which features are available in their dashboard.`)) return;
+    setChangingCategoryId(t.id);
+    try {
+      await superAdminService.changeCategory(t.id, newProfile);
+      setTenants((prev) => prev.map((x) => x.id === t.id ? { ...x, serviceProfile: newProfile } : x));
+      toast.success(`Switched to ${label}`);
+    } catch {
+      toast.error('Failed to change category');
+    } finally {
+      setChangingCategoryId(null);
+    }
   };
+
+  const categoryLabel = (t: TenantSummary) =>
+    t.serviceProfile === 'FOOD_SERVICE' ? '🍽️ Food & Drink' : '🏢 Other';
 
   if (loading) {
     return (
@@ -940,7 +951,7 @@ export default function SuperAdminPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
-                    {['Business', 'Slug', 'Type', 'Status', 'Plan', 'Admin Email', 'Items', 'Created', 'Actions'].map((h) => (
+                    {['Business', 'Slug', 'Category', 'Status', 'Plan', 'Admin Email', 'Items', 'Created', 'Actions'].map((h) => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -950,7 +961,23 @@ export default function SuperAdminPage() {
                     <tr key={t.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">{t.slug}</td>
-                      <td className="px-4 py-3 text-gray-600">{typeLabel[t.type] || t.type}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleChangeCategory(t)}
+                          disabled={changingCategoryId === t.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors hover:opacity-80 disabled:opacity-50"
+                          style={t.serviceProfile === 'FOOD_SERVICE'
+                            ? { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }
+                            : { backgroundColor: '#ede9fe', color: '#4c1d95', borderColor: '#ddd6fe' }
+                          }
+                          title="Click to switch category"
+                        >
+                          {categoryLabel(t)}
+                          <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                        </button>
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                           t.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :

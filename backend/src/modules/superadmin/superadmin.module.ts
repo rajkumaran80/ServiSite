@@ -7,9 +7,10 @@ import { CacheModule } from '../../common/cache/cache.module';
 import { NotifyModule } from '../../common/notify/notify.module';
 import { AuthModule } from '../auth/auth.module';
 import { TenantModule } from '../tenant/tenant.module';
+import { NavigationModule } from '../navigation/navigation.module';
 
 @Module({
-  imports: [PrismaModule, BillingModule, CacheModule, NotifyModule, AuthModule, TenantModule],
+  imports: [PrismaModule, BillingModule, CacheModule, NotifyModule, AuthModule, TenantModule, NavigationModule],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],
 })

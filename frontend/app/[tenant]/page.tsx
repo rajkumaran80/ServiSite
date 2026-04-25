@@ -49,6 +49,29 @@ async function getMenuGroups(slug: string) {
   } catch { return []; }
 }
 
+async function getNavItems(slug: string) {
+  try {
+    const res = await fetch(`${API_URL}/navigation`, {
+      next: { tags: [`tenant:${slug}:nav`], revalidate: 60 },
+      headers: { 'X-Tenant-ID': slug },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.data || [];
+  } catch {
+    return [];
+  }
+}
+
+function isMenuEnabled(navItems: any[]): boolean {
+  // Check if there's an active navigation item with featureKey 'food_menu'
+  return navItems.some(item => 
+    item.featureKey === 'food_menu' && 
+    item.isActive && 
+    item.linkType === 'INTERNAL_FEATURE'
+  );
+}
+
 async function getPageEntries(slug: string, pageKey: string) {
   try {
     const res = await fetch(`${API_URL}/page-entries?pageKey=${pageKey}`, {
@@ -92,7 +115,7 @@ function formatPrice(price: number | string, currency: string): string {
 
 export default async function TenantHomePage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: tenantSlug } = await params;
-  const [tenant, featuredItems, menuGroups, googleReviews, manualReviewEntries, homeBlockEntries, homeSections] = await Promise.all([
+  const [tenant, featuredItems, menuGroups, googleReviews, manualReviewEntries, homeBlockEntries, homeSections, navItems] = await Promise.all([
     getTenant(tenantSlug),
     getFeaturedItems(tenantSlug),
     getMenuGroups(tenantSlug),
@@ -100,6 +123,7 @@ export default async function TenantHomePage({ params }: { params: Promise<{ ten
     getPageEntries(tenantSlug, 'reviews'),
     getPageEntries(tenantSlug, 'home'),
     getHomeSections(tenantSlug),
+    getNavItems(tenantSlug),
   ]);
 
   if (!tenant) notFound();
@@ -150,6 +174,7 @@ export default async function TenantHomePage({ params }: { params: Promise<{ ten
           fontFamily={fontFamily}
           socialLinks={socialLinks}
           heroContent={heroContent}
+          showMenu={tenant.serviceProfile === 'FOOD_SERVICE' && isMenuEnabled(navItems)}
         />
       </div>
 

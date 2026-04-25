@@ -49,6 +49,12 @@ export default async function GalleryPage({ params }: { params: Promise<{ tenant
   const tenant = await getTenant(tenantSlug);
   if (!tenant) notFound();
 
+  // Check if gallery is enabled
+  const galleryEnabled = (tenant.themeSettings as any)?.galleryEnabled !== false;
+  if (!galleryEnabled) {
+    notFound();
+  }
+
   const images = await getGallery(tenantSlug);
 
   return (

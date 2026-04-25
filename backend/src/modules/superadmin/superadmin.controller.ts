@@ -5,7 +5,7 @@ import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
 import { SuperAdminService } from './superadmin.service';
 import { CloudflareService } from '../tenant/cloudflare.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { TenantType, TenantStatus } from '@prisma/client';
+import { TenantType, TenantStatus, ServiceProfile } from '@prisma/client';
 
 @ApiTags('superadmin')
 @Controller('superadmin')
@@ -115,6 +115,13 @@ export class SuperAdminController {
   async changeAdminEmail(@Param('id') id: string, @Body('newEmail') newEmail: string) {
     await this.service.changeAdminEmail(id, newEmail);
     return { success: true, message: 'Admin email updated' };
+  }
+
+  @Post('tenants/:id/change-category')
+  @ApiOperation({ summary: 'Switch tenant between Food and Other category' })
+  async changeCategory(@Param('id') id: string, @Body('serviceProfile') serviceProfile: ServiceProfile) {
+    await this.service.changeCategory(id, serviceProfile);
+    return { success: true, message: `Category updated to ${serviceProfile}` };
   }
 
   @Post('tenants/:id/change-plan')

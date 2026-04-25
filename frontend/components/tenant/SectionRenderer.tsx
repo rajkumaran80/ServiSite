@@ -7,8 +7,7 @@ import type {
   TextContent,
   ImageTextContent,
   FeaturesContent,
-  GalleryContent,
-  CtaContent,
+    CtaContent,
   ContactInfoContent,
   DataTableContent,
   AwardsContent,
@@ -169,33 +168,6 @@ function FeaturesSection({ content, primaryColor }: { content: FeaturesContent; 
   );
 }
 
-function GallerySection({ content }: { content: GalleryContent }) {
-  return (
-    <section className="py-16 px-6">
-      <div className="max-w-6xl mx-auto">
-        {content.heading && (
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">{content.heading}</h2>
-        )}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {content.images.map((img, i) => (
-            <div key={i} className="relative aspect-square overflow-hidden rounded-xl group">
-              <img
-                src={img.url}
-                alt={img.caption || `Gallery image ${i + 1}`}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              {img.caption && (
-                <div className="absolute bottom-0 inset-x-0 bg-black/40 text-white text-sm px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {img.caption}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 function CtaSection({ content, primaryColor }: { content: CtaContent; primaryColor?: string }) {
   const isDark = content.variant === 'dark';
@@ -1202,9 +1174,6 @@ export function SectionRenderer({ section, primaryColor, themeSettings }: Props)
       break;
     case 'features':
       content = <FeaturesSection content={section.content as FeaturesContent} primaryColor={primaryColor} />;
-      break;
-    case 'gallery':
-      content = <GallerySection content={section.content as GalleryContent} />;
       break;
     case 'cta':
       content = <CtaSection content={section.content as CtaContent} primaryColor={primaryColor} />;

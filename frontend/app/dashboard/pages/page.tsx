@@ -41,6 +41,9 @@ export default function PagesListPage() {
   const [pages, setPages] = useState<CmsPage[]>([]);
   const [navItems, setNavItems] = useState<FlatNavItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Gallery and Contact have dedicated dashboards — exclude from the page builder list
+  const filteredPages = pages.filter(page => page.slug !== 'gallery' && page.slug !== 'contact');
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newSlug, setNewSlug] = useState('');
@@ -160,17 +163,6 @@ export default function PagesListPage() {
     }
   };
 
-  const togglePublish = async (page: CmsPage) => {
-    try {
-      await api.put(`/pages/${page.id}`, { isPublished: !page.isPublished });
-      setPages((prev) =>
-        prev.map((p) => (p.id === page.id ? { ...p, isPublished: !p.isPublished } : p))
-      );
-    } catch {
-      toast.error('Failed to update');
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -198,7 +190,7 @@ export default function PagesListPage() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {pages.length === 0 ? (
+        {filteredPages.length === 0 ? (
           <div className="py-16 text-center text-gray-400">
             <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -208,16 +200,13 @@ export default function PagesListPage() {
           </div>
         ) : (
           <ul className="divide-y divide-gray-50">
-            {pages.map((page) => (
+            {filteredPages.map((page) => (
               <li key={page.id} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/50 transition-colors">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-900">{page.title}</span>
                     {page.isHomePage && (
                       <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">Home</span>
-                    )}
-                    {!page.isPublished && (
-                      <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">draft</span>
                     )}
                   </div>
                   <p className="text-sm text-gray-400 font-mono">{page.isHomePage ? '/' : `/${page.slug}`}</p>
@@ -227,19 +216,6 @@ export default function PagesListPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => togglePublish(page)}
-                    title={page.isPublished ? 'Unpublish' : 'Publish'}
-                    className={`p-2 rounded-lg transition-colors ${
-                      page.isPublished
-                        ? 'text-green-600 hover:bg-green-50'
-                        : 'text-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </button>
                   <button
                     onClick={() => router.push(`/dashboard/pages/${page.id}`)}
                     className="flex items-center gap-1.5 px-3 py-2 text-sm text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors"
