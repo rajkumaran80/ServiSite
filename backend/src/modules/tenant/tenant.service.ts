@@ -489,7 +489,7 @@ export class TenantService {
       ],
       cnameRecord: {
         name: 'www',
-        value: 'app.servisite.co.uk', // Point to your app subdomain
+        value: 'servisite.co.uk',
         type: 'CNAME'
       },
       txtRecords: [

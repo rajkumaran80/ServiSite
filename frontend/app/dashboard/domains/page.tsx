@@ -341,94 +341,65 @@ function DomainInstructions({ hostname, domains, onClose }: {
       </div>
 
       {isVerified ? (
-        <div className="space-y-4">
-          <div className="bg-green-100 text-green-800 p-4 rounded-lg">
-            <p className="font-medium">✅ Domain is verified and active!</p>
-            <p className="text-sm mt-1">Your domain is ready to use. No further action needed.</p>
-          </div>
-          
-          <div>
-            <h4 className="font-medium text-gray-900 mb-2">Final DNS Records</h4>
-            <p className="text-sm text-gray-600 mb-3">Point your domain to Cloudflare:</p>
-            <div className="bg-white rounded-lg p-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-mono text-sm">{hostname}</span>
-                <span className="text-sm text-gray-600">→ CNAME to servisite.co.uk</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-mono text-sm">www.{hostname}</span>
-                <span className="text-sm text-gray-600">→ CNAME to servisite.co.uk</span>
-              </div>
-            </div>
-          </div>
+        <div className="bg-green-100 text-green-800 p-4 rounded-lg">
+          <p className="font-medium">Domain is verified and active!</p>
+          <p className="text-sm mt-1">Your domain is ready to use. No further action needed.</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Step 1: Ownership Verification */}
-          {hasOwnershipRecords && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-3">Step 1: Security & Ownership (Add these first)</h4>
-              <p className="text-sm text-gray-600 mb-3">
-                Before we can secure your site, you must add these TXT records in your domain registrar (e.g., IONOS, GoDaddy, etc.).
-              </p>
-              <div className="bg-white rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Type</th>
-                      <th className="px-4 py-2 text-left">Name</th>
-                      <th className="px-4 py-2 text-left">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-4 py-2 font-mono">TXT</td>
-                      <td className="px-4 py-2 font-mono">{domain.ownership_verification?.name}</td>
-                      <td className="px-4 py-2 font-mono text-xs">{domain.ownership_verification?.value}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Add all of these records in your domain registrar (e.g. IONOS, GoDaddy), then click Verify.
+          </p>
 
-          {/* Step 2: SSL Validation */}
-          {hasSSLRecords && (
-            <div>
-              <h4 className="font-medium text-gray-900 mb-3">Step 2: SSL Certificate Validation</h4>
-              <p className="text-sm text-gray-600 mb-3">
-                Add these TXT records to enable SSL certificate issuance:
-              </p>
-              <div className="bg-white rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Type</th>
-                      <th className="px-4 py-2 text-left">Name</th>
-                      <th className="px-4 py-2 text-left">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {domain.ssl?.validation_records?.map((record, index) => (
-                      <tr key={index} className="border-t">
-                        <td className="px-4 py-2 font-mono">{record.type}</td>
-                        <td className="px-4 py-2 font-mono">{record.name}</td>
-                        <td className="px-4 py-2 font-mono text-xs">{record.value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-gray-600 font-medium">Type</th>
+                  <th className="px-4 py-2 text-left text-gray-600 font-medium">Name</th>
+                  <th className="px-4 py-2 text-left text-gray-600 font-medium">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {/* Apex A records */}
+                <tr>
+                  <td className="px-4 py-3 font-mono text-gray-700">A</td>
+                  <td className="px-4 py-3 font-mono text-gray-700">@</td>
+                  <td className="px-4 py-3 font-mono text-gray-700">104.16.0.1</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 font-mono text-gray-700">A</td>
+                  <td className="px-4 py-3 font-mono text-gray-700">@</td>
+                  <td className="px-4 py-3 font-mono text-gray-700">104.16.1.1</td>
+                </tr>
+                {/* www CNAME */}
+                <tr>
+                  <td className="px-4 py-3 font-mono text-gray-700">CNAME</td>
+                  <td className="px-4 py-3 font-mono text-gray-700">www</td>
+                  <td className="px-4 py-3 font-mono text-gray-700">servisite.co.uk</td>
+                </tr>
+                {/* Ownership verification TXT */}
+                {hasOwnershipRecords && (
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-gray-700">TXT</td>
+                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{domain.ownership_verification?.name}</td>
+                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{domain.ownership_verification?.value}</td>
+                  </tr>
+                )}
+                {/* SSL validation TXT records */}
+                {domain.ssl?.validation_records?.map((record, index) => (
+                  <tr key={index}>
+                    <td className="px-4 py-3 font-mono text-gray-700">{record.type}</td>
+                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{record.name}</td>
+                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{record.value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          {/* Status */}
-          <div className="bg-yellow-100 text-yellow-800 p-4 rounded-lg">
-            <p className="font-medium">⏳ Verification in Progress</p>
-            <p className="text-sm mt-1">
-              We're checking your DNS records. This usually takes 5-15 minutes. 
-              This page will automatically update when verification is complete.
-            </p>
+          <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm">
+            DNS changes can take 5–15 minutes to propagate. Click Verify once you've added all records.
           </div>
         </div>
       )}
