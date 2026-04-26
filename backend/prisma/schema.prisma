@@ -187,7 +187,6 @@ model Tenant {
   // Custom domain support
   customDomain           String?   @unique
   customDomainStatus     String?   // pending, active, error, deleted
-  routingPreference      String?   @default("direct") // "direct" (App Service) or "frontdoor" (Azure Front Door)
   customDomainToken      String?   // Cloudflare custom hostname ID for www
   customDomainApexToken  String?   // Cloudflare custom hostname ID for apex (root domain)
   customDomainZoneId     String?   // Cloudflare DNS zone ID for customer domain
