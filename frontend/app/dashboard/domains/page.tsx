@@ -63,32 +63,25 @@ export default function DomainSettingsPage() {
       
       if (res.ok) {
         const data = await res.json();
-        if (data.data && data.data.dnsRecords) {
-          // Transform DNS records to domain status format
-          const domainRecords = data.data.dnsRecords.reduce((acc: any[], record: any) => {
-            const existingDomain = acc.find(d => d.hostname === record.hostname);
-            if (!existingDomain) {
-              acc.push({
-                hostname: record.hostname,
-                status: record.status,
-                ownership_verification: record.isOwnershipVerification ? {
-                  type: record.recordType,
-                  name: record.name,
-                  value: record.value,
-                } : undefined,
-                ssl: record.isSSLValidation && data.data.customDomainStatus === 'active' ? {
-                  status: 'active',
-                  validation_records: [record].map(r => ({
-                    type: r.recordType,
-                    name: r.name,
-                    value: r.value,
-                  }))
-                } : undefined,
-              });
+        const payload = data.data ?? data;
+        const records: any[] = payload?.dnsRecords ?? [];
+        if (records.length > 0) {
+          // Accumulate all records per hostname
+          const map = new Map<string, DomainStatus>();
+          for (const r of records) {
+            if (!map.has(r.hostname)) {
+              map.set(r.hostname, { hostname: r.hostname, status: r.status });
             }
-            return acc;
-          }, []);
-          setDomains(domainRecords);
+            const entry = map.get(r.hostname)!;
+            if (r.isOwnershipVerification) {
+              entry.ownership_verification = { type: r.recordType, name: r.name, value: r.value };
+            }
+            if (r.isSSLValidation) {
+              if (!entry.ssl) entry.ssl = { status: payload.sslStatus ?? 'pending', validation_records: [] };
+              entry.ssl.validation_records!.push({ type: r.recordType, name: r.name, value: r.value });
+            }
+          }
+          setDomains(Array.from(map.values()));
         }
       }
     } catch (error) {
@@ -275,7 +268,7 @@ export default function DomainSettingsPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {domains.map((domain) => (
+            {domains.filter(d => !d.hostname.startsWith('www.')).map((domain) => (
               <div key={domain.hostname} className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -313,27 +306,35 @@ export default function DomainSettingsPage() {
   );
 }
 
-function DomainInstructions({ hostname, domains, onClose }: { 
-  hostname: string; 
-  domains: DomainStatus[]; 
+function DomainInstructions({ hostname, domains, onClose }: {
+  hostname: string;
+  domains: DomainStatus[];
   onClose: () => void;
 }) {
-  const domain = domains.find(d => d.hostname === hostname);
-  
-  if (!domain) return null;
+  const apex = hostname.replace(/^www\./, '');
+  const www = `www.${apex}`;
 
-  const isVerified = domain.status === 'active';
-  const hasOwnershipRecords = domain.ownership_verification;
-  const hasSSLRecords = domain.ssl?.validation_records;
+  // Collect all TXT records from both apex and www entries
+  const allDomains = domains.filter(d => d.hostname === apex || d.hostname === www);
+  if (allDomains.length === 0) return null;
+
+  const isVerified = allDomains.some(d => d.status === 'active');
+
+  const txtRows: Array<{ type: string; name: string; value: string }> = [];
+  for (const d of allDomains) {
+    if (d.ownership_verification) {
+      txtRows.push({ type: 'TXT', name: d.ownership_verification.name, value: d.ownership_verification.value });
+    }
+    for (const r of d.ssl?.validation_records ?? []) {
+      txtRows.push({ type: r.type, name: r.name, value: r.value });
+    }
+  }
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-blue-900">Setup Instructions for {hostname}</h3>
-        <button
-          onClick={onClose}
-          className="text-blue-600 hover:text-blue-700"
-        >
+        <h3 className="text-lg font-semibold text-blue-900">Setup Instructions for {apex}</h3>
+        <button onClick={onClose} className="text-blue-600 hover:text-blue-700">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -348,7 +349,7 @@ function DomainInstructions({ hostname, domains, onClose }: {
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Add all of these records in your domain registrar (e.g. IONOS, GoDaddy), then click Verify.
+            Add all of these records in your domain registrar (e.g. IONOS, GoDaddy), then wait 5–15 minutes.
           </p>
 
           <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
@@ -361,7 +362,6 @@ function DomainInstructions({ hostname, domains, onClose }: {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {/* Apex A records */}
                 <tr>
                   <td className="px-4 py-3 font-mono text-gray-700">A</td>
                   <td className="px-4 py-3 font-mono text-gray-700">@</td>
@@ -372,31 +372,27 @@ function DomainInstructions({ hostname, domains, onClose }: {
                   <td className="px-4 py-3 font-mono text-gray-700">@</td>
                   <td className="px-4 py-3 font-mono text-gray-700">104.16.1.1</td>
                 </tr>
-                {/* www CNAME */}
                 <tr>
                   <td className="px-4 py-3 font-mono text-gray-700">CNAME</td>
                   <td className="px-4 py-3 font-mono text-gray-700">www</td>
                   <td className="px-4 py-3 font-mono text-gray-700">servisite.co.uk</td>
                 </tr>
-                {/* Ownership verification TXT */}
-                {hasOwnershipRecords && (
-                  <tr>
-                    <td className="px-4 py-3 font-mono text-gray-700">TXT</td>
-                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{domain.ownership_verification?.name}</td>
-                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{domain.ownership_verification?.value}</td>
-                  </tr>
-                )}
-                {/* SSL validation TXT records */}
-                {domain.ssl?.validation_records?.map((record, index) => (
-                  <tr key={index}>
-                    <td className="px-4 py-3 font-mono text-gray-700">{record.type}</td>
-                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{record.name}</td>
-                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{record.value}</td>
+                {txtRows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3 font-mono text-gray-700">{r.type}</td>
+                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{r.name}</td>
+                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{r.value}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {txtRows.length === 0 && (
+            <p className="text-sm text-amber-700 bg-amber-50 px-4 py-3 rounded-lg">
+              TXT verification records are still being generated by Cloudflare. Refresh in a moment.
+            </p>
+          )}
 
           <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm">
             DNS changes can take 5–15 minutes to propagate. Click Verify once you've added all records.
