@@ -390,9 +390,10 @@ model MenuItem {
   isPopular     Boolean  @default(false)
   isNew         Boolean  @default(false)
   isChefSpecial Boolean  @default(false)
-  isSpicy       Boolean  @default(false)
-  isVegan       Boolean  @default(false)
-  isGlutenFree  Boolean  @default(false)
+  isSpicy        Boolean  @default(false)
+  isVegan        Boolean  @default(false)
+  isVegetarian   Boolean  @default(false)
+  isGlutenFree   Boolean  @default(false)
   stock         Int?
   batch         Int?
   allergens     String[]
