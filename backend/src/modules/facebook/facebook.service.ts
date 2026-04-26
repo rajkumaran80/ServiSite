@@ -38,11 +38,14 @@ export class FacebookService {
     return this.config.get<string>('ANTHROPIC_API_KEY', '');
   }
 
+  async getTenantSlug(tenantId: string): Promise<string> {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } });
+    return tenant?.slug ?? '';
+  }
+
   /** Returns the Facebook OAuth dialog URL */
-  getAuthUrl(): string {
+  getAuthUrl(tenantSlug: string): string {
     const appId = this.appId;
-    console.log('[Facebook] appId:', appId ? `${appId.slice(0, 6)}...` : 'EMPTY');
-    console.log('[Facebook] redirectUri:', this.redirectUri);
     const scope = 'pages_manage_posts,pages_read_engagement,pages_show_list';
     const params = new URLSearchParams({
       client_id: appId,
@@ -50,6 +53,7 @@ export class FacebookService {
       scope,
       response_type: 'code',
       auth_type: 'rerequest',
+      state: tenantSlug,
     });
     return `https://www.facebook.com/v20.0/dialog/oauth?${params.toString()}`;
   }

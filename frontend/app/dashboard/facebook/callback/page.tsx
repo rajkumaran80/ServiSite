@@ -15,6 +15,7 @@ function FacebookCallbackContent() {
   useEffect(() => {
     const code = searchParams.get('code');
     const errorParam = searchParams.get('error');
+    const state = searchParams.get('state'); // tenant slug
 
     if (errorParam) {
       setError('Facebook authorisation was cancelled or denied.');
@@ -25,6 +26,17 @@ function FacebookCallbackContent() {
     if (!code) {
       setError('No authorisation code received from Facebook.');
       setStatus('error');
+      return;
+    }
+
+    // If we landed on the main domain (no tenant subdomain), bridge back to the
+    // tenant subdomain which has the correct JWT cookie to complete the exchange.
+    const hostname = window.location.hostname;
+    const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'servisite.co.uk';
+    const isMainDomain = hostname === appDomain || hostname === `www.${appDomain}`;
+    if (isMainDomain && state) {
+      const params = new URLSearchParams({ code });
+      window.location.href = `https://${state}.${appDomain}/dashboard/facebook/callback?${params.toString()}`;
       return;
     }
 

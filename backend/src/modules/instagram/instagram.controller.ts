@@ -24,8 +24,9 @@ export class InstagramController {
   /** Returns the Instagram OAuth URL to redirect the user to */
   @Get('auth-url')
   @ApiOperation({ summary: 'Get Instagram OAuth URL' })
-  getAuthUrl() {
-    return { data: { url: this.instagramService.getAuthUrl() }, success: true };
+  async getAuthUrl(@CurrentUser() user: any) {
+    const slug = await this.instagramService.getTenantSlug(user.tenantId);
+    return { data: { url: this.instagramService.getAuthUrl(slug) }, success: true };
   }
 
   /** Exchange OAuth code → get accounts list */
