@@ -422,27 +422,21 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // Get tenant data to determine routing based on tenant
-    const tenantData = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { slug: true }
-    });
-    
-    // Determine endpoint based on specific tenant routing
+    // Determine routing based on domain type
     let targetUrl: string;
     let routingType: string;
     
-    if (tenantData?.slug === 'servisite') {
-      // servisite.co.uk uses Azure Front Door (existing setup)
+    if (apex === 'servisite.co.uk') {
+      // Main SaaS platform uses Azure Front Door for extra security
       targetUrl = this.config.get<string>('AZURE_FRONT_DOOR_ENDPOINT', 'servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net');
       routingType = 'frontdoor';
     } else {
-      // All other tenants (like la-cafe) use direct Azure App Service (new zone-based approach)
+      // Tenant domains (like la-cafe.co.uk) use direct App Service without Front Door
       targetUrl = this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend') + '.azurewebsites.net';
       routingType = 'direct';
     }
     
-    this.logger.log(`Using ${routingType} routing for tenant '${tenantData?.slug}' domain ${apex}, targeting: ${targetUrl}`);
+    this.logger.log(`Using ${routingType} routing for domain ${apex}, targeting: ${targetUrl}`);
     
     let zoneResult;
     try {
