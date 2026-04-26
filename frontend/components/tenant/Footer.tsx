@@ -82,7 +82,7 @@ export const Footer: React.FC<FooterProps> = ({ tenant }) => {
     primaryColor;
   const socialLinks = (tenant.themeSettings as any)?.socialLinks as Record<string, string> | undefined;
 
-  const phone = tenant.whatsappNumber || contact?.phone;
+  const phone = contact?.phone;
   const email = contact?.email;
   const address = contact?.address
     ? [contact.address, contact.city, contact.zipCode, contact.country].filter(Boolean).join(', ')

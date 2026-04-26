@@ -101,9 +101,9 @@ export default async function ContactPage({ params }: { params: Promise<{ tenant
             <div className="bg-white rounded-2xl p-4 sm:p-8 shadow-sm border border-gray-100 overflow-hidden">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Get in Touch</h2>
               <div className="space-y-5">
-                {(tenant.whatsappNumber || contact?.phone) && (
+                {contact?.phone && (
                   <a
-                    href={`tel:${tenant.whatsappNumber || contact?.phone}`}
+                    href={`tel:${contact.phone}`}
                     className="flex items-center gap-3 p-3 sm:p-4 rounded-xl hover:bg-gray-50 transition-colors group min-w-0"
                   >
                     <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center text-lg sm:text-xl flex-shrink-0">
@@ -112,7 +112,7 @@ export default async function ContactPage({ params }: { params: Promise<{ tenant
                     <div className="min-w-0">
                       <p className="text-xs text-gray-500 uppercase tracking-wide">Phone</p>
                       <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
-                        {tenant.whatsappNumber || contact?.phone}
+                        {contact.phone}
                       </p>
                     </div>
                   </a>

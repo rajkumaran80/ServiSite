@@ -190,13 +190,63 @@ export class CloudflareService {
     return customHostname;
   }
 
-  async getOriginFallbackSettings(): Promise<any> {
-    return {
-      hostname: `origin.${this.zoneName}`,
-      origin: this.configService.get<string>('AZURE_APP_SERVICE_URL'),
-      port: 443,
-      ssl: true,
-    };
+  async getFallbackOrigin(): Promise<any> {
+    try {
+      return await this.makeRequest(`/zones/${this.zoneId}/custom_hostnames/fallback_origin`);
+    } catch {
+      return null;
+    }
+  }
+
+  async setupFallbackOrigin(): Promise<{ dnsRecord: string; fallbackOrigin: string }> {
+    const originHostname = `origin.${this.zoneName}`;
+    const frontendAppName = this.configService.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend');
+    const cnameTarget = `${frontendAppName}.azurewebsites.net`;
+
+    // Step 1: create or update the DNS CNAME record for origin.servisite.co.uk
+    // Check if it already exists first
+    let existingRecordId: string | null = null;
+    try {
+      const records = await this.makeRequest(
+        `/zones/${this.zoneId}/dns_records?type=CNAME&name=${originHostname}`,
+      );
+      if (records?.length > 0) {
+        existingRecordId = records[0].id;
+      }
+    } catch {
+      // ignore — will create fresh
+    }
+
+    const dnsBody = JSON.stringify({
+      type: 'CNAME',
+      name: 'origin',
+      content: cnameTarget,
+      proxied: false, // must be DNS-only — proxied origin would cause a routing loop
+      ttl: 1,
+    });
+
+    if (existingRecordId) {
+      await this.makeRequest(`/zones/${this.zoneId}/dns_records/${existingRecordId}`, {
+        method: 'PUT',
+        body: dnsBody,
+      });
+      this.logger.log(`Updated DNS CNAME: ${originHostname} → ${cnameTarget}`);
+    } else {
+      await this.makeRequest(`/zones/${this.zoneId}/dns_records`, {
+        method: 'POST',
+        body: dnsBody,
+      });
+      this.logger.log(`Created DNS CNAME: ${originHostname} → ${cnameTarget}`);
+    }
+
+    // Step 2: set the fallback origin
+    await this.makeRequest(`/zones/${this.zoneId}/custom_hostnames/fallback_origin`, {
+      method: 'PUT',
+      body: JSON.stringify({ origin: originHostname }),
+    });
+    this.logger.log(`Fallback origin set to: ${originHostname}`);
+
+    return { dnsRecord: `${originHostname} → ${cnameTarget}`, fallbackOrigin: originHostname };
   }
 
   async setupRateLimiting(): Promise<{ rulesApplied: number }> {

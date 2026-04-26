@@ -52,6 +52,43 @@ export class UpdateMenuItemDto {
   isPopular?: boolean;
 
   @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isNew?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isChefSpecial?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isSpicy?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isVegan?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isGlutenFree?: boolean;
+
+  @ApiPropertyOptional()
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  stock?: number | null;
+
+  @ApiPropertyOptional()
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  batch?: number | null;
+
+  @ApiPropertyOptional()
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

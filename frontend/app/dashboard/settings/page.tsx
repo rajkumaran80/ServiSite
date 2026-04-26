@@ -432,10 +432,11 @@ function SettingsPageInner() {
     setIsSavingSocial(true);
     try {
       const clean = Object.fromEntries(Object.entries(socialLinks).filter(([, v]) => v.trim()));
-      const ts = tenant.themeSettings as any || {};
       const cleanHashtags = facebookHashtags.trim() || null;
+      // Only send the specific keys being updated — spreading full themeSettings risks
+      // overwriting keys (like homeSections) that may have been updated in another tab.
       const updated = await tenantService.update(tenant.id, {
-        themeSettings: { ...ts, socialLinks: Object.keys(clean).length > 0 ? clean : null, facebookHashtags: cleanHashtags },
+        themeSettings: { socialLinks: Object.keys(clean).length > 0 ? clean : null, facebookHashtags: cleanHashtags },
       });
       setTenant(updated);
       await revalidateTenantCache(tenant.slug);

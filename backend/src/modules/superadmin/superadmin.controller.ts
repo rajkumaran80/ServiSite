@@ -66,6 +66,20 @@ export class SuperAdminController {
     return { data: rules, success: true };
   }
 
+  @Post('cloudflare/fallback-origin')
+  @ApiOperation({ summary: 'Create origin DNS record and set Cloudflare for SaaS fallback origin' })
+  async setupFallbackOrigin() {
+    const result = await this.cloudflare.setupFallbackOrigin();
+    return { data: result, success: true, message: `Fallback origin configured: ${result.fallbackOrigin}` };
+  }
+
+  @Get('cloudflare/fallback-origin')
+  @ApiOperation({ summary: 'Get current Cloudflare fallback origin status' })
+  async getFallbackOrigin() {
+    const result = await this.cloudflare.getFallbackOrigin();
+    return { data: result, success: true };
+  }
+
   @Get('tenants')
   @ApiOperation({ summary: 'List all tenants' })
   async listTenants() {

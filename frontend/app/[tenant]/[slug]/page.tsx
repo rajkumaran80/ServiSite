@@ -71,7 +71,7 @@ export default async function DynamicPage({
   return (
     <div>
       {sortedSections.map((section) => (
-        <SectionRenderer key={section.id} section={section} primaryColor={primaryColor} />
+        <SectionRenderer key={section.id} section={section} primaryColor={primaryColor} tenantSlug={tenantSlug} />
       ))}
       {sortedSections.length === 0 && (
         <div className="min-h-[60vh] flex items-center justify-center text-gray-400">

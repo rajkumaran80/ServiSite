@@ -328,7 +328,7 @@ export default async function TenantHomePage({ params }: { params: Promise<{ ten
       {/* Home Blocks — new CMS sections take priority over legacy page-entries */}
       {homeSections.length > 0 ? (
         homeSections.map((section: any) => (
-          <SectionRenderer key={section.id} section={section} primaryColor={primaryColor} themeSettings={theme} />
+          <SectionRenderer key={section.id} section={section} primaryColor={primaryColor} themeSettings={theme} tenantSlug={tenantSlug} />
         ))
       ) : showHomeBlocks && (
         <div>
