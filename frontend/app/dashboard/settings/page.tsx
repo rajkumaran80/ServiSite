@@ -966,7 +966,7 @@ function SettingsPageInner() {
                       {[
                         { type: 'A', typeColor: 'bg-green-100 text-green-700', name: '@', value: '104.16.0.1' },
                         { type: 'A', typeColor: 'bg-green-100 text-green-700', name: '@', value: '104.16.1.1' },
-                        { type: 'CNAME', typeColor: 'bg-blue-100 text-blue-700', name: 'www', value: 'app.servisite.co.uk' },
+                        { type: 'CNAME', typeColor: 'bg-blue-100 text-blue-700', name: 'www', value: 'servisite.co.uk' },
                       ].map((rec, i) => (
                         <tr key={i} className="bg-white">
                           <td className="px-4 py-3"><span className={`inline-block text-xs font-bold px-2 py-0.5 rounded ${rec.typeColor}`}>{rec.type}</span></td>
