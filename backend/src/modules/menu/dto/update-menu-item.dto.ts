@@ -74,6 +74,11 @@ export class UpdateMenuItemDto {
   @ApiPropertyOptional()
   @IsBoolean()
   @IsOptional()
+  isVegetarian?: boolean;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
   isGlutenFree?: boolean;
 
   @ApiPropertyOptional()

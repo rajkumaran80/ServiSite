@@ -231,7 +231,7 @@ export class CloudflareService implements OnModuleInit {
       type: 'CNAME',
       name: 'origin',
       content: cnameTarget,
-      proxied: false, // must be DNS-only — proxied origin would cause a routing loop
+      proxied: true,
       ttl: 1,
     });
 

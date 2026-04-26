@@ -50,6 +50,7 @@ export interface MenuItem {
   isChefSpecial: boolean;
   isSpicy: boolean;
   isVegan: boolean;
+  isVegetarian: boolean;
   isGlutenFree: boolean;
   stock: number | null;
   batch: number | null;
@@ -98,6 +99,7 @@ export interface CreateMenuItemPayload {
   isChefSpecial?: boolean;
   isSpicy?: boolean;
   isVegan?: boolean;
+  isVegetarian?: boolean;
   isGlutenFree?: boolean;
   stock?: number | null;
   batch?: number | null;

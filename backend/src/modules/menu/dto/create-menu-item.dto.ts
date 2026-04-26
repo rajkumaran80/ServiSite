@@ -74,6 +74,11 @@ export class CreateMenuItemDto {
   @ApiPropertyOptional({ default: false })
   @IsBoolean()
   @IsOptional()
+  isVegetarian?: boolean;
+
+  @ApiPropertyOptional({ default: false })
+  @IsBoolean()
+  @IsOptional()
   isGlutenFree?: boolean;
 
   @ApiPropertyOptional({ description: 'null = unlimited, 0 = sold out' })

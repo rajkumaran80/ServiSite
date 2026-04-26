@@ -322,6 +322,13 @@ function ItemForm({
     imageUrl: item?.imageUrl ?? '',
     isAvailable: item?.isAvailable ?? true,
     isPopular: item?.isPopular ?? false,
+    isNew: item?.isNew ?? false,
+    isChefSpecial: item?.isChefSpecial ?? false,
+    isSpicy: item?.isSpicy ?? false,
+    isVegan: item?.isVegan ?? false,
+    isVegetarian: item?.isVegetarian ?? false,
+    isGlutenFree: item?.isGlutenFree ?? false,
+    stock: item?.stock != null ? String(item.stock) : '',
     allergens: item?.allergens?.join(', ') ?? '',
     sortOrder: item?.sortOrder ?? 0,
   });
@@ -367,6 +374,13 @@ function ItemForm({
         imageUrl,
         isAvailable: form.isAvailable,
         isPopular: form.isPopular,
+        isNew: form.isNew,
+        isChefSpecial: form.isChefSpecial,
+        isSpicy: form.isSpicy,
+        isVegan: form.isVegan,
+        isVegetarian: form.isVegetarian,
+        isGlutenFree: form.isGlutenFree,
+        stock: form.stock !== '' ? parseInt(form.stock, 10) : null,
         allergens: form.allergens
           ? form.allergens.split(',').map((a) => a.trim()).filter(Boolean)
           : [],
@@ -481,26 +495,59 @@ function ItemForm({
       <FieldRow label="Sort Order">
         <input type="number" min={0} className={inputClass} value={form.sortOrder} onChange={(e) => set('sortOrder', parseInt(e.target.value, 10) || 0)} />
       </FieldRow>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-          <div>
-            <p className="text-sm font-medium text-gray-900">Available</p>
-            <p className="text-xs text-gray-500">Show to customers</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" className="sr-only peer" checked={form.isAvailable} onChange={(e) => set('isAvailable', e.target.checked)} />
-            <div className="w-10 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
-          </label>
+      {/* Availability */}
+      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+        <div>
+          <p className="text-sm font-medium text-gray-900">Available</p>
+          <p className="text-xs text-gray-500">Show to customers</p>
         </div>
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-          <div>
-            <p className="text-sm font-medium text-gray-900">Popular</p>
-            <p className="text-xs text-gray-500">Show badge</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" className="sr-only peer" checked={form.isPopular} onChange={(e) => set('isPopular', e.target.checked)} />
-            <div className="w-10 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-amber-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500" />
-          </label>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" className="sr-only peer" checked={form.isAvailable} onChange={(e) => set('isAvailable', e.target.checked)} />
+          <div className="w-10 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
+        </label>
+      </div>
+
+      {/* Stock */}
+      <FieldRow label="Stock (leave empty = unlimited)">
+        <input type="number" min={0} className={inputClass} placeholder="e.g. 10" value={form.stock} onChange={(e) => set('stock', e.target.value)} />
+      </FieldRow>
+
+      {/* Marketing badges */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Marketing Badge <span className="font-normal normal-case">(only one shows — priority: Chef's Special &gt; New &gt; Popular)</span></p>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { key: 'isChefSpecial', label: "Chef's Special", icon: '👨‍🍳', color: 'peer-checked:bg-yellow-500' },
+            { key: 'isNew',         label: 'New',            icon: '⭐',    color: 'peer-checked:bg-blue-500' },
+            { key: 'isPopular',     label: 'Popular',        icon: '🔥',    color: 'peer-checked:bg-orange-500' },
+          ] as const).map(({ key, label, icon, color }) => (
+            <label key={key} className="flex flex-col items-center gap-1 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+              <input type="checkbox" className="sr-only peer" checked={form[key]} onChange={(e) => set(key, e.target.checked)} />
+              <span className="text-xl">{icon}</span>
+              <span className="text-xs font-medium text-gray-700 text-center leading-tight">{label}</span>
+              <div className={`w-8 h-4 bg-gray-300 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative ${color}`} />
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Dietary traits */}
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Dietary / Traits</p>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { key: 'isSpicy',       label: 'Spicy',       icon: '🌶️' },
+            { key: 'isVegan',       label: 'Vegan',       icon: '🌿' },
+            { key: 'isVegetarian',  label: 'Vegetarian',  icon: '🥦' },
+            { key: 'isGlutenFree',  label: 'Gluten-Free', icon: '🌾' },
+          ] as const).map(({ key, label, icon }) => (
+            <label key={key} className="flex flex-col items-center gap-1 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+              <input type="checkbox" className="sr-only peer" checked={form[key]} onChange={(e) => set(key, e.target.checked)} />
+              <span className="text-xl">{icon}</span>
+              <span className="text-xs font-medium text-gray-700">{label}</span>
+              <div className="w-8 h-4 bg-gray-300 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-green-500" />
+            </label>
+          ))}
         </div>
       </div>
       <div className="flex gap-3 pt-2">

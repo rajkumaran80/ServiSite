@@ -584,6 +584,33 @@ function ItemModal({
     return () => { document.body.style.overflow = ''; };
   }, []);
 
+  const marketingBadge = item.isChefSpecial
+    ? { bg: '#FFD700', icon: (
+        <svg className="w-3.5 h-3.5 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6H8.3A7 7 0 0 1 5 9a7 7 0 0 1 7-7zm-1 15h2v2h-2v-2zm-2 3h6v1H9v-1z"/>
+        </svg>
+      ), label: "Chef's Special" }
+    : item.isNew
+    ? { bg: '#007AFF', icon: (
+        <svg className="w-3.5 h-3.5 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z"/>
+        </svg>
+      ), label: 'New' }
+    : item.isPopular
+    ? { bg: '#FF9500', icon: (
+        <svg className="w-3.5 h-3.5 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/>
+        </svg>
+      ), label: 'Popular' }
+    : null;
+
+  const modalTraits = [
+    item.isSpicy        && { key: 'spicy', label: 'Spicy',       icon: '🌶️' },
+    item.isVegan        && { key: 'vegan', label: 'Vegan',       icon: '🌿' },
+    !item.isVegan && item.isVegetarian && { key: 'veg', label: 'Vegetarian', icon: '🥦' },
+    item.isGlutenFree   && { key: 'gf',   label: 'Gluten-Free', icon: '🌾' },
+  ].filter(Boolean) as { key: string; label: string; icon: string }[];
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -600,17 +627,41 @@ function ItemModal({
           ) : (
             <div className="w-full bg-gray-100 flex items-center justify-center text-7xl" style={{ height: '300px' }}>🍽️</div>
           )}
-          {item.isPopular && (
-            <span className="absolute top-3 left-3 bg-amber-400 text-amber-900 text-xs font-semibold px-2.5 py-1 rounded-full">
-              ⭐ Popular
-            </span>
+
+          {/* Top-left: marketing badge */}
+          {marketingBadge && (
+            <div
+              className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white shadow-md"
+              style={{ backgroundColor: marketingBadge.bg }}
+            >
+              {marketingBadge.icon}
+              <span>{marketingBadge.label}</span>
+            </div>
           )}
+
+          {/* Top-right: close button */}
           <button
             onClick={onClose}
             className="absolute top-3 right-3 w-8 h-8 bg-black/40 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors text-lg leading-none"
           >
             ×
           </button>
+
+          {/* Bottom-right: trait icons stacked vertically */}
+          {modalTraits.length > 0 && (
+            <div className="absolute bottom-3 right-3 flex flex-col items-end gap-1.5">
+              {modalTraits.map((t) => (
+                <div
+                  key={t.key}
+                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-md"
+                  style={{ background: 'rgba(0,0,0,0.52)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+                >
+                  <span style={{ fontSize: '13px', lineHeight: 1 }}>{t.icon}</span>
+                  <span>{t.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="overflow-y-auto px-5 py-4 space-y-2">
@@ -622,7 +673,7 @@ function ItemModal({
           </div>
 
           {item.description && (
-            <p className="text-sm text-gray-500 leading-relaxed">{item.description}</p>
+            <p className="text-sm text-gray-700 leading-relaxed">{item.description}</p>
           )}
 
           {item.allergens && item.allergens.length > 0 && (
@@ -687,7 +738,7 @@ function ItemRow({
           )}
         </div>
         {item.description && (
-          <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>
+          <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{item.description}</p>
         )}
       </button>
       <div className="flex items-center gap-3 flex-shrink-0">
@@ -753,9 +804,10 @@ function ItemCard({
 
   // Top-right trait indicators
   const traits = [
-    item.isSpicy   && { key: 'spicy',   label: 'Spicy',       icon: '🌶️' },
-    item.isVegan   && { key: 'vegan',   label: 'Vegan',       icon: '🌿' },
-    item.isGlutenFree && { key: 'gf',   label: 'Gluten-Free', icon: '🌾' },
+    item.isSpicy        && { key: 'spicy', label: 'Spicy',       icon: '🌶️' },
+    item.isVegan        && { key: 'vegan', label: 'Vegan',       icon: '🌿' },
+    !item.isVegan && item.isVegetarian && { key: 'veg', label: 'Vegetarian', icon: '🥦' },
+    item.isGlutenFree   && { key: 'gf',   label: 'Gluten-Free', icon: '🌾' },
   ].filter(Boolean) as { key: string; label: string; icon: string }[];
 
   const radius = cardRadius || '12px';
@@ -1071,6 +1123,7 @@ export default function MenuPage() {
   const [bundles, setBundles] = useState<any[]>([]);
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dietaryFilters, setDietaryFilters] = useState<Set<string>>(new Set());
   const [highlightItemId, setHighlightItemId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
 
@@ -1127,9 +1180,18 @@ export default function MenuPage() {
     }
   }, [loading]);
 
+  const toggleDietaryFilter = useCallback((key: string) => {
+    setDietaryFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
   const handleTabChange = useCallback((tabId: string) => {
     setActiveTab(tabId);
     setSearchQuery('');
+    setDietaryFilters(new Set());
   }, []);
 
   const openItem = useCallback((item: MenuItem) => setSelectedItem(item), []);
@@ -1468,6 +1530,48 @@ export default function MenuPage() {
                 </button>
               </div>
             </div>
+          {/* Dietary filter pills — shared row for desktop + mobile */}
+          {(() => {
+            const allItems = [
+              ...menu.groups.flatMap(g => (g.categories ?? []).flatMap(c => c.menuItems ?? [])),
+              ...menu.uncategorized,
+            ];
+            const pills = [
+              { key: 'vegan',      label: 'Vegan',       icon: '🌿', check: (i: MenuItem) => i.isVegan },
+              { key: 'vegetarian', label: 'Vegetarian',  icon: '🥦', check: (i: MenuItem) => i.isVegan || i.isVegetarian },
+              { key: 'spicy',      label: 'Spicy',       icon: '🌶️', check: (i: MenuItem) => i.isSpicy },
+              { key: 'gf',         label: 'Gluten-Free', icon: '🌾', check: (i: MenuItem) => i.isGlutenFree },
+            ].filter(p => allItems.some(p.check));
+            if (pills.length === 0) return null;
+            return (
+              <div className="pb-2 flex items-center gap-2 overflow-x-auto scrollbar-none">
+                {pills.map((p) => {
+                  const active = dietaryFilters.has(p.key);
+                  return (
+                    <button
+                      key={p.key}
+                      onClick={() => toggleDietaryFilter(p.key)}
+                      className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                        active ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                      }`}
+                      style={active ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
+                    >
+                      <span>{p.icon}</span>
+                      <span>{p.label}</span>
+                    </button>
+                  );
+                })}
+                {dietaryFilters.size > 0 && (
+                  <button
+                    onClick={() => setDietaryFilters(new Set())}
+                    className="flex-shrink-0 text-xs text-gray-400 hover:text-gray-600 underline ml-1"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            );
+          })()}
           </div>
         </div>
       )}
@@ -1522,21 +1626,23 @@ export default function MenuPage() {
           <div>
             {activeSection && (() => {
               const q = searchQuery.trim().toLowerCase();
-              const filterItems = (items: MenuItem[]) =>
-                q
-                  ? items.filter(
-                      (i) =>
-                        i.name.toLowerCase().includes(q) ||
-                        (i.description || '').toLowerCase().includes(q)
-                    )
+              const filterItems = (items: MenuItem[]) => {
+                let result = q
+                  ? items.filter(i => i.name.toLowerCase().includes(q) || (i.description || '').toLowerCase().includes(q))
                   : items;
+                if (dietaryFilters.has('vegan'))      result = result.filter(i => i.isVegan);
+                if (dietaryFilters.has('vegetarian')) result = result.filter(i => i.isVegan || i.isVegetarian);
+                if (dietaryFilters.has('spicy'))      result = result.filter(i => i.isSpicy);
+                if (dietaryFilters.has('gf'))         result = result.filter(i => i.isGlutenFree);
+                return result;
+              };
 
               // Build filtered categories
               const filteredCats = (activeSection.categories ?? [])
                 .map((cat) => ({ ...cat, menuItems: filterItems(cat.menuItems ?? []) }))
                 .filter((cat) => cat.menuItems.length > 0);
 
-              const noResults = q && filteredCats.length === 0;
+              const noResults = (q || dietaryFilters.size > 0) && filteredCats.length === 0;
 
               return (
                 <div>
@@ -1565,7 +1671,7 @@ export default function MenuPage() {
                   {noResults ? (
                     <div className="text-center py-16">
                       <div className="text-4xl mb-3">🔍</div>
-                      <p className="text-gray-500">No items match &ldquo;{searchQuery}&rdquo;</p>
+                      <p className="text-gray-500">No items match your filters</p>
                     </div>
                   ) : (
                     <div className="space-y-10">
@@ -1640,7 +1746,7 @@ export default function MenuPage() {
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-bold text-gray-900 leading-snug truncate">{item.name}</p>
                                       {item.description && (
-                                        <p className="text-xs text-gray-400 mt-0.5 truncate">{item.description}</p>
+                                        <p className="text-xs text-gray-600 mt-0.5 truncate">{item.description}</p>
                                       )}
                                     </div>
                                     {/* Price + add */}
@@ -1701,13 +1807,13 @@ export default function MenuPage() {
 
             {activeTab === 'uncategorized' && (() => {
               const q = searchQuery.trim().toLowerCase();
-              const filtered = q
-                ? menu.uncategorized.filter(
-                    (i) =>
-                      i.name.toLowerCase().includes(q) ||
-                      (i.description || '').toLowerCase().includes(q)
-                  )
-                : menu.uncategorized;
+              let filtered = q
+                ? menu.uncategorized.filter(i => i.name.toLowerCase().includes(q) || (i.description || '').toLowerCase().includes(q))
+                : [...menu.uncategorized];
+              if (dietaryFilters.has('vegan'))      filtered = filtered.filter(i => i.isVegan);
+              if (dietaryFilters.has('vegetarian')) filtered = filtered.filter(i => i.isVegan || i.isVegetarian);
+              if (dietaryFilters.has('spicy'))      filtered = filtered.filter(i => i.isSpicy);
+              if (dietaryFilters.has('gf'))         filtered = filtered.filter(i => i.isGlutenFree);
               if (filtered.length === 0) return null;
               return (
                 <div>

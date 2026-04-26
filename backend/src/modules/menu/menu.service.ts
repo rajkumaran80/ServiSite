@@ -176,6 +176,7 @@ export class MenuService {
       isChefSpecial: item.isChefSpecial,
       isSpicy: item.isSpicy,
       isVegan: item.isVegan,
+      isVegetarian: item.isVegetarian,
       isGlutenFree: item.isGlutenFree,
       stock: item.stock,
       batch: item.batch,
