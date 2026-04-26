@@ -234,7 +234,7 @@ export class CloudflareController {
   @ApiOperation({ summary: 'Get origin fallback settings' })
   async getOriginSettings(): Promise<any> {
     try {
-      return await this.cloudflareService.getOriginFallbackSettings();
+      return await this.cloudflareService.getFallbackOrigin();
     } catch (error) {
       throw new BadRequestException(`Failed to get origin settings: ${error.message}`);
     }
