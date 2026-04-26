@@ -14,6 +14,9 @@ export interface CreateDnsRecordDto {
   isOwnershipVerification?: boolean;
   isSSLValidation?: boolean;
   isSystemManaged?: boolean;
+  status?: string;
+  verifiedAt?: Date;
+  expiresAt?: Date;
 }
 
 export interface UpdateDnsRecordDto {
@@ -32,8 +35,12 @@ export interface DnsZoneDto {
   zoneName: string;
   provider?: string;
   providerZoneId?: string;
-  originUrl?: string;
+  status?: string;
   nameservers?: string[];
+  originUrl?: string;
+  customDomainStatus?: string;
+  sslStatus?: string;
+  ownershipStatus?: string;
 }
 
 @Injectable()
@@ -56,12 +63,12 @@ export class DnsService {
           providerZoneId: data.providerZoneId,
           originUrl: data.originUrl,
           nameservers: data.nameservers || [],
-        },
-        include: {
-          dnsRecords: true,
+          status: data.status || 'active',
+          lastVerifiedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
-
       this.logger.log(`Created DNS zone for tenant ${tenantId}: ${data.zoneName}`);
       return zone;
     } catch (error) {
@@ -72,10 +79,10 @@ export class DnsService {
 
   async getDnsZone(tenantId: string): Promise<any> {
     try {
-      // Get the tenant's custom domain so we can fetch live Cloudflare data
+      // Get tenant's custom domain and zone info
       const tenant = await this.prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { customDomain: true },
+        select: { customDomain: true, customDomainZoneId: true, customDomainNsRecords: true },
       });
 
       const zone = await this.prisma.dnsZone.findUnique({
@@ -85,53 +92,24 @@ export class DnsService {
 
       if (!tenant?.customDomain) return zone;
 
-      const apex = tenant.customDomain;
-      const www = `www.${apex}`;
-
-      // Fetch live from Cloudflare for both hostnames
-      const [apexCf, wwwCf] = await Promise.allSettled([
-        this.cloudflareService.getCustomHostname(apex),
-        this.cloudflareService.getCustomHostname(www),
-      ]);
-
-      const liveRecords: any[] = [];
-      const addRecords = (cf: any, hostname: string) => {
-        if (!cf) return;
-        if (cf.ownership_verification) {
-          liveRecords.push({
-            hostname,
-            recordType: 'TXT',
-            name: cf.ownership_verification.name,
-            value: cf.ownership_verification.value,
-            isOwnershipVerification: true,
-            isSSLValidation: false,
-            status: cf.status,
-          });
+      // New approach: Use zone-based status polling
+      let zoneStatus = 'pending';
+      if (tenant.customDomainZoneId) {
+        try {
+          const cfZone = await this.cloudflareService.getZoneStatus(tenant.customDomainZoneId);
+          zoneStatus = cfZone.status;
+        } catch (error) {
+          this.logger.warn(`Failed to get zone status: ${error.message}`);
         }
-        for (const r of cf.ssl?.validation_records ?? []) {
-          liveRecords.push({
-            hostname,
-            recordType: r.type,
-            name: r.name,
-            value: r.value,
-            isOwnershipVerification: false,
-            isSSLValidation: true,
-            status: cf.status,
-          });
-        }
-      };
-
-      addRecords(apexCf.status === 'fulfilled' ? apexCf.value : null, apex);
-      addRecords(wwwCf.status === 'fulfilled' ? wwwCf.value : null, www);
-
-      const cfStatus = apexCf.status === 'fulfilled' ? apexCf.value?.status : null;
-      const cfSslStatus = apexCf.status === 'fulfilled' ? apexCf.value?.ssl?.status : null;
+      }
 
       return {
         ...(zone ?? { tenantId }),
-        customDomainStatus: cfStatus ?? zone?.customDomainStatus ?? 'pending',
-        sslStatus: cfSslStatus ?? zone?.sslStatus ?? 'pending',
-        dnsRecords: liveRecords,
+        customDomain: tenant.customDomain,
+        customDomainStatus: zoneStatus,
+        sslStatus: zoneStatus === 'active' ? 'active' : 'pending',
+        nameservers: tenant.customDomainNsRecords || [],
+        dnsRecords: zone?.dnsRecords || [],
       };
     } catch (error) {
       this.logger.error(`Failed to get DNS zone: ${error.message}`);
@@ -141,26 +119,22 @@ export class DnsService {
 
   async updateDnsZone(tenantId: string, data: Partial<DnsZoneDto>): Promise<any> {
     try {
-      const zone = await this.prisma.dnsZone.update({
+      const updatedZone = await this.prisma.dnsZone.update({
         where: { tenantId },
         data: {
           ...data,
           updatedAt: new Date(),
         },
-        include: {
-          dnsRecords: true,
-        },
       });
-
       this.logger.log(`Updated DNS zone for tenant ${tenantId}`);
-      return zone;
+      return updatedZone;
     } catch (error) {
       this.logger.error(`Failed to update DNS zone: ${error.message}`);
       throw error;
     }
   }
 
-  // DNS Record Management
+  // DNS Records Management
   async createDnsRecord(tenantId: string, data: CreateDnsRecordDto): Promise<any> {
     try {
       // Get or create DNS zone for this hostname
@@ -188,15 +162,19 @@ export class DnsService {
           value: data.value,
           ttl: data.ttl || 300,
           priority: data.priority,
+          status: data.status || 'pending',
           provider: data.provider || 'cloudflare',
           providerRecordId: data.providerRecordId,
           isOwnershipVerification: data.isOwnershipVerification || false,
           isSSLValidation: data.isSSLValidation || false,
           isSystemManaged: data.isSystemManaged || false,
+          verifiedAt: data.verifiedAt,
+          expiresAt: data.expiresAt,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       });
-
-      this.logger.log(`Created DNS record: ${data.recordType} ${data.name} for ${data.hostname}`);
+      this.logger.log(`Created DNS record: ${data.hostname} (${data.recordType})`);
       return record;
     } catch (error) {
       this.logger.error(`Failed to create DNS record: ${error.message}`);
@@ -204,15 +182,10 @@ export class DnsService {
     }
   }
 
-  async getDnsRecords(tenantId: string, hostname?: string): Promise<any[]> {
+  async getDnsRecords(tenantId: string): Promise<any[]> {
     try {
-      const where: any = { tenantId };
-      if (hostname) {
-        where.hostname = hostname;
-      }
-
       return await this.prisma.dnsRecord.findMany({
-        where,
+        where: { tenantId },
         orderBy: { createdAt: 'asc' },
       });
     } catch (error) {
@@ -233,17 +206,15 @@ export class DnsService {
     }
   }
 
-  async updateDnsRecord(recordId: string, data: UpdateDnsRecordDto): Promise<any> {
+  async updateDnsRecord(tenantId: string, recordId: string, data: Partial<UpdateDnsRecordDto>): Promise<any> {
     try {
       const record = await this.prisma.dnsRecord.update({
-        where: { id: recordId },
+        where: { id: recordId, tenantId },
         data: {
           ...data,
-          lastSyncAt: new Date(),
           updatedAt: new Date(),
         },
       });
-
       this.logger.log(`Updated DNS record: ${recordId}`);
       return record;
     } catch (error) {
@@ -252,12 +223,11 @@ export class DnsService {
     }
   }
 
-  async deleteDnsRecord(recordId: string): Promise<void> {
+  async deleteDnsRecord(tenantId: string, recordId: string): Promise<void> {
     try {
       await this.prisma.dnsRecord.delete({
-        where: { id: recordId },
+        where: { id: recordId, tenantId },
       });
-
       this.logger.log(`Deleted DNS record: ${recordId}`);
     } catch (error) {
       this.logger.error(`Failed to delete DNS record: ${error.message}`);
@@ -277,6 +247,49 @@ export class DnsService {
       this.logger.error(`Failed to delete DNS records for ${hostname}: ${error.message}`);
       throw error;
     }
+  }
+
+  // ── Zone Status Polling for Dashboard ───────────────────────
+  async pollZoneStatus(tenantId: string, maxAttempts: number = 10): Promise<{ status: string; isActive: boolean }> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { customDomain: true, customDomainZoneId: true },
+    });
+
+    if (!tenant?.customDomainZoneId) {
+      return { status: 'no_domain', isActive: false };
+    }
+
+    let attempts = 0;
+    while (attempts < maxAttempts) {
+      try {
+        const zone = await this.cloudflareService.getZoneStatus(tenant.customDomainZoneId);
+        const isActive = zone.status === 'active';
+        
+        if (isActive) {
+          // Update tenant status to active
+          await this.prisma.tenant.update({
+            where: { id: tenantId },
+            data: { 
+              customDomainStatus: 'active',
+              customDomainVerifiedAt: new Date(),
+            },
+          });
+          
+          this.logger.log(`Zone ${tenant.customDomainZoneId} is active for tenant ${tenantId}`);
+          return { status: 'active', isActive: true };
+        }
+
+        this.logger.log(`Zone status check ${attempts + 1}/${maxAttempts}: ${zone.status}`);
+      } catch (error) {
+        this.logger.warn(`Zone status check failed: ${error.message}`);
+      }
+
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+    }
+
+    return { status: 'pending', isActive: false };
   }
 
   // Sync with Cloudflare
@@ -427,7 +440,7 @@ export class DnsService {
       const records = await this.getDnsRecordsByHostname(hostname);
       
       if (records.length > 0) {
-        const zone = await this.prisma.dnsZone.findFirst({
+        const existingZone = await this.prisma.dnsZone.findFirst({
           where: {
             dnsRecords: {
               some: { hostname }
@@ -437,7 +450,7 @@ export class DnsService {
 
         return {
           hostname,
-          status: zone?.customDomainStatus || 'unknown',
+          status: existingZone?.customDomainStatus || 'unknown',
           ownershipVerification: records.find(r => r.isOwnershipVerification),
           sslValidation: records.find(r => r.isSSLValidation),
           source: 'database'

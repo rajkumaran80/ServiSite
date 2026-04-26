@@ -1529,17 +1529,12 @@ export default function MenuPage() {
             </div>
           {/* Dietary filter pills — shared row for desktop + mobile */}
           {(() => {
-            const allItems = [
-              ...menu.groups.flatMap(g => (g.categories ?? []).flatMap(c => c.menuItems ?? [])),
-              ...menu.uncategorized,
-            ];
             const pills = [
-              { key: 'vegan',      label: 'Vegan',       icon: '🌿', check: (i: MenuItem) => i.isVegan },
-              { key: 'vegetarian', label: 'Vegetarian',  icon: '🥦', check: (i: MenuItem) => i.isVegan || i.isVegetarian },
-              { key: 'spicy',      label: 'Spicy',       icon: '🌶️', check: (i: MenuItem) => i.isSpicy },
-              { key: 'gf',         label: 'Gluten-Free', icon: '🌾', check: (i: MenuItem) => i.isGlutenFree },
-            ].filter(p => allItems.some(p.check));
-            if (pills.length === 0) return null;
+              { key: 'vegan',      label: 'Vegan',       icon: '🌿' },
+              { key: 'vegetarian', label: 'Vegetarian',  icon: '🥦' },
+              { key: 'spicy',      label: 'Spicy',       icon: '🌶️' },
+              { key: 'gf',         label: 'Gluten-Free', icon: '🌾' },
+            ];
             return (
               <div className="pb-2 flex items-center gap-2 overflow-x-auto scrollbar-none">
                 {pills.map((p) => {

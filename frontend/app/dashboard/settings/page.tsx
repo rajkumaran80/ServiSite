@@ -932,16 +932,10 @@ function SettingsPageInner() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                       <tr className="bg-white">
-                        <td className="px-4 py-3"><span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">A</span></td>
+                        <td className="px-4 py-3"><span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">ALIAS</span></td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-800">@</td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-600">104.16.0.1</td>
-                        <td className="px-4 py-3"><button type="button" onClick={() => { navigator.clipboard.writeText('104.16.0.1'); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button></td>
-                      </tr>
-                      <tr className="bg-white">
-                        <td className="px-4 py-3"><span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">A</span></td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-800">@</td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-600">104.16.1.1</td>
-                        <td className="px-4 py-3"><button type="button" onClick={() => { navigator.clipboard.writeText('104.16.1.1'); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button></td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-600">servisite.co.uk</td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => { navigator.clipboard.writeText('servisite.co.uk'); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button></td>
                       </tr>
                       <tr className="bg-white">
                         <td className="px-4 py-3"><span className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">CNAME</span></td>
