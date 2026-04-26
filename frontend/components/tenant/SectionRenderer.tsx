@@ -23,6 +23,7 @@ interface Props {
   section: PageSection;
   primaryColor?: string;
   themeSettings?: any;
+  tenantSlug?: string;
 }
 
 function renderText(text: string) {
@@ -306,72 +307,64 @@ function AwardsSection({ content, primaryColor }: { content: AwardsContent; prim
   );
 }
 
-function SocialMediaSection({ content, primaryColor, sectionBg }: { content: SocialMediaContent; primaryColor?: string; sectionBg?: string }) {
+function SocialMediaSection({ content, primaryColor, sectionBg, tenantSlug }: { content: SocialMediaContent; primaryColor?: string; sectionBg?: string; tenantSlug?: string }) {
   const bgColor = sectionBg || content.backgroundColor || '#f5f5f4';
   const [livePosts, setLivePosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Always fetch live posts
   useEffect(() => {
     const fetchPosts = async () => {
       setIsLoading(true);
-      setError(null);
-      
+      const slugParam = tenantSlug ? `?slug=${encodeURIComponent(tenantSlug)}` : '';
+
       try {
-        let posts = [];
-        
+        let posts: any[] = [];
+
         if (content.platform === 'instagram') {
-          // Use Instagram service API (cached)
-          const response = await fetch('/api/instagram/media/cached');
+          const response = await fetch(`/api/instagram/media/cached${slugParam}`);
           if (response.ok) {
             const data = await response.json();
-            posts = data.data.map((item: any) => ({
+            posts = (data.data || []).map((item: any) => ({
               id: item.id,
               imageUrl: item.imageUrl,
               caption: item.caption,
               timestamp: new Date(item.timestamp).toLocaleString(),
               isVideo: item.isVideo,
-              postUrl: item.postUrl
+              postUrl: item.postUrl,
             }));
           }
         } else if (content.platform === 'facebook') {
-          // Use Facebook service API (cached)
-          const response = await fetch('/api/facebook/posts/cached');
+          const response = await fetch(`/api/facebook/posts/cached${slugParam}`);
           if (response.ok) {
             const data = await response.json();
-            posts = data.data.map((item: any) => ({
+            posts = (data.data || []).map((item: any) => ({
               id: item.id,
               imageUrl: item.imageUrl,
               caption: item.message || '',
               timestamp: new Date(item.created_time).toLocaleString(),
               isVideo: false,
-              postUrl: item.permalink_url
+              postUrl: item.permalink_url,
             }));
           }
         }
-        
-        setLivePosts(posts);
-      } catch (err) {
-        console.error('Failed to fetch social media posts:', err);
-        setError('Failed to load live posts');
-        // Set empty array as fallback since manual posts are removed
-        setLivePosts([]);
+
+        // Fall back to manually-added posts if live feed returns nothing
+        setLivePosts(posts.length > 0 ? posts : (content.posts || []));
+      } catch {
+        setLivePosts(content.posts || []);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchPosts();
-    
-    // Set up refresh interval
+
     if (content.refreshInterval && content.refreshInterval > 0) {
       const interval = setInterval(fetchPosts, content.refreshInterval * 60 * 1000);
       return () => clearInterval(interval);
     }
-  }, [content.platform, content.maxPosts, content.refreshInterval]);
+  }, [content.platform, content.maxPosts, content.refreshInterval, tenantSlug]);
 
-  // Always use live posts
   const displayPosts = livePosts.slice(0, content.maxPosts || 6);
 
   return (
@@ -438,7 +431,7 @@ function SocialMediaSection({ content, primaryColor, sectionBg }: { content: Soc
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No posts yet</h3>
               <p className="text-gray-500 mb-4">
-                {error ? 'Failed to load posts from social media.' : 'Connect your social media accounts to display posts here.'}
+                {'Connect your social media accounts to display posts here.'}
               </p>
               <p className="text-sm text-gray-400">
                 Go to Dashboard Settings → Social to connect your accounts
@@ -1202,7 +1195,7 @@ function LinkTilesSection({ content, primaryColor }: { content: LinkTilesContent
   );
 }
 
-export function SectionRenderer({ section, primaryColor, themeSettings }: Props) {
+export function SectionRenderer({ section, primaryColor, themeSettings, tenantSlug }: Props) {
   const getSectionInfo = (): { style: React.CSSProperties; isDark: boolean } => {
     if (!themeSettings?.sectionBgMode) return { style: {}, isDark: false };
 
@@ -1259,7 +1252,7 @@ export function SectionRenderer({ section, primaryColor, themeSettings }: Props)
       content = <AwardsSection content={section.content as AwardsContent} primaryColor={primaryColor} />;
       break;
     case 'social_media':
-      content = <SocialMediaSection content={section.content as SocialMediaContent} primaryColor={primaryColor} sectionBg={sectionStyle.backgroundColor as string | undefined} />;
+      content = <SocialMediaSection content={section.content as SocialMediaContent} primaryColor={primaryColor} sectionBg={sectionStyle.backgroundColor as string | undefined} tenantSlug={tenantSlug} />;
       break;
     case 'google_reviews':
       content = <GoogleReviewsSection content={section.content as GoogleReviewsContent} primaryColor={primaryColor} googlePlaceId={themeSettings?.googlePlaceId} socialLinks={themeSettings?.socialLinks} sectionBg={sectionStyle.backgroundColor as string | undefined} isDark={isDark} headingColor={headingColor} bodyColor={bodyColor} />;
