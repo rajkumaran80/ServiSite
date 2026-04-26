@@ -737,9 +737,6 @@ function ItemRow({
             <span className="flex-shrink-0 bg-amber-100 text-amber-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">Popular</span>
           )}
         </div>
-        {item.description && (
-          <p className="text-xs text-gray-600 mt-0.5 line-clamp-1">{item.description}</p>
-        )}
       </button>
       <div className="flex items-center gap-3 flex-shrink-0">
         <span className="text-sm font-bold" style={{ color: primaryColor }}>{formatPrice(item.price, currency)}</span>
