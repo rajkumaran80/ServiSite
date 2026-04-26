@@ -74,7 +74,8 @@ function SettingsPageInner() {
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
-  const [domainNameservers, setDomainNameservers] = useState<string[]>([]);
+  const [domainTxtName, setDomainTxtName] = useState<string>('');
+  const [domainTxtValue, setDomainTxtValue] = useState<string>('');
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
   const [galleryEnabled, setGalleryEnabled] = useState(true);
@@ -152,7 +153,8 @@ function SettingsPageInner() {
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
-          setDomainNameservers(currentTenant.customDomainNsRecords || []);
+          setDomainTxtName(currentTenant.customDomainTxtName || '');
+          setDomainTxtValue(currentTenant.customDomainTxtValue || '');
 
           tenantForm.reset({
             name: currentTenant.name,
@@ -221,8 +223,9 @@ function SettingsPageInner() {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
       setCustomDomain(domainInput.trim().replace(/^www\./, ''));
       setDomainStatus('pending');
-      setDomainNameservers([]);
-      toast.success('Domain setup initiated — please update your registrar nameservers');
+      setDomainTxtName(result.txtRecords?.[0]?.name || '');
+      setDomainTxtValue(result.txtRecords?.[0]?.value || '');
+      toast.success('Domain saved — add the DNS records below in IONOS to complete setup');
     } catch {
       toast.error('Failed to save custom domain');
     } finally {
@@ -255,7 +258,8 @@ function SettingsPageInner() {
       setCustomDomain('');
       setDomainInput('');
       setDomainStatus(null);
-      setDomainNameservers([]);
+      setDomainTxtName('');
+      setDomainTxtValue('');
       toast.success('Custom domain removed');
     } catch {
       toast.error('Failed to remove custom domain');
@@ -911,47 +915,80 @@ function SettingsPageInner() {
             {/* DNS setup instructions */}
             {domainStatus === 'pending' && (
               <div className="space-y-4">
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-amber-900 text-sm">Step 1 — Update Nameservers</h3>
-                    <p className="text-xs text-amber-700 mt-1">Point your domain to Cloudflare by adding these nameservers at your registrar (IONOS, GoDaddy, NameCheap, etc):</p>
+                {/* Step 1 — Ownership TXT record */}
+                <div className="rounded-xl border border-amber-200 overflow-hidden">
+                  <div className="bg-amber-50 px-5 py-3 border-b border-amber-200">
+                    <p className="text-sm font-semibold text-amber-900">Step 1 — Verify domain ownership</p>
+                    <p className="text-xs text-amber-700 mt-0.5">Add this TXT record in IONOS (Domain → DNS → Add record)</p>
                   </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-100">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Type</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name / Host</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Value</th>
+                        <th className="px-4 py-2.5 w-16" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="bg-white">
+                        <td className="px-4 py-3"><span className="inline-block bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">TXT</span></td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800 break-all">{domainTxtName || `_cf-custom-hostname.${customDomain}`}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-600 break-all">{domainTxtValue || '(loading…)'}</td>
+                        <td className="px-4 py-3">
+                          {domainTxtValue && (
+                            <button type="button" onClick={() => { navigator.clipboard.writeText(domainTxtValue); toast.success('Copied'); }}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">Copy</button>
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
 
-                  <div className="space-y-2 bg-white rounded-lg p-3 border border-amber-100">
-                    {domainNameservers && domainNameservers.length > 0 ? (
-                      domainNameservers.map((ns, idx) => (
-                        <div key={idx} className="flex items-center justify-between">
-                          <code className="text-xs font-mono text-amber-900 flex-1 break-all">{ns}</code>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(ns);
-                              toast.success('Copied to clipboard');
-                            }}
-                            className="ml-2 text-xs text-amber-600 hover:text-amber-700 font-medium px-2 py-1 rounded hover:bg-amber-100 flex-shrink-0"
-                          >
-                            Copy
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-gray-500">Loading nameservers...</p>
-                    )}
+                {/* Step 2 — A + CNAME records */}
+                <div className="rounded-xl border border-blue-200 overflow-hidden">
+                  <div className="bg-blue-50 px-5 py-3 border-b border-blue-200">
+                    <p className="text-sm font-semibold text-blue-900">Step 2 — Point your domain to ServiSite</p>
+                    <p className="text-xs text-blue-700 mt-0.5">Add these records in IONOS (Domain → DNS → Add record). Do this after Step 1.</p>
                   </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-100">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Type</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Name / Host</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Value / Points to</th>
+                        <th className="px-4 py-2.5 w-16" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {[
+                        { type: 'A', typeColor: 'bg-green-100 text-green-700', name: '@', value: '104.16.0.1' },
+                        { type: 'A', typeColor: 'bg-green-100 text-green-700', name: '@', value: '104.16.1.1' },
+                        { type: 'CNAME', typeColor: 'bg-blue-100 text-blue-700', name: 'www', value: 'app.servisite.co.uk' },
+                      ].map((rec, i) => (
+                        <tr key={i} className="bg-white">
+                          <td className="px-4 py-3"><span className={`inline-block text-xs font-bold px-2 py-0.5 rounded ${rec.typeColor}`}>{rec.type}</span></td>
+                          <td className="px-4 py-3 font-mono text-xs text-gray-800">{rec.name}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-gray-600">{rec.value}</td>
+                          <td className="px-4 py-3">
+                            <button type="button" onClick={() => { navigator.clipboard.writeText(rec.value); toast.success('Copied'); }}
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                  <div className="bg-amber-100 border border-amber-300 rounded p-3 space-y-2">
-                    <p className="text-xs font-semibold text-amber-900">Example: For IONOS</p>
-                    <ol className="text-xs text-amber-800 space-y-1 list-decimal list-inside">
-                      <li>Log in to IONOS</li>
-                      <li>Go to Domain Management → Your Domain → Nameservers</li>
-                      <li>Replace existing nameservers with the ones above</li>
-                      <li>Save changes (propagation takes 10–60 minutes)</li>
-                    </ol>
-                  </div>
-
-                  <p className="text-xs text-amber-700 border-t border-amber-200 pt-3">
-                    ⏳ Propagation usually takes 10–60 minutes. Click "Check Status" below when ready.
-                  </p>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-xs text-gray-600">
+                  <p className="font-semibold text-gray-700 mb-1">How to add these in IONOS</p>
+                  <ol className="space-y-0.5 list-decimal list-inside">
+                    <li>Log in to IONOS → Domain &amp; SSL → click your domain</li>
+                    <li>Go to <span className="font-medium">DNS</span> tab → <span className="font-medium">Add record</span></li>
+                    <li>Add the TXT record from Step 1 first, then the A and CNAME records from Step 2</li>
+                    <li>Save — propagation takes 5–30 minutes</li>
+                  </ol>
                 </div>
 
                 <button
