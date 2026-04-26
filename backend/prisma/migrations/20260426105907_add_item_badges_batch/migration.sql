@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "menu_items" ADD COLUMN     "batch" INTEGER,
+ADD COLUMN     "isChefSpecial" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "isGlutenFree" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "isNew" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "isSpicy" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "isVegan" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "stock" INTEGER;

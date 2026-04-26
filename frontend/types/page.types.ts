@@ -12,7 +12,8 @@ export type SectionType =
   | 'social_media'
   | 'google_reviews'
   | 'review_buttons'
-  | 'image_only';
+  | 'image_only'
+  | 'link_tiles';
 
 export interface HeroContent {
   heading: string;
@@ -193,6 +194,23 @@ export interface ImageOnlyContent {
   openInNewTab?: boolean;
 }
 
+export interface LinkTileItem {
+  id: string;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  url: string;
+  openInNewTab?: boolean;
+}
+
+export interface LinkTilesContent {
+  heading?: string;
+  subheading?: string;
+  tiles: LinkTileItem[];
+  columns?: 2 | 3 | 4;
+  backgroundColor?: string;
+}
+
 export type SectionContent =
   | HeroContent
   | TextContent
@@ -207,7 +225,8 @@ export type SectionContent =
   | SocialMediaContent
   | GoogleReviewsContent
   | ReviewButtonsContent
-  | ImageOnlyContent;
+  | ImageOnlyContent
+  | LinkTilesContent;
 
 export interface PageSection {
   id: string;

@@ -51,6 +51,43 @@ export class CreateMenuItemDto {
   @IsOptional()
   isPopular?: boolean;
 
+  @ApiPropertyOptional({ default: false })
+  @IsBoolean()
+  @IsOptional()
+  isNew?: boolean;
+
+  @ApiPropertyOptional({ default: false })
+  @IsBoolean()
+  @IsOptional()
+  isChefSpecial?: boolean;
+
+  @ApiPropertyOptional({ default: false })
+  @IsBoolean()
+  @IsOptional()
+  isSpicy?: boolean;
+
+  @ApiPropertyOptional({ default: false })
+  @IsBoolean()
+  @IsOptional()
+  isVegan?: boolean;
+
+  @ApiPropertyOptional({ default: false })
+  @IsBoolean()
+  @IsOptional()
+  isGlutenFree?: boolean;
+
+  @ApiPropertyOptional({ description: 'null = unlimited, 0 = sold out' })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  stock?: number;
+
+  @ApiPropertyOptional({ description: 'Batch number 1-6 for grouping items' })
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  batch?: number;
+
   @ApiPropertyOptional({ example: ['gluten', 'dairy'] })
   @IsArray()
   @IsString({ each: true })

@@ -46,6 +46,13 @@ export interface MenuItem {
   imageUrl: string | null;
   isAvailable: boolean;
   isPopular: boolean;
+  isNew: boolean;
+  isChefSpecial: boolean;
+  isSpicy: boolean;
+  isVegan: boolean;
+  isGlutenFree: boolean;
+  stock: number | null;
+  batch: number | null;
   allergens: string[];
   sortOrder: number;
   createdAt: string;
@@ -87,6 +94,13 @@ export interface CreateMenuItemPayload {
   imageUrl?: string;
   isAvailable?: boolean;
   isPopular?: boolean;
+  isNew?: boolean;
+  isChefSpecial?: boolean;
+  isSpicy?: boolean;
+  isVegan?: boolean;
+  isGlutenFree?: boolean;
+  stock?: number | null;
+  batch?: number | null;
   allergens?: string[];
   sortOrder?: number;
   categoryIds?: string[];

@@ -218,6 +218,20 @@ const SECTION_DEFS: SectionDef[] = [
       openInNewTab: true,
     },
   },
+  {
+    type: 'link_tiles',
+    label: 'Link Tiles',
+    icon: '🔗',
+    defaultContent: {
+      heading: 'Useful Links',
+      subheading: '',
+      tiles: [
+        { id: '1', title: 'Visit our website', description: 'Learn more about us', imageUrl: '', url: 'https://example.com', openInNewTab: true },
+      ],
+      columns: 3,
+      backgroundColor: '#ffffff',
+    },
+  },
 ];
 
 // ─── Field editors for each section type ─────────────────────────────────────
@@ -1334,6 +1348,177 @@ function ImageOnlyEditor({ content, onChange }: { content: any; onChange: (c: an
   );
 }
 
+function LinkTilesEditor({ content, onChange }: { content: any; onChange: (c: any) => void }) {
+  const tiles: any[] = content.tiles || [];
+
+  const updateTile = (index: number, field: string, value: any) => {
+    const updated = tiles.map((tile, i) =>
+      i === index ? { ...tile, [field]: value } : tile
+    );
+    onChange({ ...content, tiles: updated });
+  };
+
+  const addTile = () => {
+    onChange({
+      ...content,
+      tiles: [...tiles, {
+        id: `tile_${Date.now()}`,
+        title: '',
+        description: '',
+        imageUrl: '',
+        url: '',
+        openInNewTab: true,
+      }],
+    });
+  };
+
+  const removeTile = (index: number) => {
+    onChange({ ...content, tiles: tiles.filter((_, i) => i !== index) });
+  };
+
+  const moveTile = (index: number, direction: 'up' | 'down') => {
+    const next = [...tiles];
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target >= 0 && target < tiles.length) {
+      [next[index], next[target]] = [next[target], next[index]];
+      onChange({ ...content, tiles: next });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <FieldInput
+        label="Section Heading"
+        value={content.heading || ''}
+        onChange={(v) => onChange({ ...content, heading: v })}
+        hint="e.g., Useful Links"
+      />
+      <FieldInput
+        label="Subheading"
+        value={content.subheading || ''}
+        onChange={(v) => onChange({ ...content, subheading: v })}
+      />
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Columns</label>
+          <select
+            value={content.columns || 3}
+            onChange={(e) => onChange({ ...content, columns: parseInt(e.target.value) })}
+            className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="2">2 Columns</option>
+            <option value="3">3 Columns</option>
+            <option value="4">4 Columns</option>
+          </select>
+        </div>
+        <FieldInput
+          label="Background Color"
+          value={content.backgroundColor || '#ffffff'}
+          onChange={(v) => onChange({ ...content, backgroundColor: v })}
+          hint="e.g., #f5f5f4"
+        />
+      </div>
+
+      <div className="border-t pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-gray-700">Tiles ({tiles.length})</p>
+          <button
+            type="button"
+            onClick={addTile}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Tile
+          </button>
+        </div>
+
+        {tiles.length === 0 && (
+          <p className="text-sm text-gray-400 italic text-center py-4">No tiles yet. Click "Add Tile" to get started.</p>
+        )}
+
+        <div className="space-y-4">
+          {tiles.map((tile, index) => (
+            <div key={tile.id || index} className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tile {index + 1}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveTile(index, 'up')}
+                    disabled={index === 0}
+                    className="p-1 rounded text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveTile(index, 'down')}
+                    disabled={index === tiles.length - 1}
+                    className="p-1 rounded text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeTile(index)}
+                    className="p-1 rounded text-red-400 hover:text-red-600"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <FieldInput
+                label="Title *"
+                value={tile.title || ''}
+                onChange={(v) => updateTile(index, 'title', v)}
+                hint="e.g., Book a Table"
+              />
+              <FieldInput
+                label="Description"
+                value={tile.description || ''}
+                onChange={(v) => updateTile(index, 'description', v)}
+                hint="Short description shown on the tile"
+              />
+              <FieldInput
+                label="URL *"
+                value={tile.url || ''}
+                onChange={(v) => updateTile(index, 'url', v)}
+                hint="e.g., https://example.com"
+              />
+              <FieldInput
+                label="Image URL"
+                value={tile.imageUrl || ''}
+                onChange={(v) => updateTile(index, 'imageUrl', v)}
+                hint="Optional thumbnail image"
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`newTab_${index}`}
+                  checked={tile.openInNewTab !== false}
+                  onChange={(e) => updateTile(index, 'openInNewTab', e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor={`newTab_${index}`} className="text-xs text-gray-700">Open in new tab</label>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SectionEditor({ section, onChange }: { section: PageSection; onChange: (content: any) => void }) {
   switch (section.type) {
     case 'hero': return <HeroEditor content={section.content} onChange={onChange} />;
@@ -1349,6 +1534,7 @@ function SectionEditor({ section, onChange }: { section: PageSection; onChange: 
     case 'google_reviews': return <GoogleReviewsEditor content={section.content} onChange={onChange} />;
     case 'review_buttons': return <ReviewButtonsEditor content={section.content} onChange={onChange} />;
     case 'image_only': return <ImageOnlyEditor content={section.content} onChange={onChange} />;
+    case 'link_tiles': return <LinkTilesEditor content={section.content} onChange={onChange} />;
     case 'gallery': return (
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-2">

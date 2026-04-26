@@ -7,7 +7,7 @@ import type {
   TextContent,
   ImageTextContent,
   FeaturesContent,
-    CtaContent,
+  CtaContent,
   ContactInfoContent,
   DataTableContent,
   AwardsContent,
@@ -15,6 +15,7 @@ import type {
   GoogleReviewsContent,
   ReviewButtonsContent,
   ImageOnlyContent,
+  LinkTilesContent,
 } from '../../types/page.types';
 import { getColorGroup, SECTION_BG_PALETTES, type SectionBgMode } from '../../lib/theme';
 
@@ -1000,53 +1001,51 @@ function ReviewButtonsSection({ content, primaryColor, googlePlaceId: placeIdPro
     return { backgroundColor: bgColor, color: 'white' };
   };
 
+  if (sortedButtons.length === 0) return null;
+
   return (
-    <section className="pt-16 pb-10 lg:pt-20 lg:pb-12 overflow-hidden" style={{ backgroundColor: bgColor }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h2 className="font-caviar font-bold text-2xl lg:text-3xl tracking-wide mb-3" style={{ fontFamily: 'var(--heading-font, Georgia, serif)', color: '#374151' }}>
-            {content.heading || 'Leave Us a Review'}
-          </h2>
-          {content.subheading && (
-            <p className="text-gray-600 max-w-lg mx-auto">{content.subheading}</p>
-          )}
-        </div>
+    <section className="py-10 overflow-hidden" style={{ backgroundColor: bgColor }}>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+          {/* "Review us on" label */}
+          <p className="text-sm font-semibold uppercase tracking-[0.12em] text-gray-500 whitespace-nowrap flex-shrink-0">
+            {content.heading || 'Review us on'}
+          </p>
 
-        {/* Buttons Grid */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${columns} gap-4 max-w-4xl mx-auto`}>
-          {sortedButtons.map((button) => (
-            <a
-              key={button.id}
-              href={processButtonUrl(button.url)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${getButtonClasses()} text-center justify-center ${buttonStyle === 'outlined' ? 'hover:bg-gray-50' : 'text-white'}`}
-              style={getButtonStyle(button)}
-              aria-label={`Leave a review on ${button.label}`}
-            >
-              {renderButtonIcon(button)}
-              <span>{button.label}</span>
-            </a>
-          ))}
-        </div>
+          {/* Thin separator — desktop only */}
+          <div className="hidden sm:block w-px h-6 bg-gray-300 flex-shrink-0" />
 
-        {sortedButtons.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No review buttons yet</h3>
-            <p className="text-gray-500 mb-4">
-              Add review platforms in the page builder to display review buttons here.
-            </p>
-            <p className="text-sm text-gray-400">
-              Edit this section to add Facebook, Google, TripAdvisor, and other review platforms.
-            </p>
+          {/* Platform icons row */}
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            {sortedButtons.map((button) => {
+              const btnColor = button.color || primaryColor || '#059669';
+              return (
+                <a
+                  key={button.id}
+                  href={processButtonUrl(button.url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Review us on ${button.label}`}
+                  title={button.label}
+                  className="group flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white hover:shadow-md transition-all duration-200 hover:-translate-y-0.5"
+                >
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0" style={{ color: btnColor }}
+                    dangerouslySetInnerHTML={button.platform ? {
+                      __html: ({
+                        google: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>',
+                        facebook: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>',
+                        tripadvisor: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 2c5.514 0 10 4.486 10 10s-4.486 10-10 10S2 17.514 2 12 6.486 2 12 2zm0 2.5c-4.136 0-7.5 3.364-7.5 7.5S7.864 19.5 12 19.5s7.5-3.364 7.5-7.5S16.136 4.5 12 4.5zm0 2c2.485 0 4.5 2.015 4.5 4.5S14.485 15.5 12 15.5 7.5 13.485 7.5 11 9.515 6.5 12 6.5zm0 2c-1.379 0-2.5 1.121-2.5 2.5s1.121 2.5 2.5 2.5 2.5-1.121 2.5-2.5S13.379 10.5 12 10.5z"/></svg>',
+                        instagram: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1 1 12.324 0 6.162 6.162 0 0 1-12.324 0zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm4.965-10.405a1.44 1.44 0 1 1 2.881.001 1.44 1.44 0 0 1-2.881-.001z"/></svg>',
+                        yelp: '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 5-5v10zm2 0V7l5 5-5 5z"/></svg>',
+                      } as Record<string, string>)[button.platform] || '<svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>'
+                    } : undefined}
+                  />
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{button.label}</span>
+                </a>
+              );
+            })}
           </div>
-        )}
+        </div>
       </div>
     </section>
   );
@@ -1144,6 +1143,65 @@ function ImageOnlySection({ content, primaryColor }: { content: ImageOnlyContent
   );
 }
 
+function LinkTilesSection({ content, primaryColor }: { content: LinkTilesContent; primaryColor?: string }) {
+  const bgColor = content.backgroundColor || '#ffffff';
+  const cols = content.columns || 3;
+  const gridClass = cols === 2 ? 'grid-cols-1 sm:grid-cols-2' : cols === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+
+  return (
+    <section className="py-12 lg:py-16" style={{ backgroundColor: bgColor }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {(content.heading || content.subheading) && (
+          <div className="text-center mb-10">
+            {content.heading && (
+              <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-3" style={{ fontFamily: 'var(--heading-font, Georgia, serif)' }}>
+                {content.heading}
+              </h2>
+            )}
+            {content.subheading && <p className="text-gray-600 max-w-xl mx-auto">{content.subheading}</p>}
+          </div>
+        )}
+
+        {content.tiles.length === 0 ? (
+          <p className="text-center text-gray-400 py-8">No links added yet.</p>
+        ) : (
+          <div className={`grid ${gridClass} gap-5`}>
+            {content.tiles.map((tile) => (
+              <a
+                key={tile.id}
+                href={tile.url}
+                target={tile.openInNewTab !== false ? '_blank' : '_self'}
+                rel="noopener noreferrer"
+                className="group bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col"
+              >
+                {tile.imageUrl ? (
+                  <div className="relative overflow-hidden h-44">
+                    <img src={tile.imageUrl} alt={tile.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  </div>
+                ) : (
+                  <div className="h-44 flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                    <svg className="w-10 h-10" style={{ color: primaryColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+                    </svg>
+                  </div>
+                )}
+                <div className="p-4 flex-1 flex flex-col">
+                  <h3 className="font-bold text-gray-900 leading-snug group-hover:underline">{tile.title}</h3>
+                  {tile.description && <p className="text-sm text-gray-600 mt-1 line-clamp-2 flex-1">{tile.description}</p>}
+                  <div className="mt-3 flex items-center gap-1 text-xs font-medium" style={{ color: primaryColor }}>
+                    <span className="truncate">{new URL(tile.url.startsWith('http') ? tile.url : `https://${tile.url}`).hostname.replace('www.', '')}</span>
+                    <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function SectionRenderer({ section, primaryColor, themeSettings }: Props) {
   const getSectionInfo = (): { style: React.CSSProperties; isDark: boolean } => {
     if (!themeSettings?.sectionBgMode) return { style: {}, isDark: false };
@@ -1211,6 +1269,9 @@ export function SectionRenderer({ section, primaryColor, themeSettings }: Props)
       break;
     case 'image_only':
       content = <ImageOnlySection content={section.content as ImageOnlyContent} primaryColor={primaryColor} />;
+      break;
+    case 'link_tiles':
+      content = <LinkTilesSection content={section.content as LinkTilesContent} primaryColor={primaryColor} />;
       break;
     default:
       content = null;

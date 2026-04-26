@@ -727,41 +727,114 @@ function ItemCard({
   highlight?: boolean;
   cardRadius?: string;
 }) {
+  const [traitsExpanded, setTraitsExpanded] = useState(false);
+  const isSoldOut = item.stock === 0 || !item.isAvailable;
+
+  // Top-left badge: priority Chef's Special > New > Popular
+  const marketingBadge = item.isChefSpecial
+    ? { bg: '#FFD700', icon: (
+        <svg className="w-3.5 h-3.5 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6H8.3A7 7 0 0 1 5 9a7 7 0 0 1 7-7zm-1 15h2v2h-2v-2zm-2 3h6v1H9v-1z"/>
+        </svg>
+      ), label: "Chef's Special" }
+    : item.isNew
+    ? { bg: '#007AFF', icon: (
+        <svg className="w-3.5 h-3.5 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z"/>
+        </svg>
+      ), label: 'New' }
+    : item.isPopular
+    ? { bg: '#FF9500', icon: (
+        <svg className="w-3.5 h-3.5 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M13.5 0.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67z"/>
+        </svg>
+      ), label: 'Popular' }
+    : null;
+
+  // Top-right trait indicators
+  const traits = [
+    item.isSpicy   && { key: 'spicy',   label: 'Spicy',       icon: '🌶️' },
+    item.isVegan   && { key: 'vegan',   label: 'Vegan',       icon: '🌿' },
+    item.isGlutenFree && { key: 'gf',   label: 'Gluten-Free', icon: '🌾' },
+  ].filter(Boolean) as { key: string; label: string; icon: string }[];
+
+  const radius = cardRadius || '12px';
+
   return (
     <div
       id={`item-${item.id}`}
       className={`group bg-white shadow-sm border overflow-hidden flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all ${
         highlight ? 'border-amber-400 ring-2 ring-amber-400 ring-offset-1' : 'border-gray-100'
       }`}
-      style={{ borderRadius: cardRadius || '12px' }}
+      style={{ borderRadius: radius }}
     >
       <button type="button" onClick={onClick} className="text-left flex-1 flex flex-col">
-        {item.imageUrl ? (
-          <div className="relative overflow-hidden">
-            <img src={item.imageUrl} alt={item.name} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-300" />
-            {item.isPopular && (
-              <span className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-xs font-semibold px-2 py-0.5 rounded-full">
-                Popular
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className="relative w-full h-44 bg-gray-100 flex items-center justify-center text-4xl">
-            🍽️
-            {item.isPopular && (
-              <span className="absolute top-2 left-2 bg-amber-400 text-amber-900 text-xs font-semibold px-2 py-0.5 rounded-full">
-                Popular
-              </span>
-            )}
-          </div>
-        )}
+        {/* Image area */}
+        <div className="relative overflow-hidden" style={{ borderRadius: `${radius} ${radius} 0 0` }}>
+          {item.imageUrl ? (
+            <img
+              src={item.imageUrl}
+              alt={item.name}
+              className={`w-full h-44 object-cover transition-all duration-300 ${
+                isSoldOut ? 'grayscale brightness-70' : 'group-hover:scale-105'
+              }`}
+              style={isSoldOut ? { filter: 'grayscale(100%) brightness(70%)' } : undefined}
+            />
+          ) : (
+            <div className={`w-full h-44 bg-gray-100 flex items-center justify-center text-4xl ${isSoldOut ? 'opacity-40' : ''}`}>
+              🍽️
+            </div>
+          )}
+
+          {/* SOLD OUT overlay */}
+          {isSoldOut && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-white font-black text-lg tracking-widest drop-shadow-lg select-none">SOLD OUT</span>
+            </div>
+          )}
+
+          {/* Top-left: single marketing badge */}
+          {!isSoldOut && marketingBadge && (
+            <div
+              className="absolute top-2 left-2 w-7 h-7 rounded-full flex items-center justify-center shadow-md"
+              style={{ backgroundColor: marketingBadge.bg }}
+              title={marketingBadge.label}
+            >
+              {marketingBadge.icon}
+            </div>
+          )}
+
+          {/* Top-right: trait indicators with glass effect */}
+          {!isSoldOut && traits.length > 0 && (
+            <div
+              className="absolute top-2 right-2 flex items-center gap-1 cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); setTraitsExpanded(v => !v); }}
+              title="Dietary info"
+            >
+              {traits.map((t) => (
+                <div
+                  key={t.key}
+                  className="flex items-center gap-1 rounded-full px-1.5 py-1 text-sm transition-all duration-200"
+                  style={{ background: 'rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+                >
+                  <span className="leading-none" style={{ fontSize: '14px' }}>{t.icon}</span>
+                  {traitsExpanded && (
+                    <span className="text-[11px] font-semibold text-white drop-shadow whitespace-nowrap pr-0.5">{t.label}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
         <div className="p-4 flex flex-col flex-1">
           <h3 className="font-bold text-gray-900 leading-snug">{item.name}</h3>
           {item.description && (
-            <p className="text-sm text-gray-500 mt-1 line-clamp-2 flex-1">{item.description}</p>
+            <p className="text-sm text-gray-700 mt-1 line-clamp-2 flex-1">{item.description}</p>
           )}
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-base font-bold text-blue-700">
+            <span className="text-base font-bold" style={{ color: isSoldOut ? '#9CA3AF' : undefined }}>
               {formatPrice(item.price, currency)}
             </span>
             {item.allergens && item.allergens.length > 0 && (
@@ -771,8 +844,8 @@ function ItemCard({
         </div>
       </button>
 
-      {/* Add to cart button — only shown for plans with ordering */}
-      {orderingEnabled && item.isAvailable && (
+      {/* Add to cart */}
+      {orderingEnabled && !isSoldOut && (
         <button
           onClick={onAdd}
           className="mx-4 mb-4 py-2 border border-blue-200 text-blue-700 hover:bg-blue-50 text-sm font-medium rounded-lg transition-colors"
