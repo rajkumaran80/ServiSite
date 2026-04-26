@@ -422,12 +422,21 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // New approach: Create Cloudflare Zone with automatic DNS scanning
-    // For now, use direct Azure App Service routing until database schema is updated
-    // TODO: Add routing preference logic after database migration
-    const targetUrl = this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend') + '.azurewebsites.net';
+    // Determine routing based on domain type
+    let targetUrl: string;
+    let routingType: string;
     
-    this.logger.log(`Using direct App Service routing for domain ${apex}, targeting: ${targetUrl}`);
+    if (apex === 'servisite.co.uk') {
+      // Main SaaS platform uses Azure Front Door for extra security
+      targetUrl = this.config.get<string>('AZURE_FRONT_DOOR_ENDPOINT', 'servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net');
+      routingType = 'frontdoor';
+    } else {
+      // Tenant domains (like la-cafe.co.uk) use direct App Service without Front Door
+      targetUrl = this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend') + '.azurewebsites.net';
+      routingType = 'direct';
+    }
+    
+    this.logger.log(`Using ${routingType} routing for domain ${apex}, targeting: ${targetUrl}`);
     
     let zoneResult;
     try {
