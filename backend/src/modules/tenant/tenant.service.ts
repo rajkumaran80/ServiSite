@@ -422,26 +422,12 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // Get tenant data to check routing preference
-    const tenantData = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { routingPreference: true }
-    });
-    
     // New approach: Create Cloudflare Zone with automatic DNS scanning
-    // Determine endpoint based on tenant's routing preference
-    const routingPreference = tenantData?.routingPreference || 'direct';
+    // For now, use direct Azure App Service routing until database schema is updated
+    // TODO: Add routing preference logic after database migration
+    const targetUrl = this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend') + '.azurewebsites.net';
     
-    let targetUrl: string;
-    if (routingPreference === 'frontdoor') {
-      // Use Azure Front Door for existing setups like servisite.co.uk
-      targetUrl = this.config.get<string>('AZURE_FRONT_DOOR_ENDPOINT', 'servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net');
-    } else {
-      // Use direct Azure App Service for new setups (default)
-      targetUrl = this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend') + '.azurewebsites.net';
-    }
-    
-    this.logger.log(`Using routing preference '${routingPreference}' for domain ${apex}, targeting: ${targetUrl}`);
+    this.logger.log(`Using direct App Service routing for domain ${apex}, targeting: ${targetUrl}`);
     
     let zoneResult;
     try {
