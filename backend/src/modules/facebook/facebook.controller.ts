@@ -23,8 +23,9 @@ export class FacebookController {
   /** Returns the Facebook OAuth URL to redirect the user to */
   @Get('auth-url')
   @ApiOperation({ summary: 'Get Facebook OAuth URL' })
-  getAuthUrl() {
-    return { data: { url: this.facebookService.getAuthUrl() }, success: true };
+  async getAuthUrl(@CurrentUser() user: any) {
+    const tenant = await this.facebookService.getTenantSlug(user.tenantId);
+    return { data: { url: this.facebookService.getAuthUrl(tenant) }, success: true };
   }
 
   /** Exchange OAuth code → get manageable pages list */

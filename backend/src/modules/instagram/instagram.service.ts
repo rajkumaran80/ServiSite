@@ -1,21 +1,37 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class InstagramService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getTenantSlug(tenantId: string): Promise<string> {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } });
+    return tenant?.slug ?? '';
+  }
+
   /** Get Instagram OAuth URL */
-  getAuthUrl(): string {
+  getAuthUrl(tenantSlug: string): string {
     const clientId = process.env.INSTAGRAM_CLIENT_ID;
-    const redirectUri = `${process.env.FRONTEND_URL}/dashboard/settings?ig=connected`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const redirectUri = `${frontendUrl}/dashboard/instagram/callback`;
     const scopes = 'user_profile,user_media';
-    
-    return `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code`;
+    const params = new URLSearchParams({
+      client_id: clientId || '',
+      redirect_uri: redirectUri,
+      scope: scopes,
+      response_type: 'code',
+      state: tenantSlug,
+    });
+    return `https://api.instagram.com/oauth/authorize?${params.toString()}`;
   }
 
   /** Exchange authorization code for access token and accounts */
   async exchangeCodeForAccounts(code: string): Promise<any[]> {
     const clientId = process.env.INSTAGRAM_CLIENT_ID;
     const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
-    const redirectUri = `${process.env.FRONTEND_URL}/dashboard/settings?ig=connected`;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const redirectUri = `${frontendUrl}/dashboard/instagram/callback`;
 
     // Exchange code for short-lived access token
     const formData = new URLSearchParams();
