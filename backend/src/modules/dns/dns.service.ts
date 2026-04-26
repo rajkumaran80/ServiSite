@@ -72,14 +72,67 @@ export class DnsService {
 
   async getDnsZone(tenantId: string): Promise<any> {
     try {
-      return await this.prisma.dnsZone.findUnique({
-        where: { tenantId },
-        include: {
-          dnsRecords: {
-            orderBy: { createdAt: 'asc' },
-          },
-        },
+      // Get the tenant's custom domain so we can fetch live Cloudflare data
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { customDomain: true },
       });
+
+      const zone = await this.prisma.dnsZone.findUnique({
+        where: { tenantId },
+        include: { dnsRecords: { orderBy: { createdAt: 'asc' } } },
+      });
+
+      if (!tenant?.customDomain) return zone;
+
+      const apex = tenant.customDomain;
+      const www = `www.${apex}`;
+
+      // Fetch live from Cloudflare for both hostnames
+      const [apexCf, wwwCf] = await Promise.allSettled([
+        this.cloudflareService.getCustomHostname(apex),
+        this.cloudflareService.getCustomHostname(www),
+      ]);
+
+      const liveRecords: any[] = [];
+      const addRecords = (cf: any, hostname: string) => {
+        if (!cf) return;
+        if (cf.ownership_verification) {
+          liveRecords.push({
+            hostname,
+            recordType: 'TXT',
+            name: cf.ownership_verification.name,
+            value: cf.ownership_verification.value,
+            isOwnershipVerification: true,
+            isSSLValidation: false,
+            status: cf.status,
+          });
+        }
+        for (const r of cf.ssl?.validation_records ?? []) {
+          liveRecords.push({
+            hostname,
+            recordType: r.type,
+            name: r.name,
+            value: r.value,
+            isOwnershipVerification: false,
+            isSSLValidation: true,
+            status: cf.status,
+          });
+        }
+      };
+
+      addRecords(apexCf.status === 'fulfilled' ? apexCf.value : null, apex);
+      addRecords(wwwCf.status === 'fulfilled' ? wwwCf.value : null, www);
+
+      const cfStatus = apexCf.status === 'fulfilled' ? apexCf.value?.status : null;
+      const cfSslStatus = apexCf.status === 'fulfilled' ? apexCf.value?.ssl?.status : null;
+
+      return {
+        ...(zone ?? { tenantId }),
+        customDomainStatus: cfStatus ?? zone?.customDomainStatus ?? 'pending',
+        sslStatus: cfSslStatus ?? zone?.sslStatus ?? 'pending',
+        dnsRecords: liveRecords,
+      };
     } catch (error) {
       this.logger.error(`Failed to get DNS zone: ${error.message}`);
       throw error;
