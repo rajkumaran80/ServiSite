@@ -916,30 +916,46 @@ function SettingsPageInner() {
             {/* DNS setup instructions */}
             {domainStatus === 'pending' && (
               <div className="space-y-4">
-                {/* Step 1 — Ownership TXT record */}
-                <div className="rounded-xl border border-amber-200 overflow-hidden">
-                  <div className="bg-amber-50 px-5 py-3 border-b border-amber-200">
-                    <p className="text-sm font-semibold text-amber-900">Step 1 — Verify domain ownership</p>
-                    <p className="text-xs text-amber-700 mt-0.5">Add this TXT record in IONOS (Domain → DNS → Add record)</p>
+                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
+                    <p className="text-sm font-semibold text-gray-900">Add all these DNS records in your registrar</p>
+                    <p className="text-xs text-gray-500 mt-0.5">IONOS → Domain &amp; SSL → DNS → Add record</p>
                   </div>
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-100">
+                    <thead className="bg-white border-b border-gray-100">
                       <tr>
                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Type</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Name / Host</th>
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Name</th>
                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Value</th>
                         <th className="px-4 py-2.5 w-16" />
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-50">
+                      <tr className="bg-white">
+                        <td className="px-4 py-3"><span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">A</span></td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">@</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-600">104.16.0.1</td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => { navigator.clipboard.writeText('104.16.0.1'); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button></td>
+                      </tr>
+                      <tr className="bg-white">
+                        <td className="px-4 py-3"><span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">A</span></td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">@</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-600">104.16.1.1</td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => { navigator.clipboard.writeText('104.16.1.1'); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button></td>
+                      </tr>
+                      <tr className="bg-white">
+                        <td className="px-4 py-3"><span className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">CNAME</span></td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">www</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-600">servisite.co.uk</td>
+                        <td className="px-4 py-3"><button type="button" onClick={() => { navigator.clipboard.writeText('servisite.co.uk'); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button></td>
+                      </tr>
                       <tr className="bg-white">
                         <td className="px-4 py-3"><span className="inline-block bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">TXT</span></td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-800 break-all">{domainTxtName || `_cf-custom-hostname.${customDomain}`}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-600 break-all">{domainTxtValue || '(loading…)'}</td>
                         <td className="px-4 py-3">
                           {domainTxtValue && (
-                            <button type="button" onClick={() => { navigator.clipboard.writeText(domainTxtValue); toast.success('Copied'); }}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">Copy</button>
+                            <button type="button" onClick={() => { navigator.clipboard.writeText(domainTxtValue); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">Copy</button>
                           )}
                         </td>
                       </tr>
@@ -947,50 +963,7 @@ function SettingsPageInner() {
                   </table>
                 </div>
 
-                {/* Step 2 — A + CNAME records */}
-                <div className="rounded-xl border border-blue-200 overflow-hidden">
-                  <div className="bg-blue-50 px-5 py-3 border-b border-blue-200">
-                    <p className="text-sm font-semibold text-blue-900">Step 2 — Point your domain to ServiSite</p>
-                    <p className="text-xs text-blue-700 mt-0.5">Add these records in IONOS (Domain → DNS → Add record). Do this after Step 1.</p>
-                  </div>
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-100">
-                      <tr>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Type</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Name / Host</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Value / Points to</th>
-                        <th className="px-4 py-2.5 w-16" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {[
-                        { type: 'A', typeColor: 'bg-green-100 text-green-700', name: '@', value: '104.16.0.1' },
-                        { type: 'A', typeColor: 'bg-green-100 text-green-700', name: '@', value: '104.16.1.1' },
-                        { type: 'CNAME', typeColor: 'bg-blue-100 text-blue-700', name: 'www', value: 'servisite.co.uk' },
-                      ].map((rec, i) => (
-                        <tr key={i} className="bg-white">
-                          <td className="px-4 py-3"><span className={`inline-block text-xs font-bold px-2 py-0.5 rounded ${rec.typeColor}`}>{rec.type}</span></td>
-                          <td className="px-4 py-3 font-mono text-xs text-gray-800">{rec.name}</td>
-                          <td className="px-4 py-3 font-mono text-xs text-gray-600">{rec.value}</td>
-                          <td className="px-4 py-3">
-                            <button type="button" onClick={() => { navigator.clipboard.writeText(rec.value); toast.success('Copied'); }}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-xs text-gray-600">
-                  <p className="font-semibold text-gray-700 mb-1">How to add these in IONOS</p>
-                  <ol className="space-y-0.5 list-decimal list-inside">
-                    <li>Log in to IONOS → Domain &amp; SSL → click your domain</li>
-                    <li>Go to <span className="font-medium">DNS</span> tab → <span className="font-medium">Add record</span></li>
-                    <li>Add the TXT record from Step 1 first, then the A and CNAME records from Step 2</li>
-                    <li>Save — propagation takes 5–30 minutes</li>
-                  </ol>
-                </div>
+                <p className="text-xs text-gray-500">DNS changes take 5–30 minutes to propagate. Click Check Status once you've added all records.</p>
 
                 <button
                   type="button"
