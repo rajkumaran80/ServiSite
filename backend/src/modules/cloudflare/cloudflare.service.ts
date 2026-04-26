@@ -191,12 +191,52 @@ export class CloudflareService {
   }
 
   async getOriginFallbackSettings(): Promise<any> {
-    // This would configure origin.servisite.co.uk to point to Azure App Service
     return {
       hostname: `origin.${this.zoneName}`,
       origin: this.configService.get<string>('AZURE_APP_SERVICE_URL'),
       port: 443,
       ssl: true,
     };
+  }
+
+  async setupRateLimiting(): Promise<{ rulesApplied: number }> {
+    if (!this.apiToken || !this.zoneId) {
+      throw new Error('Cloudflare credentials not configured');
+    }
+    const rules = [
+      {
+        description: 'Auth endpoints — brute force protection',
+        expression: '(http.request.uri.path matches "^/api/v1/auth/(login|forgot-password|reset-password|resend-verification)$")',
+        ratelimit: { characteristics: ['ip.src'], period: 60, requests_per_period: 10, mitigation_timeout: 600 },
+        action: 'block',
+      },
+      {
+        description: 'Registration endpoint — signup abuse protection',
+        expression: '(http.request.uri.path eq "/api/v1/tenants/register" or http.request.uri.path eq "/api/v1/auth/register")',
+        ratelimit: { characteristics: ['ip.src'], period: 60, requests_per_period: 5, mitigation_timeout: 3600 },
+        action: 'block',
+      },
+      {
+        description: 'API global rate limit',
+        expression: '(http.request.uri.path matches "^/api/")',
+        ratelimit: { characteristics: ['ip.src'], period: 60, requests_per_period: 300, mitigation_timeout: 60 },
+        action: 'block',
+      },
+    ];
+    await this.makeRequest(`/zones/${this.zoneId}/rulesets/phases/http_ratelimit/entrypoint`, {
+      method: 'PUT',
+      body: JSON.stringify({ rules }),
+    });
+    this.logger.log(`Rate limiting configured: ${rules.length} rules applied`);
+    return { rulesApplied: rules.length };
+  }
+
+  async getRateLimitingRules(): Promise<any[]> {
+    try {
+      const result = await this.makeRequest(`/zones/${this.zoneId}/rulesets/phases/http_ratelimit/entrypoint`);
+      return result?.rules ?? [];
+    } catch {
+      return [];
+    }
   }
 }

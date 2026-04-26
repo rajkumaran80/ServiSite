@@ -3,7 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SuperAdminGuard } from '../../common/guards/super-admin.guard';
 import { SuperAdminService } from './superadmin.service';
-import { CloudflareService } from '../tenant/cloudflare.service';
+import { CloudflareService } from '../cloudflare/cloudflare.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TenantType, TenantStatus, ServiceProfile } from '@prisma/client';
 
