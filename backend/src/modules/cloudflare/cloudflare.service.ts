@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -28,7 +28,7 @@ export interface CloudflareZone {
 }
 
 @Injectable()
-export class CloudflareService {
+export class CloudflareService implements OnModuleInit {
   private readonly logger = new Logger(CloudflareService.name);
   private readonly apiToken: string;
   private readonly zoneId: string;
@@ -44,6 +44,16 @@ export class CloudflareService {
 
     if (!this.apiToken || !this.zoneId) {
       this.logger.warn('Cloudflare credentials not configured');
+    }
+  }
+
+  async onModuleInit() {
+    if (!this.apiToken || !this.zoneId) return;
+    try {
+      const result = await this.setupFallbackOrigin();
+      this.logger.log(`Fallback origin ready: ${result.fallbackOrigin}`);
+    } catch (err: any) {
+      this.logger.warn(`Fallback origin setup skipped: ${err?.message}`);
     }
   }
 
