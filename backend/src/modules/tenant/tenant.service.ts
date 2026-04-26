@@ -405,17 +405,16 @@ export class TenantService {
 
   /**
    * Step 1: Tenant submits their custom domain.
-   * For external DNS providers (IONOS), returns Azure Front Door CNAME records
-   * and verification TXT records that tenant must add at their registrar.
+   * New simplified approach: Create Cloudflare Zone with automatic DNS scanning
    */
   async setCustomDomain(
     tenantId: string,
     domain: string,
-  ): Promise<{ aRecords: Array<{ name: string; value: string; type: string }>; cnameRecord: { name: string; value: string; type: string }; txtRecords: Array<{ name: string; value: string }>; instructions: string }> {
+  ): Promise<{ zone: any; nameservers: string[]; dnsRecords: any[] }> {
     const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     const apex = normalised.replace(/^www\./, '');
 
-    // Check the domain isn't already taken by another tenant
+    // Check: domain isn't already taken by another tenant
     const conflict = await this.prisma.tenant.findFirst({
       where: { customDomain: apex, NOT: { id: tenantId } },
     });
@@ -423,39 +422,33 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // For Cloudflare for SaaS with external nameservers
-    // Create Cloudflare custom hostname but tenant manages their own DNS
-    const wwwHostname = `www.${apex}`;
+    // Get tenant data to check routing preference
+    const tenantData = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { routingPreference: true }
+    });
     
-    // Create Cloudflare custom hostnames for SaaS functionality
-    // Add error handling for missing Cloudflare configuration
-    let wwwId: string, apexId: string;
-    try {
-      const results = await Promise.all([
-        this.cloudflare.addCustomHostname(wwwHostname),
-        this.cloudflare.addCustomHostname(apex),
-      ]);
-      wwwId = results[0].id;
-      apexId = results[1].id;
-    } catch (error) {
-      this.logger.error('Failed to create Cloudflare custom hostnames:', error.message);
-      throw new BadRequestException('Cloudflare configuration missing or invalid. Please check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID environment variables.');
+    // New approach: Create Cloudflare Zone with automatic DNS scanning
+    // Determine endpoint based on tenant's routing preference
+    const routingPreference = tenantData?.routingPreference || 'direct';
+    
+    let targetUrl: string;
+    if (routingPreference === 'frontdoor') {
+      // Use Azure Front Door for existing setups like servisite.co.uk
+      targetUrl = this.config.get<string>('AZURE_FRONT_DOOR_ENDPOINT', 'servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net');
+    } else {
+      // Use direct Azure App Service for new setups (default)
+      targetUrl = this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend') + '.azurewebsites.net';
     }
-
-    // Get verification records from Cloudflare
-    let wwwVerification, apexVerification;
+    
+    this.logger.log(`Using routing preference '${routingPreference}' for domain ${apex}, targeting: ${targetUrl}`);
+    
+    let zoneResult;
     try {
-      const results = await Promise.all([
-        this.cloudflare.getCustomHostname(wwwHostname),
-        this.cloudflare.getCustomHostname(apex),
-      ]);
-      wwwVerification = results[0];
-      apexVerification = results[1];
+      zoneResult = await this.cloudflare.setupTenantDomain(apex, targetUrl);
     } catch (error) {
-      this.logger.error('Failed to get Cloudflare verification records:', error.message);
-      // Continue with null values - will use fallbacks
-      wwwVerification = null;
-      apexVerification = null;
+      this.logger.error('Failed to setup Cloudflare zone:', error.message);
+      throw new BadRequestException('Failed to setup Cloudflare zone. Please check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID environment variables.');
     }
 
     await this.prisma.tenant.update({
@@ -463,42 +456,16 @@ export class TenantService {
       data: {
         customDomain: apex,
         customDomainStatus: 'pending',
-        customDomainToken: wwwId,
-        customDomainApexToken: apexId,
-        customDomainZoneId: (this.cloudflare as any).zoneId || null,
-        customDomainNsRecords: [], // Not changing nameservers
+        customDomainZoneId: zoneResult.zone.id,
+        customDomainNsRecords: zoneResult.nameservers,
         customDomainVerifiedAt: null,
-        customDomainTxtName: apexVerification?.ownership_verification?.name || null,
-        customDomainTxtValue: apexVerification?.ownership_verification?.value || null,
       },
     });
 
-    // Return DNS records for optimal external nameserver setup
     return {
-      aRecords: [
-        {
-          name: '@',
-          value: '104.16.0.1', // Primary Cloudflare edge IP
-          type: 'A'
-        },
-        {
-          name: '@',
-          value: '104.16.1.1', // Secondary Cloudflare edge IP (redundancy)
-          type: 'A'
-        }
-      ],
-      cnameRecord: {
-        name: 'www',
-        value: 'servisite.co.uk',
-        type: 'CNAME'
-      },
-      txtRecords: [
-        {
-          name: apexVerification?.ownership_verification?.name || '_cloudflare-verification',
-          value: apexVerification?.ownership_verification?.value || '"verification-pending"',
-        }
-      ],
-      instructions: 'Add 2 A records for root domain, CNAME for www, and TXT verification record at your DNS provider (IONOS)'
+      zone: zoneResult.zone,
+      nameservers: zoneResult.nameservers,
+      dnsRecords: zoneResult.dnsRecords,
     };
   }
 

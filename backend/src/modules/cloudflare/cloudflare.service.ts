@@ -299,4 +299,175 @@ export class CloudflareService implements OnModuleInit {
       return [];
     }
   }
+
+  // ── Zone Management (New Simplified Approach) ───────────────────────
+  
+  async createZone(domainName: string): Promise<{ zone: CloudflareZone; nameservers: string[]; scannedRecords?: any[] }> {
+    this.logger.log(`Creating Cloudflare zone for: ${domainName}`);
+    
+    try {
+      const result = await this.makeRequest('/zones', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: domainName,
+          jump_start: true, // Automatically scan existing DNS records
+          account: {
+            id: this.configService.get<string>('CLOUDFLARE_ACCOUNT_ID'),
+          },
+        }),
+      });
+
+      const zone: CloudflareZone = {
+        id: result.id,
+        name: result.name,
+        status: result.status,
+      };
+
+      this.logger.log(`Zone created successfully: ${domainName} (${result.id})`);
+      
+      return {
+        zone,
+        nameservers: result.name_servers || [],
+        scannedRecords: result.scanned_dns_records || [],
+      };
+    } catch (error) {
+      this.logger.error(`Failed to create zone for ${domainName}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async getZoneStatus(zoneId: string): Promise<CloudflareZone> {
+    try {
+      const result = await this.makeRequest(`/zones/${zoneId}`);
+      return {
+        id: result.id,
+        name: result.name,
+        status: result.status,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get zone status: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async deleteZone(zoneId: string): Promise<void> {
+    this.logger.log(`Deleting Cloudflare zone: ${zoneId}`);
+    
+    try {
+      await this.makeRequest(`/zones/${zoneId}`, {
+        method: 'DELETE',
+      });
+      this.logger.log(`Zone deleted successfully: ${zoneId}`);
+    } catch (error) {
+      this.logger.error(`Failed to delete zone ${zoneId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async setupOriginRule(zoneId: string, azureAppUrl: string): Promise<void> {
+    this.logger.log(`Setting up Origin Rule for zone ${zoneId} → ${azureAppUrl}`);
+    
+    try {
+      // Create Transform Rule to override Host header
+      const rule = {
+        description: 'ServiSite Host Header Override',
+        expression: 'true',
+        action: {
+          transform: {
+            host: {
+              value: azureAppUrl,
+            },
+          },
+        },
+        priority: 1,
+      };
+
+      await this.makeRequest(`/zones/${zoneId}/rulesets`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'servisite-host-override',
+          kind: 'transform',
+          phase: 'http_request_transform',
+          rules: [rule],
+        }),
+      });
+
+      this.logger.log(`Origin Rule created successfully for zone ${zoneId}`);
+    } catch (error) {
+      this.logger.error(`Failed to create Origin Rule for zone ${zoneId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async setupTenantDomain(domainName: string, azureAppUrl: string): Promise<{
+    zone: CloudflareZone;
+    nameservers: string[];
+    dnsRecords: Array<{ type: string; name: string; value: string; ttl?: number }>;
+  }> {
+    this.logger.log(`Setting up tenant domain: ${domainName}`);
+
+    // Step 1: Create zone with DNS scanning
+    const { zone, nameservers, scannedRecords } = await this.createZone(domainName);
+
+    // Step 2: Wait for zone to become active (polling)
+    let attempts = 0;
+    const maxAttempts = 10;
+    while (attempts < maxAttempts) {
+      const zoneStatus = await this.getZoneStatus(zone.id);
+      if (zoneStatus.status === 'active') {
+        break;
+      }
+      this.logger.log(`Zone status: ${zoneStatus.status}, waiting... (${attempts + 1}/${maxAttempts})`);
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      attempts++;
+    }
+
+    // Step 3: Add CNAME records for @ and www
+    const dnsRecords: Array<{ type: string; name: string; value: string; ttl?: number }> = [];
+    
+    // Root domain CNAME (CNAME flattening)
+    try {
+      await this.makeRequest(`/zones/${zone.id}/dns_records`, {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'CNAME',
+          name: '@',
+          content: azureAppUrl,
+          proxied: true,
+          ttl: 1,
+        }),
+      });
+      dnsRecords.push({ type: 'CNAME', name: '@', value: azureAppUrl });
+      this.logger.log(`Created CNAME: @ → ${azureAppUrl}`);
+    } catch (error) {
+      this.logger.error(`Failed to create root CNAME: ${error.message}`);
+    }
+
+    // WWW CNAME
+    try {
+      await this.makeRequest(`/zones/${zone.id}/dns_records`, {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'CNAME',
+          name: 'www',
+          content: azureAppUrl,
+          proxied: true,
+          ttl: 1,
+        }),
+      });
+      dnsRecords.push({ type: 'CNAME', name: 'www', value: azureAppUrl });
+      this.logger.log(`Created CNAME: www → ${azureAppUrl}`);
+    } catch (error) {
+      this.logger.error(`Failed to create WWW CNAME: ${error.message}`);
+    }
+
+    // Step 4: Setup Origin Rule for Host header override
+    await this.setupOriginRule(zone.id, azureAppUrl);
+
+    return {
+      zone,
+      nameservers,
+      dnsRecords,
+    };
+  }
 }

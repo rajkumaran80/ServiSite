@@ -35,6 +35,7 @@ export interface Tenant {
   customDomainTxtValue?: string | null;
   customDomainVerifiedAt?: string | null;
   customDomainNsRecords?: string[];
+  routingPreference?: 'direct' | 'frontdoor' | null;
   // Facebook integration
   facebookPageId?: string | null;
   facebookPageName?: string | null;

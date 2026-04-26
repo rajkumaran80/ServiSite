@@ -24,19 +24,9 @@ interface CustomHostname {
 interface DomainStatus {
   hostname: string;
   status: 'pending' | 'active' | 'deleted';
-  ownership_verification?: {
-    type: string;
-    name: string;
-    value: string;
-  };
-  ssl?: {
-    status: string;
-    validation_records?: Array<{
-      type: string;
-      name: string;
-      value: string;
-    }>;
-  };
+  nameservers?: string[];
+  zoneId?: string;
+  customDomainStatus?: string;
 }
 
 export default function DomainSettingsPage() {
@@ -54,8 +44,8 @@ export default function DomainSettingsPage() {
 
   const fetchDomains = async () => {
     try {
-      // First try to get from DNS database
-      const res = await fetch(`${API_URL}/dns/zone`, {
+      // Get tenant information with custom domain details
+      const res = await fetch(`${API_URL}/tenant/current`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -63,25 +53,19 @@ export default function DomainSettingsPage() {
       
       if (res.ok) {
         const data = await res.json();
-        const payload = data.data ?? data;
-        const records: any[] = payload?.dnsRecords ?? [];
-        if (records.length > 0) {
-          // Accumulate all records per hostname
-          const map = new Map<string, DomainStatus>();
-          for (const r of records) {
-            if (!map.has(r.hostname)) {
-              map.set(r.hostname, { hostname: r.hostname, status: r.status });
-            }
-            const entry = map.get(r.hostname)!;
-            if (r.isOwnershipVerification) {
-              entry.ownership_verification = { type: r.recordType, name: r.name, value: r.value };
-            }
-            if (r.isSSLValidation) {
-              if (!entry.ssl) entry.ssl = { status: payload.sslStatus ?? 'pending', validation_records: [] };
-              entry.ssl.validation_records!.push({ type: r.recordType, name: r.name, value: r.value });
-            }
-          }
-          setDomains(Array.from(map.values()));
+        const tenant = data.data ?? data;
+        
+        if (tenant.customDomain) {
+          const domainStatus: DomainStatus = {
+            hostname: tenant.customDomain,
+            status: tenant.customDomainStatus || 'pending',
+            nameservers: tenant.customDomainNsRecords || [],
+            zoneId: tenant.customDomainZoneId || undefined,
+            customDomainStatus: tenant.customDomainStatus || 'pending',
+          };
+          setDomains([domainStatus]);
+        } else {
+          setDomains([]);
         }
       }
     } catch (error) {
@@ -99,13 +83,13 @@ export default function DomainSettingsPage() {
 
     setAddingDomain(true);
     try {
-      const res = await fetch(`${API_URL}/cloudflare/custom-hostnames`, {
+      const res = await fetch(`${API_URL}/tenant/current/custom-domain`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ hostname: newDomain.trim() }),
+        body: JSON.stringify({ domain: newDomain.trim() }),
       });
 
       if (res.ok) {
@@ -131,13 +115,11 @@ export default function DomainSettingsPage() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/cloudflare/custom-hostnames`, {
+      const res = await fetch(`${API_URL}/tenant/current/custom-domain`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ hostname }),
       });
 
       if (res.ok) {
@@ -153,12 +135,12 @@ export default function DomainSettingsPage() {
   };
 
   const clearAllDomains = async () => {
-    if (!confirm('Are you sure you want to remove all custom domains? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to remove your custom domain? This action cannot be undone.')) {
       return;
     }
 
     try {
-      const res = await fetch(`${API_URL}/cloudflare/custom-hostnames/all`, {
+      const res = await fetch(`${API_URL}/tenant/current/custom-domain`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -166,15 +148,14 @@ export default function DomainSettingsPage() {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        toast.success(`Removed ${data.data.deletedCount} domains successfully!`);
+        toast.success('Domain removed successfully!');
         await fetchDomains();
       } else {
         const error = await res.json();
-        toast.error(error.message || 'Failed to clear domains');
+        toast.error(error.message || 'Failed to remove domain');
       }
     } catch (error) {
-      toast.error('Failed to clear domains');
+      toast.error('Failed to remove domain');
     }
   };
 
@@ -206,7 +187,7 @@ export default function DomainSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Domain Settings</h1>
         <p className="text-gray-500 text-sm mt-1">
-          Manage custom domains for your site. Add your domain and follow the verification instructions.
+          Manage custom domains for your site. Add your domain and update your nameservers to point to Cloudflare.
         </p>
       </div>
 
@@ -250,7 +231,7 @@ export default function DomainSettingsPage() {
                 onClick={clearAllDomains}
                 className="px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
               >
-                Disconnect All
+                Remove Domain
               </button>
             )}
           </div>
@@ -293,7 +274,7 @@ export default function DomainSettingsPage() {
                       onClick={() => deleteDomain(domain.hostname)}
                       className="px-3 py-1 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
                     >
-                      Disconnect
+                      Remove
                     </button>
                   </div>
                 </div>
@@ -311,29 +292,16 @@ function DomainInstructions({ hostname, domains, onClose }: {
   domains: DomainStatus[];
   onClose: () => void;
 }) {
-  const apex = hostname.replace(/^www\./, '');
-  const www = `www.${apex}`;
+  const domain = domains.find(d => d.hostname === hostname);
+  if (!domain) return null;
 
-  // Collect all TXT records from both apex and www entries
-  const allDomains = domains.filter(d => d.hostname === apex || d.hostname === www);
-  if (allDomains.length === 0) return null;
-
-  const isVerified = allDomains.some(d => d.status === 'active');
-
-  const txtRows: Array<{ type: string; name: string; value: string }> = [];
-  for (const d of allDomains) {
-    if (d.ownership_verification) {
-      txtRows.push({ type: 'TXT', name: d.ownership_verification.name, value: d.ownership_verification.value });
-    }
-    for (const r of d.ssl?.validation_records ?? []) {
-      txtRows.push({ type: r.type, name: r.name, value: r.value });
-    }
-  }
+  const isVerified = domain.status === 'active';
+  const nameservers = domain.nameservers || [];
 
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-blue-900">Setup Instructions for {apex}</h3>
+        <h3 className="text-lg font-semibold text-blue-900">Setup Instructions for {hostname}</h3>
         <button onClick={onClose} className="text-blue-600 hover:text-blue-700">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -349,53 +317,47 @@ function DomainInstructions({ hostname, domains, onClose }: {
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Add all of these records in your domain registrar (e.g. IONOS, GoDaddy), then wait 5–15 minutes.
+            Update your domain nameservers at your registrar (e.g. IONOS, GoDaddy) to point to Cloudflare. This replaces all DNS records automatically.
           </p>
 
           <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-gray-600 font-medium">Type</th>
-                  <th className="px-4 py-2 text-left text-gray-600 font-medium">Name</th>
+                  <th className="px-4 py-2 text-left text-gray-600 font-medium">Nameserver</th>
                   <th className="px-4 py-2 text-left text-gray-600 font-medium">Value</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                <tr>
-                  <td className="px-4 py-3 font-mono text-gray-700">A</td>
-                  <td className="px-4 py-3 font-mono text-gray-700">@</td>
-                  <td className="px-4 py-3 font-mono text-gray-700">104.16.0.1</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 font-mono text-gray-700">A</td>
-                  <td className="px-4 py-3 font-mono text-gray-700">@</td>
-                  <td className="px-4 py-3 font-mono text-gray-700">104.16.1.1</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 font-mono text-gray-700">CNAME</td>
-                  <td className="px-4 py-3 font-mono text-gray-700">www</td>
-                  <td className="px-4 py-3 font-mono text-gray-700">servisite.co.uk</td>
-                </tr>
-                {txtRows.map((r, i) => (
-                  <tr key={i}>
-                    <td className="px-4 py-3 font-mono text-gray-700">{r.type}</td>
-                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{r.name}</td>
-                    <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{r.value}</td>
-                  </tr>
-                ))}
+                {nameservers.length > 0 ? (
+                  nameservers.map((ns, i) => (
+                    <tr key={i}>
+                      <td className="px-4 py-3 font-mono text-gray-700">NS{i + 1}</td>
+                      <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">{ns}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <>
+                    <tr>
+                      <td className="px-4 py-3 font-mono text-gray-700">NS1</td>
+                      <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">ashley.ns.cloudflare.com</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-3 font-mono text-gray-700">NS2</td>
+                      <td className="px-4 py-3 font-mono text-gray-700 text-xs break-all">olga.ns.cloudflare.com</td>
+                    </tr>
+                  </>
+                )}
               </tbody>
             </table>
           </div>
 
-          {txtRows.length === 0 && (
-            <p className="text-sm text-amber-700 bg-amber-50 px-4 py-3 rounded-lg">
-              TXT verification records are still being generated by Cloudflare. Refresh in a moment.
-            </p>
-          )}
+          <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm">
+            <strong>Important:</strong> After updating nameservers, DNS changes can take 24-48 hours to fully propagate. Cloudflare will automatically configure DNS records for your domain.
+          </div>
 
           <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm">
-            DNS changes can take 5–15 minutes to propagate. Click Verify once you've added all records.
+            <strong>What happens next:</strong> Once nameservers are updated, Cloudflare will automatically scan your existing DNS records and set up SSL certificates. Your domain status will update automatically.
           </div>
         </div>
       )}

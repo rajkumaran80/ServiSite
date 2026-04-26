@@ -186,7 +186,7 @@ export class DnsController {
     @Param('hostname') hostname?: string,
   ): Promise<any[]> {
     try {
-      return await this.dnsService.getDnsRecords(tenantId, hostname);
+      return await this.dnsService.getDnsRecords(tenantId);
     } catch (error) {
       throw new BadRequestException(`Failed to get DNS records: ${error.message}`);
     }
@@ -224,11 +224,12 @@ export class DnsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update DNS record' })
   async updateDnsRecord(
+    @Tenant('id') tenantId: string,
     @Param('recordId') recordId: string,
     @Body() dto: UpdateDnsRecordDto,
   ): Promise<any> {
     try {
-      return await this.dnsService.updateDnsRecord(recordId, dto);
+      return await this.dnsService.updateDnsRecord(tenantId, recordId, dto);
     } catch (error) {
       throw new BadRequestException(`Failed to update DNS record: ${error.message}`);
     }
@@ -238,9 +239,12 @@ export class DnsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete DNS record' })
-  async deleteDnsRecord(@Param('recordId') recordId: string): Promise<{ message: string }> {
+  async deleteDnsRecord(
+    @Tenant('id') tenantId: string,
+    @Param('recordId') recordId: string,
+  ): Promise<{ message: string }> {
     try {
-      await this.dnsService.deleteDnsRecord(recordId);
+      await this.dnsService.deleteDnsRecord(tenantId, recordId);
       return { message: 'DNS record deleted successfully' };
     } catch (error) {
       throw new BadRequestException(`Failed to delete DNS record: ${error.message}`);
