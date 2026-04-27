@@ -443,7 +443,7 @@ export class TenantService {
       zoneResult = await this.cloudflare.setupTenantDomain(apex, targetUrl);
     } catch (error) {
       this.logger.error('Failed to setup Cloudflare zone:', error.message);
-      throw new BadRequestException('Failed to setup Cloudflare zone. Please check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID environment variables.');
+      throw new BadRequestException(`Failed to setup Cloudflare zone: ${error.message}`);
     }
 
     await this.prisma.tenant.update({
@@ -519,21 +519,14 @@ export class TenantService {
     if (tenant?.customDomain) {
       const wwwHostname = `www.${tenant.customDomain}`;
       await Promise.all([
-        // Clear domain→slug cache for both variants
         this.tenantCache.deleteDomainSlug(tenant.customDomain),
         this.tenantCache.deleteDomainSlug(wwwHostname),
-        // Delete Cloudflare custom hostnames (www token + apex token)
-        Promise.all([
-          tenant.customDomainToken
-            ? this.cloudflare.deleteCustomHostname(tenant.customDomainToken)
-            : Promise.resolve(),
-          tenant.customDomainApexToken
-            ? this.cloudflare.deleteCustomHostname(tenant.customDomainApexToken)
-            : Promise.resolve(),
-        ]),
-        // Remove Azure App Service hostname bindings for both www and apex
-        this.azureAppService.removeHostnameBinding(wwwHostname).catch(() => {}),
-        this.azureAppService.removeHostnameBinding(tenant.customDomain).catch(() => {}),
+        // Delete the Cloudflare zone (new full-zone approach) — ignore if already gone
+        tenant.customDomainZoneId
+          ? this.cloudflare.deleteZone(tenant.customDomainZoneId).catch((err) => {
+              this.logger.warn(`Could not delete Cloudflare zone ${tenant.customDomainZoneId}: ${err.message}`);
+            })
+          : Promise.resolve(),
       ]);
     }
 

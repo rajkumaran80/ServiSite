@@ -33,6 +33,7 @@ export class CloudflareService implements OnModuleInit {
   private readonly apiToken: string;
   private readonly zoneId: string;
   private readonly zoneName: string;
+  private readonly accountId: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -41,9 +42,13 @@ export class CloudflareService implements OnModuleInit {
     this.apiToken = this.configService.get<string>('CLOUDFLARE_API_KEY') || '';
     this.zoneId = this.configService.get<string>('CLOUDFLARE_ZONE_ID') || '';
     this.zoneName = this.configService.get<string>('CLOUDFLARE_ZONE_NAME', 'servisite.co.uk');
+    this.accountId = this.configService.get<string>('CLOUDFLARE_ACCOUNT_ID') || '';
 
     if (!this.apiToken || !this.zoneId) {
       this.logger.warn('Cloudflare credentials not configured');
+    }
+    if (!this.accountId) {
+      this.logger.warn('CLOUDFLARE_ACCOUNT_ID not set — zone creation will fail');
     }
   }
 
@@ -310,10 +315,8 @@ export class CloudflareService implements OnModuleInit {
         method: 'POST',
         body: JSON.stringify({
           name: domainName,
-          jump_start: true, // Automatically scan existing DNS records
-          account: {
-            id: this.configService.get<string>('CLOUDFLARE_ACCOUNT_ID'),
-          },
+          jump_start: true,
+          account: { id: this.accountId },
         }),
       });
 
@@ -352,13 +355,14 @@ export class CloudflareService implements OnModuleInit {
 
   async deleteZone(zoneId: string): Promise<void> {
     this.logger.log(`Deleting Cloudflare zone: ${zoneId}`);
-    
     try {
-      await this.makeRequest(`/zones/${zoneId}`, {
-        method: 'DELETE',
-      });
+      await this.makeRequest(`/zones/${zoneId}`, { method: 'DELETE' });
       this.logger.log(`Zone deleted successfully: ${zoneId}`);
     } catch (error) {
+      if (error.message?.includes('not found') || error.message?.includes('1001') || error.message?.includes('does not exist')) {
+        this.logger.warn(`Zone ${zoneId} already deleted or not found — skipping`);
+        return;
+      }
       this.logger.error(`Failed to delete zone ${zoneId}: ${error.message}`);
       throw error;
     }
