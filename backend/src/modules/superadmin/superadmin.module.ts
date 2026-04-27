@@ -8,9 +8,10 @@ import { NotifyModule } from '../../common/notify/notify.module';
 import { AuthModule } from '../auth/auth.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { NavigationModule } from '../navigation/navigation.module';
+import { CloudflareModule } from '../cloudflare/cloudflare.module';
 
 @Module({
-  imports: [PrismaModule, BillingModule, CacheModule, NotifyModule, AuthModule, TenantModule, NavigationModule],
+  imports: [PrismaModule, BillingModule, CacheModule, NotifyModule, AuthModule, TenantModule, NavigationModule, CloudflareModule],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],
 })
