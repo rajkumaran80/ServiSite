@@ -1,36 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-interface CloudflareCustomHostname {
+export interface CustomHostnameResult {
   id: string;
-  hostname: string;
-  ssl: {
-    status: string;
-    txt_name?: string;
-    txt_value?: string;
-  };
-  ownership_verification?: {
-    type: string;
-    name: string;
-    value: string;
-  };
-  status: string;
+  txtName: string;
+  txtValue: string;
+}
+
+export interface CustomHostnameStatus {
+  active: boolean;
+  hostnameStatus: string;
+  sslStatus: string;
 }
 
 @Injectable()
 export class CloudflareService {
   private readonly logger = new Logger(CloudflareService.name);
   private readonly apiToken: string;
-  private readonly zoneId: string;
   private readonly accountId: string;
+  private readonly servisiteZoneId: string;
   private readonly baseUrl = 'https://api.cloudflare.com/client/v4';
 
   constructor(private readonly config: ConfigService) {
     this.apiToken = config.get<string>('CLOUDFLARE_API_KEY') ?? '';
-    this.zoneId = config.get<string>('CLOUDFLARE_ZONE_ID') ?? '';
     this.accountId = config.get<string>('CLOUDFLARE_ACCOUNT_ID') ?? '';
+    this.servisiteZoneId = config.get<string>('CLOUDFLARE_ZONE_ID') ?? '';
 
-    if (!this.apiToken || !this.zoneId) {
+    if (!this.apiToken || !this.servisiteZoneId) {
       this.logger.warn('CLOUDFLARE_API_KEY or CLOUDFLARE_ZONE_ID not set — custom domain management disabled');
     }
   }
@@ -42,14 +38,9 @@ export class CloudflareService {
     };
   }
 
-  // ── Zone Management (customer DNS) ────────────────────────────────────────
+  // ── Step 1: Create zone for tenant domain ────────────────────────────────
 
-  /**
-   * Create a Cloudflare DNS zone for a customer domain.
-   * Returns the zone ID and nameservers they must set at their registrar.
-   */
   async createZone(domain: string): Promise<{ zoneId: string; nameservers: string[] }> {
-    // Check if zone already exists
     const existing = await this.findZone(domain);
     if (existing) return existing;
 
@@ -72,7 +63,6 @@ export class CloudflareService {
     };
   }
 
-  /** Find an existing zone by domain name. */
   async findZone(domain: string): Promise<{ zoneId: string; nameservers: string[] } | null> {
     const res = await fetch(
       `${this.baseUrl}/zones?name=${encodeURIComponent(domain)}&account.id=${this.accountId}`,
@@ -84,40 +74,269 @@ export class CloudflareService {
     return { zoneId: zone.id, nameservers: zone.name_servers ?? [] };
   }
 
-  /**
-   * Add all required DNS records to a customer zone:
-   * - CNAME www → Azure frontend (proxied through Cloudflare)
-   * - A placeholder for apex so redirect rule can apply
-   * - Redirect rule: apex → www
-   */
-  async setupZoneDnsRecords(zoneId: string, domain: string, targetUrl: string): Promise<void> {
+  // ── Step 2: Add CNAME records in tenant zone ─────────────────────────────
+
+  async addTenantZoneDnsRecords(zoneId: string, tenantSubdomain: string): Promise<void> {
     await Promise.all([
       this.upsertDnsRecord(zoneId, {
         type: 'CNAME',
-        name: 'www',
-        content: targetUrl,
-        proxied: true,
-        comment: 'ServiSite — do not edit',
-      }),
-      // Proxied A placeholder for apex so Cloudflare can apply redirect rules
-      this.upsertDnsRecord(zoneId, {
-        type: 'A',
         name: '@',
-        content: '192.0.2.1', // dummy IP — Cloudflare intercepts before it's ever used
+        content: tenantSubdomain,
         proxied: true,
-        comment: 'ServiSite apex placeholder — redirect rule handles routing',
+      }),
+      this.upsertDnsRecord(zoneId, {
+        type: 'CNAME',
+        name: 'www',
+        content: tenantSubdomain,
+        proxied: true,
       }),
     ]);
-
-    // Add a Cloudflare redirect rule: apex → www
-    await this.upsertRedirectRule(zoneId, domain);
   }
 
-  /** Add or update a single DNS record (idempotent). */
+  // ── Step 3: Add Custom Hostnames in servisite zone ───────────────────────
+
+  async createCustomHostnames(domain: string): Promise<{
+    root: CustomHostnameResult;
+    www: CustomHostnameResult;
+  }> {
+    const [root, www] = await Promise.all([
+      this.createOrFetchCustomHostname(domain),
+      this.createOrFetchCustomHostname(`www.${domain}`),
+    ]);
+    return { root, www };
+  }
+
+  private async createOrFetchCustomHostname(hostname: string): Promise<CustomHostnameResult> {
+    const res = await fetch(`${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify({
+        hostname,
+        ssl: {
+          method: 'txt',
+          type: 'dv',
+          settings: { min_tls_version: '1.2' },
+        },
+      }),
+    });
+    const data = await res.json() as any;
+
+    if (!data.success) {
+      if (data.errors?.[0]?.code === 1414) {
+        return this.fetchCustomHostname(hostname);
+      }
+      throw new Error(`Cloudflare custom hostname error for ${hostname}: ${JSON.stringify(data.errors)}`);
+    }
+
+    return this.extractCustomHostnameResult(data.result);
+  }
+
+  private async fetchCustomHostname(hostname: string): Promise<CustomHostnameResult> {
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames?hostname=${encodeURIComponent(hostname)}`,
+      { headers: this.headers },
+    );
+    const data = await res.json() as any;
+    if (!data.success || !data.result?.length) {
+      throw new Error(`Cloudflare custom hostname not found: ${hostname}`);
+    }
+    return this.extractCustomHostnameResult(data.result[0]);
+  }
+
+  private extractCustomHostnameResult(result: any): CustomHostnameResult {
+    return {
+      id: result.id,
+      txtName: result.ssl?.txt_name ?? result.ownership_verification?.name ?? `_cf-custom-hostname.${result.hostname}`,
+      txtValue: result.ssl?.txt_value ?? result.ownership_verification?.value ?? '',
+    };
+  }
+
+  // ── Step 4: Add DCV TXT records in tenant zone ───────────────────────────
+
+  async addDcvTxtRecords(
+    zoneId: string,
+    root: { txtName: string; txtValue: string },
+    www: { txtName: string; txtValue: string },
+  ): Promise<void> {
+    await Promise.all([
+      this.upsertDnsRecord(zoneId, {
+        type: 'TXT',
+        name: root.txtName,
+        content: root.txtValue,
+        proxied: false,
+      }),
+      this.upsertDnsRecord(zoneId, {
+        type: 'TXT',
+        name: www.txtName,
+        content: www.txtValue,
+        proxied: false,
+      }),
+    ]);
+  }
+
+  // ── Step 7: Poll custom hostname status ──────────────────────────────────
+
+  async getCustomHostnameStatus(id: string): Promise<CustomHostnameStatus> {
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames/${id}`,
+      { headers: this.headers },
+    );
+    const data = await res.json() as any;
+    if (!data.success) {
+      throw new Error(`Cloudflare custom hostname status error: ${JSON.stringify(data.errors)}`);
+    }
+    const result = data.result;
+    return {
+      active: result.status === 'active' && result.ssl?.status === 'active',
+      hostnameStatus: result.status,
+      sslStatus: result.ssl?.status ?? 'unknown',
+    };
+  }
+
+  async areBothCustomHostnamesActive(rootId: string, wwwId: string): Promise<boolean> {
+    const [root, www] = await Promise.all([
+      this.getCustomHostnameStatus(rootId),
+      this.getCustomHostnameStatus(wwwId),
+    ]);
+    return root.active && www.active;
+  }
+
+  // ── Cleanup ──────────────────────────────────────────────────────────────
+
+  async deleteCustomHostname(id: string): Promise<void> {
+    if (!id) return;
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames/${id}`,
+      { method: 'DELETE', headers: this.headers },
+    );
+    const data = await res.json() as any;
+    if (!data.success) {
+      this.logger.warn(`Failed to delete custom hostname ${id}: ${JSON.stringify(data.errors)}`);
+    }
+  }
+
+  async deleteZone(zoneId: string): Promise<void> {
+    if (!zoneId) return;
+    const res = await fetch(`${this.baseUrl}/zones/${zoneId}`, {
+      method: 'DELETE',
+      headers: this.headers,
+    });
+    const data = await res.json() as any;
+    if (!data.success) {
+      this.logger.warn(`Failed to delete zone ${zoneId}: ${JSON.stringify(data.errors)}`);
+    }
+  }
+
+  // ── One-time setup: fallback origin ─────────────────────────────────────
+
+  async setupFallbackOrigin(): Promise<void> {
+    const origin = this.config.get<string>('CLOUDFLARE_FALLBACK_ORIGIN', 'origin.servisite.co.uk');
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames/fallback_origin`,
+      {
+        method: 'PUT',
+        headers: this.headers,
+        body: JSON.stringify({ origin }),
+      },
+    );
+    const data = await res.json() as any;
+    if (!data.success) {
+      throw new Error(`Cloudflare fallback origin setup error: ${JSON.stringify(data.errors)}`);
+    }
+    this.logger.log(`Fallback origin set to: ${origin}`);
+  }
+
+  async getFallbackOriginStatus(): Promise<{ origin: string; status: string }> {
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames/fallback_origin`,
+      { headers: this.headers },
+    );
+    const data = await res.json() as any;
+    if (!data.success) {
+      throw new Error(`Cloudflare fallback origin fetch error: ${JSON.stringify(data.errors)}`);
+    }
+    return {
+      origin: data.result?.origin ?? '',
+      status: data.result?.status ?? 'unknown',
+    };
+  }
+
+  // ── Rate Limiting (unchanged) ─────────────────────────────────────────────
+
+  async setupRateLimiting(): Promise<{ rulesApplied: number }> {
+    if (!this.apiToken || !this.servisiteZoneId) {
+      throw new Error('Cloudflare credentials not configured');
+    }
+
+    const rules = [
+      {
+        description: 'Auth endpoints — brute force protection',
+        expression: '(http.request.uri.path matches "^/api/v1/auth/(login|forgot-password|reset-password|resend-verification)$")',
+        ratelimit: {
+          characteristics: ['ip.src'],
+          period: 60,
+          requests_per_period: 10,
+          mitigation_timeout: 600,
+        },
+        action: 'block',
+      },
+      {
+        description: 'Registration endpoint — signup abuse protection',
+        expression: '(http.request.uri.path eq "/api/v1/tenants/register" or http.request.uri.path eq "/api/v1/auth/register")',
+        ratelimit: {
+          characteristics: ['ip.src'],
+          period: 60,
+          requests_per_period: 5,
+          mitigation_timeout: 3600,
+        },
+        action: 'block',
+      },
+      {
+        description: 'API global rate limit',
+        expression: '(http.request.uri.path matches "^/api/")',
+        ratelimit: {
+          characteristics: ['ip.src'],
+          period: 60,
+          requests_per_period: 300,
+          mitigation_timeout: 60,
+        },
+        action: 'block',
+      },
+    ];
+
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.servisiteZoneId}/rulesets/phases/http_ratelimit/entrypoint`,
+      {
+        method: 'PUT',
+        headers: this.headers,
+        body: JSON.stringify({ rules }),
+      },
+    );
+
+    const data = await res.json() as any;
+    if (!data.success) {
+      throw new Error(`Cloudflare rate limit setup error: ${JSON.stringify(data.errors)}`);
+    }
+
+    this.logger.log(`Rate limiting configured: ${rules.length} rules applied`);
+    return { rulesApplied: rules.length };
+  }
+
+  async getRateLimitingRules(): Promise<any[]> {
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.servisiteZoneId}/rulesets/phases/http_ratelimit/entrypoint`,
+      { headers: this.headers },
+    );
+    const data = await res.json() as any;
+    if (!data.success) return [];
+    return data.result?.rules ?? [];
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
   private async upsertDnsRecord(zoneId: string, record: {
     type: string; name: string; content: string; proxied?: boolean; comment?: string;
   }): Promise<void> {
-    // Check if it already exists
     const listRes = await fetch(
       `${this.baseUrl}/zones/${zoneId}/dns_records?type=${record.type}&name=${encodeURIComponent(record.name)}`,
       { headers: this.headers },
@@ -138,242 +357,5 @@ export class CloudflareService {
         body: JSON.stringify(record),
       });
     }
-  }
-
-  /** Create a Cloudflare redirect rule for apex → www (idempotent). */
-  private async upsertRedirectRule(zoneId: string, domain: string): Promise<void> {
-    const listRes = await fetch(
-      `${this.baseUrl}/zones/${zoneId}/rulesets/phases/http_request_dynamic_redirect/entrypoint`,
-      { headers: this.headers },
-    );
-    const listData = await listRes.json() as any;
-
-    // If ruleset already exists with our rule, skip
-    if (listData.success && listData.result?.rules?.some((r: any) => r.description === 'ServiSite apex redirect')) {
-      return;
-    }
-
-    await fetch(
-      `${this.baseUrl}/zones/${zoneId}/rulesets/phases/http_request_dynamic_redirect/entrypoint`,
-      {
-        method: 'PUT',
-        headers: this.headers,
-        body: JSON.stringify({
-          rules: [
-            {
-              description: 'ServiSite apex redirect',
-              expression: `(http.host eq "${domain}")`,
-              action: 'redirect',
-              action_parameters: {
-                from_value: {
-                  status_code: 301,
-                  target_url: { expression: `concat("https://www.${domain}", http.request.uri.path)` },
-                  preserve_query_string: true,
-                },
-              },
-            },
-          ],
-        }),
-      },
-    );
-  }
-
-  /**
-   * Check whether the customer has pointed their nameservers to Cloudflare.
-   * Returns true once the zone is active.
-   */
-  async checkZoneActive(zoneId: string): Promise<{ active: boolean; status: string }> {
-    const res = await fetch(`${this.baseUrl}/zones/${zoneId}`, { headers: this.headers });
-    const data = await res.json() as any;
-    if (!data.success) throw new Error(`Cloudflare zone check error: ${JSON.stringify(data.errors)}`);
-    return {
-      active: data.result.status === 'active',
-      status: data.result.status,
-    };
-  }
-
-  /** Delete the customer's Cloudflare zone entirely. */
-  async deleteZone(zoneId: string): Promise<void> {
-    if (!zoneId) return;
-    const res = await fetch(`${this.baseUrl}/zones/${zoneId}`, {
-      method: 'DELETE',
-      headers: this.headers,
-    });
-    const data = await res.json() as any;
-    if (!data.success) {
-      this.logger.warn(`Failed to delete Cloudflare zone ${zoneId}: ${JSON.stringify(data.errors)}`);
-    }
-  }
-
-  // ── Custom Hostnames (Cloudflare for SaaS — legacy, kept for existing tenants) ──
-
-  async createCustomHostname(hostname: string): Promise<{
-    id: string;
-    txtName: string;
-    txtValue: string;
-  }> {
-    const res = await fetch(`${this.baseUrl}/zones/${this.zoneId}/custom_hostnames`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({
-        hostname,
-        ssl: { method: 'http', type: 'dv', settings: { min_tls_version: '1.2' } },
-      }),
-    });
-
-    const data = await res.json() as any;
-
-    if (!data.success) {
-      if (data.errors?.[0]?.code === 1414) {
-        return this.getCustomHostnameByHostname(hostname);
-      }
-      throw new Error(`Cloudflare error: ${JSON.stringify(data.errors)}`);
-    }
-
-    const result: CloudflareCustomHostname = data.result;
-    return {
-      id: result.id,
-      txtName: result.ownership_verification?.name ?? `_cf-custom-hostname.${hostname}`,
-      txtValue: result.ownership_verification?.value ?? '',
-    };
-  }
-
-  async getCustomHostnameByHostname(hostname: string): Promise<{
-    id: string;
-    txtName: string;
-    txtValue: string;
-  }> {
-    const res = await fetch(
-      `${this.baseUrl}/zones/${this.zoneId}/custom_hostnames?hostname=${encodeURIComponent(hostname)}`,
-      { headers: this.headers },
-    );
-    const data = await res.json() as any;
-    if (!data.success || !data.result?.length) {
-      throw new Error(`Cloudflare hostname not found: ${hostname}`);
-    }
-    const result: CloudflareCustomHostname = data.result[0];
-    return {
-      id: result.id,
-      txtName: result.ownership_verification?.name ?? `_cf-custom-hostname.${hostname}`,
-      txtValue: result.ownership_verification?.value ?? '',
-    };
-  }
-
-  async checkCustomHostname(id: string): Promise<{
-    active: boolean;
-    sslStatus: string;
-    hostnameStatus: string;
-    sslTxtName?: string;
-    sslTxtValue?: string;
-  }> {
-    const res = await fetch(
-      `${this.baseUrl}/zones/${this.zoneId}/custom_hostnames/${id}`,
-      { headers: this.headers },
-    );
-    const data = await res.json() as any;
-    if (!data.success) {
-      throw new Error(`Cloudflare error: ${JSON.stringify(data.errors)}`);
-    }
-    const result: CloudflareCustomHostname = data.result;
-    return {
-      active: result.status === 'active',
-      sslStatus: result.ssl.status,
-      hostnameStatus: result.status,
-      sslTxtName: result.ssl.txt_name,
-      sslTxtValue: result.ssl.txt_value,
-    };
-  }
-
-  async deleteCustomHostname(id: string): Promise<void> {
-    if (!id) return;
-    const res = await fetch(
-      `${this.baseUrl}/zones/${this.zoneId}/custom_hostnames/${id}`,
-      { method: 'DELETE', headers: this.headers },
-    );
-    const data = await res.json() as any;
-    if (!data.success) {
-      this.logger.warn(`Failed to delete Cloudflare custom hostname ${id}: ${JSON.stringify(data.errors)}`);
-    }
-  }
-
-  // ── Rate Limiting ─────────────────────────────────────────────────────────
-
-  /**
-   * Set up rate limiting rules on the ServiSite zone.
-   * Safe to call multiple times — replaces the entire ruleset each time.
-   *
-   * Rules applied:
-   *  - Auth endpoints (login, forgot-password, reset-password): 10 req / 60s per IP → block 10 min
-   *  - Registration endpoint: 5 req / 60s per IP → block 1 hour
-   *  - API global: 300 req / 60s per IP → block 1 min
-   */
-  async setupRateLimiting(): Promise<{ rulesApplied: number }> {
-    if (!this.apiToken || !this.zoneId) {
-      throw new Error('Cloudflare credentials not configured');
-    }
-
-    const rules = [
-      {
-        description: 'Auth endpoints — brute force protection',
-        expression: '(http.request.uri.path matches "^/api/v1/auth/(login|forgot-password|reset-password|resend-verification)$")',
-        ratelimit: {
-          characteristics: ['ip.src'],
-          period: 60,
-          requests_per_period: 10,
-          mitigation_timeout: 600, // block for 10 minutes
-        },
-        action: 'block',
-      },
-      {
-        description: 'Registration endpoint — signup abuse protection',
-        expression: '(http.request.uri.path eq "/api/v1/tenants/register" or http.request.uri.path eq "/api/v1/auth/register")',
-        ratelimit: {
-          characteristics: ['ip.src'],
-          period: 60,
-          requests_per_period: 5,
-          mitigation_timeout: 3600, // block for 1 hour
-        },
-        action: 'block',
-      },
-      {
-        description: 'API global rate limit',
-        expression: '(http.request.uri.path matches "^/api/")',
-        ratelimit: {
-          characteristics: ['ip.src'],
-          period: 60,
-          requests_per_period: 300,
-          mitigation_timeout: 60,
-        },
-        action: 'block',
-      },
-    ];
-
-    const res = await fetch(
-      `${this.baseUrl}/zones/${this.zoneId}/rulesets/phases/http_ratelimit/entrypoint`,
-      {
-        method: 'PUT',
-        headers: this.headers,
-        body: JSON.stringify({ rules }),
-      },
-    );
-
-    const data = await res.json() as any;
-    if (!data.success) {
-      throw new Error(`Cloudflare rate limit setup error: ${JSON.stringify(data.errors)}`);
-    }
-
-    this.logger.log(`Rate limiting configured: ${rules.length} rules applied to zone ${this.zoneId}`);
-    return { rulesApplied: rules.length };
-  }
-
-  /** Get current rate limiting rules on the zone. */
-  async getRateLimitingRules(): Promise<any[]> {
-    const res = await fetch(
-      `${this.baseUrl}/zones/${this.zoneId}/rulesets/phases/http_ratelimit/entrypoint`,
-      { headers: this.headers },
-    );
-    const data = await res.json() as any;
-    if (!data.success) return [];
-    return data.result?.rules ?? [];
   }
 }
