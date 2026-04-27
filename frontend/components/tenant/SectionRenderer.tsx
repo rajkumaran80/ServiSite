@@ -899,7 +899,7 @@ function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdPro
           if (!buttons.length) return null;
           return (
             <div>
-              <p className="text-center font-medium mb-4" style={{ color: bodyColor }}>
+              <p className="text-center font-medium mb-4 mt-8" style={{ color: bodyColor }}>
                 Review us on
               </p>
               <div className="flex flex-wrap justify-center gap-3">
@@ -913,7 +913,6 @@ function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdPro
                     style={{ backgroundColor: btn.bg }}
                   >
                     {btn.icon}
-                    {btn.label}
                   </a>
                 ))}
               </div>

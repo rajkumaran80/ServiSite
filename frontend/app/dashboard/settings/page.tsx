@@ -19,14 +19,14 @@ import instagramService, { InstagramConnection } from '../../../services/instagr
 const tenantSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(100),
   type: z.enum(['RESTAURANT', 'CAFE', 'BARBER_SHOP', 'SALON', 'GYM', 'REPAIR_SHOP', 'OTHER']),
-  whatsappNumber: z.string().optional(),
   currency: z.string().min(1),
   timezone: z.string().min(1),
   locale: z.string().min(1),
 });
 
 const contactSchema = z.object({
-  phone: z.string().optional(),
+  phone: z.string().min(1, 'Main phone number is required'),
+  whatsapp: z.string().min(1, 'WhatsApp number is required'),
   email: z.string().email().optional().or(z.literal('')),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -521,16 +521,7 @@ function SettingsPageInner() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp Number</label>
-              <input
-                {...tenantForm.register('whatsappNumber')}
-                placeholder="+447911123456"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-gray-400 mt-1">Used for the WhatsApp chat button on your site</p>
-            </div>
-
+            
             <div className="grid sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Currency</label>
