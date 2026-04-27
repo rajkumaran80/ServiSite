@@ -404,9 +404,9 @@ export class TenantService {
   // ── Custom Domain ──────────────────────────────────────────────────────────
 
   /**
-   * Step 1: Tenant submits their custom domain.
-   * Creates a Cloudflare zone and returns the nameservers the tenant must set at their registrar.
-   * No DNS records are added yet — that happens in verifyCustomDomain once the zone is active.
+   * Full domain onboarding — Steps 1–5 of the agent plan.
+   * Creates zone, adds CNAME records, creates Custom Hostnames for SSL,
+   * adds DCV TXT records, saves everything to DB.
    */
   async setCustomDomain(
     tenantId: string,
@@ -422,9 +422,18 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    });
+    if (!tenant) throw new BadRequestException('Tenant not found');
+
+    const baseDomain = this.config.get<string>('SERVISITE_BASE_DOMAIN', 'servisite.co.uk');
+    const tenantSubdomain = `${tenant.slug}.${baseDomain}`;
+
+    // Step 1: Create zone → get zone ID + nameservers
     let zoneId: string;
     let nameservers: string[];
-
     try {
       ({ zoneId, nameservers } = await this.cloudflare.createZone(apex));
     } catch (error) {
@@ -432,6 +441,35 @@ export class TenantService {
       throw new BadRequestException(`Failed to create Cloudflare zone: ${error.message}`);
     }
 
+    // Step 2: Add CNAME @ and www → tenant subdomain in tenant zone
+    try {
+      await this.cloudflare.addTenantZoneDnsRecords(zoneId, tenantSubdomain);
+    } catch (error) {
+      this.logger.error('Failed to add DNS records to tenant zone:', error.message);
+      // Non-fatal — continue
+    }
+
+    // Step 3: Add Custom Hostnames in servisite zone → get DCV tokens
+    let rootHostname: { id: string; txtName: string; txtValue: string };
+    let wwwHostname: { id: string; txtName: string; txtValue: string };
+    try {
+      const { root, www } = await this.cloudflare.createCustomHostnames(apex);
+      rootHostname = root;
+      wwwHostname = www;
+    } catch (error) {
+      this.logger.error('Failed to create Custom Hostnames:', error.message);
+      throw new BadRequestException(`Failed to create Custom Hostnames: ${error.message}`);
+    }
+
+    // Step 4: Add DCV TXT records in tenant zone
+    try {
+      await this.cloudflare.addDcvTxtRecords(zoneId, rootHostname, wwwHostname);
+    } catch (error) {
+      this.logger.error('Failed to add DCV TXT records:', error.message);
+      // Non-fatal — Cloudflare will retry SSL issuance
+    }
+
+    // Step 5: Save to DB
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
@@ -439,8 +477,8 @@ export class TenantService {
         customDomainStatus: 'pending',
         customDomainZoneId: zoneId,
         customDomainNsRecords: nameservers,
-        customDomainToken: null,
-        customDomainApexToken: null,
+        customDomainToken: wwwHostname.id,       // www custom hostname ID
+        customDomainApexToken: rootHostname.id,  // root custom hostname ID
         customDomainTxtName: null,
         customDomainTxtValue: null,
         customDomainVerifiedAt: null,
@@ -451,78 +489,103 @@ export class TenantService {
   }
 
   /**
-   * Step 2: Check Status — called after tenant updates nameservers at their registrar.
-   * If the Cloudflare zone is now active, sets up DNS records and marks the domain active.
+   * Manual check — tenant clicks "Check Status".
+   * Checks both Custom Hostname statuses; marks active if both are live.
    */
   async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string }> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
         customDomain: true,
-        customDomainZoneId: true,
+        customDomainToken: true,
+        customDomainApexToken: true,
         customDomainStatus: true,
         slug: true,
       },
     });
 
-    if (!tenant?.customDomain) {
-      throw new BadRequestException('No custom domain set');
-    }
+    if (!tenant?.customDomain) throw new BadRequestException('No custom domain set');
     if (tenant.customDomainStatus === 'active') {
       return { verified: true, message: 'Domain already active' };
     }
-    if (!tenant.customDomainZoneId) {
-      throw new BadRequestException('No Cloudflare zone found — please re-save the domain');
+    if (!tenant.customDomainToken || !tenant.customDomainApexToken) {
+      throw new BadRequestException('Domain setup incomplete — please remove and re-add the domain');
     }
 
-    const { active, status } = await this.cloudflare.checkZoneActive(tenant.customDomainZoneId);
+    const bothActive = await this.cloudflare.areBothCustomHostnamesActive(
+      tenant.customDomainApexToken,
+      tenant.customDomainToken,
+    );
 
-    if (!active) {
+    if (!bothActive) {
+      const [rootStatus, wwwStatus] = await Promise.all([
+        this.cloudflare.getCustomHostnameStatus(tenant.customDomainApexToken),
+        this.cloudflare.getCustomHostnameStatus(tenant.customDomainToken),
+      ]);
       return {
         verified: false,
-        message: `Nameservers not updated yet (zone status: ${status}). Change your nameservers at your registrar and try again in a few minutes.`,
+        message: `Domain not active yet. Nameservers: update at your registrar if not done. SSL: root=${rootStatus.sslStatus}, www=${wwwStatus.sslStatus}. This can take 1–24 hours after nameserver change.`,
       };
     }
 
-    // Zone is active — now set up DNS records (CNAME www + apex redirect)
-    const azureFrontendUrl = `${this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend')}.azurewebsites.net`;
-    try {
-      await this.cloudflare.setupZoneDnsRecords(tenant.customDomainZoneId, tenant.customDomain, azureFrontendUrl);
-    } catch (error) {
-      this.logger.error('Failed to set up DNS records:', error.message);
-      // Don't block activation — records can be retried
-    }
+    await this.activateCustomDomain(tenantId, tenant.customDomain, tenant.slug);
+    return { verified: true, message: `Domain ${tenant.customDomain} is now active!` };
+  }
 
+  async activateCustomDomain(tenantId: string, domain: string, slug: string): Promise<void> {
     await this.prisma.tenant.update({
       where: { id: tenantId },
       data: { customDomainStatus: 'active', customDomainVerifiedAt: new Date() },
     });
-
-    await this.tenantCache.setDomainSlug(tenant.customDomain, tenant.slug);
-
-    return { verified: true, message: `Domain ${tenant.customDomain} is now active!` };
+    await this.tenantCache.setDomainSlug(domain, slug);
+    this.logger.log(`Custom domain activated: ${domain} → ${slug}`);
   }
 
   /**
-   * Remove a custom domain from the tenant and delete its Cloudflare zone.
+   * Remove custom domain — deletes Custom Hostnames, zone, and clears DB.
    */
   async removeCustomDomain(tenantId: string): Promise<void> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { customDomain: true, customDomainZoneId: true },
+      select: {
+        customDomain: true,
+        customDomainZoneId: true,
+        customDomainToken: true,
+        customDomainApexToken: true,
+      },
     });
 
+    const cleanups: Promise<any>[] = [];
+
     if (tenant?.customDomain) {
-      await Promise.all([
-        this.tenantCache.deleteDomainSlug(tenant.customDomain),
-        this.tenantCache.deleteDomainSlug(`www.${tenant.customDomain}`),
-        tenant.customDomainZoneId
-          ? this.cloudflare.deleteZone(tenant.customDomainZoneId).catch((err) => {
-              this.logger.warn(`Could not delete Cloudflare zone ${tenant.customDomainZoneId}: ${err.message}`);
-            })
-          : Promise.resolve(),
-      ]);
+      cleanups.push(
+        this.tenantCache.deleteDomainSlug(tenant.customDomain).catch(() => {}),
+        this.tenantCache.deleteDomainSlug(`www.${tenant.customDomain}`).catch(() => {}),
+      );
     }
+    if (tenant?.customDomainToken) {
+      cleanups.push(
+        this.cloudflare.deleteCustomHostname(tenant.customDomainToken).catch((err) => {
+          this.logger.warn(`Could not delete www custom hostname: ${err.message}`);
+        }),
+      );
+    }
+    if (tenant?.customDomainApexToken) {
+      cleanups.push(
+        this.cloudflare.deleteCustomHostname(tenant.customDomainApexToken).catch((err) => {
+          this.logger.warn(`Could not delete root custom hostname: ${err.message}`);
+        }),
+      );
+    }
+    if (tenant?.customDomainZoneId) {
+      cleanups.push(
+        this.cloudflare.deleteZone(tenant.customDomainZoneId).catch((err) => {
+          this.logger.warn(`Could not delete Cloudflare zone: ${err.message}`);
+        }),
+      );
+    }
+
+    await Promise.all(cleanups);
 
     await this.prisma.tenant.update({
       where: { id: tenantId },

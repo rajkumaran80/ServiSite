@@ -89,6 +89,7 @@ function SettingsPageInner() {
   const [isSavingHours, setIsSavingHours] = useState(false);
   const [isSavingDomain, setIsSavingDomain] = useState(false);
   const [isVerifyingDomain, setIsVerifyingDomain] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   const tenantForm = useForm<TenantForm>({
     resolver: zodResolver(tenantSchema),
@@ -217,6 +218,7 @@ function SettingsPageInner() {
   const handleSetCustomDomain = async () => {
     if (!tenant || !domainInput.trim()) return;
     setIsSavingDomain(true);
+    setVerifyError(null);
     try {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
       setCustomDomain(domainInput.trim().replace(/^www\./, ''));
@@ -233,16 +235,18 @@ function SettingsPageInner() {
   const handleVerifyDomain = async () => {
     if (!tenant) return;
     setIsVerifyingDomain(true);
+    setVerifyError(null);
     try {
       const result = await tenantService.verifyCustomDomain(tenant.id);
       if (result.status === 'active') {
         setDomainStatus('active');
+        setVerifyError(null);
         toast.success('Domain verified! Your custom domain is now active.');
       } else {
-        toast.error(result.message || 'Not verified yet — check your nameservers and try again.');
+        setVerifyError(result.message || 'Not active yet — check your nameservers and try again.');
       }
     } catch {
-      toast.error('Verification failed');
+      setVerifyError('Verification check failed. Please try again.');
     } finally {
       setIsVerifyingDomain(false);
     }
@@ -921,7 +925,7 @@ function SettingsPageInner() {
                   <div className="px-5 py-4 border-b border-amber-200">
                     <p className="text-sm font-semibold text-amber-900">Action required — update your nameservers</p>
                     <p className="text-xs text-amber-700 mt-0.5">
-                      Log into your registrar (IONOS, GoDaddy, etc.) and replace your current nameservers with these two Cloudflare nameservers.
+                      Log into your registrar (IONOS, GoDaddy, etc.) and replace your current nameservers with the two Cloudflare nameservers below. Once done, SSL will be issued automatically and your domain will go live within 1–24 hours.
                     </p>
                   </div>
 
@@ -981,6 +985,12 @@ function SettingsPageInner() {
                   {isVerifyingDomain && <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                   Check Status
                 </button>
+
+                {verifyError && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+                    <p className="text-sm text-red-700">{verifyError}</p>
+                  </div>
+                )}
               </div>
             )}
 
