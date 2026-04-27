@@ -1569,27 +1569,60 @@ export default function MenuPage() {
       )}
 
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 ${menu.groups.length > 0 ? 'pt-14' : ''}`}>
-        {/* Search when no group tab bar */}
+        {/* Search + filter pills when no group tab bar */}
         {menu.groups.length === 0 && menu.uncategorized.length > 0 && (
-          <div className="mb-6 relative max-w-xs">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search items…"
-              className="pl-9 pr-3 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 w-full"
-              style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-            />
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
+          <div className="mb-6">
+            <div className="relative max-w-xs mb-3">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search items…"
+                className="pl-9 pr-3 py-2 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 w-full"
+                style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+              />
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+              {[
+                { key: 'vegan',      label: 'Vegan',       icon: '🌿' },
+                { key: 'vegetarian', label: 'Vegetarian',  icon: '🥦' },
+                { key: 'spicy',      label: 'Spicy',       icon: '🌶️' },
+                { key: 'gf',         label: 'Gluten-Free', icon: '🌾' },
+              ].map((p) => {
+                const active = dietaryFilters.has(p.key);
+                return (
+                  <button
+                    key={p.key}
+                    onClick={() => toggleDietaryFilter(p.key)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                      active ? 'text-white border-transparent shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                    }`}
+                    style={active ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
+                  >
+                    <span>{p.icon}</span>
+                    <span>{p.label}</span>
+                  </button>
+                );
+              })}
+              {dietaryFilters.size > 0 && (
+                <button
+                  onClick={() => setDietaryFilters(new Set())}
+                  className="flex-shrink-0 text-xs text-gray-400 hover:text-gray-600 underline ml-1"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         )}
         {orderingEnabled && bundles.length > 0 && (

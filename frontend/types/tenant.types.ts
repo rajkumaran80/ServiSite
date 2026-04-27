@@ -50,6 +50,7 @@ export interface ContactInfo {
   id: string;
   tenantId: string;
   phone: string | null;
+  whatsapp: string | null;
   email: string | null;
   address: string | null;
   city: string | null;

@@ -242,8 +242,10 @@ model Tenant {
   halfHalfConfigs HalfHalfConfig[]
   billingEvents   BillingEvent[]
   auditLogs       AuditLog[]
-  dnsZone         DnsZone?
-  dnsRecords      DnsRecord[]
+  dnsZone             DnsZone?
+  dnsRecords          DnsRecord[]
+  instagramConnection InstagramConnection?
+  instagramMediaCache InstagramMediaCache?
 
   @@map("tenants")
 }
@@ -510,6 +512,7 @@ model ContactInfo {
   id           String   @id @default(cuid())
   tenantId     String   @unique
   phone        String?
+  whatsapp     String?
   email        String?
   address      String?
   city         String?
@@ -525,6 +528,45 @@ model ContactInfo {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("contact_info")
+}
+
+model CachedImage {
+  id         String   @id @default(cuid())
+  url        String   @unique
+  data       Bytes
+  contentType String   @default("image/jpeg")
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@map("cached_images")
+}
+
+model InstagramConnection {
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  accountId   String
+  username    String
+  accessToken String
+  tokenExpiry DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("instagram_connections")
+}
+
+model InstagramMediaCache {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique
+  posts     Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("instagram_media_cache")
 }
 
 model GalleryImage {

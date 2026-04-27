@@ -16,12 +16,22 @@ import { InstagramService } from './instagram.service';
 
 @ApiTags('instagram')
 @Controller('instagram')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class InstagramController {
   constructor(private readonly instagramService: InstagramService) {}
 
-  /** Returns the Instagram OAuth URL to redirect the user to */
+  /** Public: get cached posts by tenant slug — no auth required */
+  @Get('media/public')
+  @ApiOperation({ summary: 'Get cached Instagram posts by tenant slug (public)' })
+  async getPublicMedia(
+    @Query('slug') slug: string,
+    @Query('limit') limit?: number,
+  ) {
+    const posts = await this.instagramService.getMediaBySlug(slug, limit || 6);
+    return { data: posts, success: true };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Get('auth-url')
   @ApiOperation({ summary: 'Get Instagram OAuth URL' })
   async getAuthUrl(@CurrentUser() user: any) {
@@ -29,7 +39,8 @@ export class InstagramController {
     return { data: { url: this.instagramService.getAuthUrl(slug) }, success: true };
   }
 
-  /** Exchange OAuth code → get accounts list */
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('exchange')
   @ApiOperation({ summary: 'Exchange auth code for accounts list' })
   async exchange(@Body() body: { code: string }) {
@@ -37,7 +48,8 @@ export class InstagramController {
     return { data: accounts, success: true };
   }
 
-  /** Save the selected account for this tenant */
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('connect')
   @ApiOperation({ summary: 'Save selected Instagram account' })
   async connect(
@@ -53,7 +65,8 @@ export class InstagramController {
     return { data: { accountId: body.accountId, username: body.username }, success: true };
   }
 
-  /** Remove Instagram connection */
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Delete('disconnect')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Disconnect Instagram account' })
@@ -62,7 +75,8 @@ export class InstagramController {
     return { success: true };
   }
 
-  /** Get current connection status */
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Get('connection')
   @ApiOperation({ summary: 'Get Instagram connection info' })
   async getConnection(@CurrentUser() user: any) {
@@ -70,7 +84,8 @@ export class InstagramController {
     return { data: connection, success: true };
   }
 
-  /** Get Instagram media posts */
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Get('media')
   @ApiOperation({ summary: 'Get Instagram media posts' })
   async getMedia(
@@ -81,7 +96,8 @@ export class InstagramController {
     return { data: media, success: true };
   }
 
-  /** Get cached Instagram media posts */
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Get('media/cached')
   @ApiOperation({ summary: 'Get cached Instagram media posts' })
   async getCachedMedia(

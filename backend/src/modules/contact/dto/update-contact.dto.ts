@@ -7,6 +7,11 @@ export class UpdateContactDto {
   @IsOptional()
   phone?: string;
 
+  @ApiPropertyOptional({ example: '+1 (555) 987-6543' })
+  @IsString()
+  @IsOptional()
+  whatsapp?: string;
+
   @ApiPropertyOptional({ example: 'info@pizzapalace.com' })
   @IsEmail()
   @IsOptional()

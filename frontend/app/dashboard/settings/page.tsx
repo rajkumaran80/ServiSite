@@ -19,14 +19,14 @@ import instagramService, { InstagramConnection } from '../../../services/instagr
 const tenantSchema = z.object({
   name: z.string().min(1, 'Business name is required').max(100),
   type: z.enum(['RESTAURANT', 'CAFE', 'BARBER_SHOP', 'SALON', 'GYM', 'REPAIR_SHOP', 'OTHER']),
-  whatsappNumber: z.string().optional(),
   currency: z.string().min(1),
   timezone: z.string().min(1),
   locale: z.string().min(1),
 });
 
 const contactSchema = z.object({
-  phone: z.string().optional(),
+  phone: z.string().min(1, 'Main phone number is required'),
+  whatsapp: z.string().min(1, 'WhatsApp number is required'),
   email: z.string().email().optional().or(z.literal('')),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -74,8 +74,7 @@ function SettingsPageInner() {
   const [customDomain, setCustomDomain] = useState('');
   const [domainInput, setDomainInput] = useState('');
   const [domainStatus, setDomainStatus] = useState<string | null>(null);
-  const [domainTxtName, setDomainTxtName] = useState<string>('');
-  const [domainTxtValue, setDomainTxtValue] = useState<string>('');
+  const [domainNameservers, setDomainNameservers] = useState<string[]>([]);
   const [googlePlaceId, setGooglePlaceId] = useState<string>('');
   const [isLookingUpPlace, setIsLookingUpPlace] = useState(false);
   const [galleryEnabled, setGalleryEnabled] = useState(true);
@@ -153,13 +152,11 @@ function SettingsPageInner() {
           setCustomDomain(currentTenant.customDomain || '');
           setDomainInput(currentTenant.customDomain || '');
           setDomainStatus(currentTenant.customDomainStatus || null);
-          setDomainTxtName(currentTenant.customDomainTxtName || '');
-          setDomainTxtValue(currentTenant.customDomainTxtValue || '');
+          setDomainNameservers((currentTenant.customDomainNsRecords as string[]) || []);
 
           tenantForm.reset({
             name: currentTenant.name,
             type: currentTenant.type,
-            whatsappNumber: currentTenant.whatsappNumber || '',
             currency: currentTenant.currency,
             timezone: currentTenant.timezone,
             locale: currentTenant.locale,
@@ -170,6 +167,7 @@ function SettingsPageInner() {
           setContact(contactData);
           contactForm.reset({
             phone: contactData.phone || '',
+            whatsapp: contactData.whatsapp || '',
             email: contactData.email || '',
             address: contactData.address || '',
             city: contactData.city || '',
@@ -223,9 +221,8 @@ function SettingsPageInner() {
       const result = await tenantService.setCustomDomain(tenant.id, domainInput.trim());
       setCustomDomain(domainInput.trim().replace(/^www\./, ''));
       setDomainStatus('pending');
-      setDomainTxtName(result.txtRecords?.[0]?.name || '');
-      setDomainTxtValue(result.txtRecords?.[0]?.value || '');
-      toast.success('Domain saved — add the DNS records below in IONOS to complete setup');
+      setDomainNameservers(result.nameservers || []);
+      toast.success('Domain saved — update your nameservers as shown below to complete setup');
     } catch {
       toast.error('Failed to save custom domain');
     } finally {
@@ -258,8 +255,7 @@ function SettingsPageInner() {
       setCustomDomain('');
       setDomainInput('');
       setDomainStatus(null);
-      setDomainTxtName('');
-      setDomainTxtValue('');
+      setDomainNameservers([]);
       toast.success('Custom domain removed');
     } catch {
       toast.error('Failed to remove custom domain');
@@ -291,7 +287,6 @@ function SettingsPageInner() {
         tenantService.update(tenant.id, {
           name: data.name,
           type: data.type,
-          whatsappNumber: data.whatsappNumber,
           currency: data.currency,
           timezone: data.timezone,
           locale: data.locale,
@@ -521,16 +516,7 @@ function SettingsPageInner() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp Number</label>
-              <input
-                {...tenantForm.register('whatsappNumber')}
-                placeholder="+447911123456"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-gray-400 mt-1">Used for the WhatsApp chat button on your site</p>
-            </div>
-
+            
             <div className="grid sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Currency</label>
@@ -661,22 +647,37 @@ function SettingsPageInner() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone / WhatsApp</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone (For Calls)</label>
                 <input
                   {...contactForm.register('phone')}
                   placeholder="+447911123456"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {contactForm.formState.errors.phone && (
+                  <p className="text-red-500 text-xs mt-1">{contactForm.formState.errors.phone.message}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp (For Messages)</label>
                 <input
-                  type="email"
-                  {...contactForm.register('email')}
-                  placeholder="info@yourbusiness.com"
+                  {...contactForm.register('whatsapp')}
+                  placeholder="+447911123456"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {contactForm.formState.errors.whatsapp && (
+                  <p className="text-red-500 text-xs mt-1">{contactForm.formState.errors.whatsapp.message}</p>
+                )}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <input
+                type="email"
+                {...contactForm.register('email')}
+                placeholder="info@yourbusiness.com"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <div>
@@ -913,51 +914,63 @@ function SettingsPageInner() {
               </div>
             </div>
 
-            {/* DNS setup instructions */}
+            {/* Nameserver instructions */}
             {domainStatus === 'pending' && (
               <div className="space-y-4">
-                <div className="rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="bg-gray-50 px-5 py-3 border-b border-gray-200">
-                    <p className="text-sm font-semibold text-gray-900">Add all these DNS records in your registrar</p>
-                    <p className="text-xs text-gray-500 mt-0.5">IONOS → Domain &amp; SSL → DNS → Add record</p>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-amber-200">
+                    <p className="text-sm font-semibold text-amber-900">Action required — update your nameservers</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      Log into your registrar (IONOS, GoDaddy, etc.) and replace your current nameservers with these two Cloudflare nameservers.
+                    </p>
                   </div>
-                  <table className="w-full text-sm">
-                    <thead className="bg-white border-b border-gray-100">
-                      <tr>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-16">Type</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">Name</th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Value</th>
-                        <th className="px-4 py-2.5 w-16" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      <tr className="bg-white">
-                        <td className="px-4 py-3"><span className="inline-block bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded">ALIAS</span></td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-800">@</td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-600">servisite.co.uk</td>
-                        <td className="px-4 py-3"><button type="button" onClick={() => { navigator.clipboard.writeText('servisite.co.uk'); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button></td>
-                      </tr>
-                      <tr className="bg-white">
-                        <td className="px-4 py-3"><span className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">CNAME</span></td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-800">www</td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-600">servisite.co.uk</td>
-                        <td className="px-4 py-3"><button type="button" onClick={() => { navigator.clipboard.writeText('servisite.co.uk'); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">Copy</button></td>
-                      </tr>
-                      <tr className="bg-white">
-                        <td className="px-4 py-3"><span className="inline-block bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">TXT</span></td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-800 break-all">{domainTxtName || `_cf-custom-hostname.${customDomain}`}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-600 break-all">{domainTxtValue || '(loading…)'}</td>
-                        <td className="px-4 py-3">
-                          {domainTxtValue && (
-                            <button type="button" onClick={() => { navigator.clipboard.writeText(domainTxtValue); toast.success('Copied'); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">Copy</button>
-                          )}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
 
-                <p className="text-xs text-gray-500">DNS changes take 5–30 minutes to propagate. Click Check Status once you've added all records.</p>
+                  {/* Step-by-step */}
+                  <div className="px-5 py-4 space-y-3 bg-white">
+                    <div className="flex gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                      <p className="text-sm text-gray-700">Log into your domain registrar where <span className="font-mono font-semibold">{customDomain}</span> is registered (IONOS, GoDaddy, Namecheap, etc.)</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                      <div className="text-sm text-gray-700">
+                        <p>Find <strong>Nameservers</strong> settings (usually under Domain Settings or DNS)</p>
+                        <p className="text-xs text-gray-500 mt-0.5">IONOS: Domain &amp; SSL → Nameservers → Change</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+                      <div className="flex-1 text-sm text-gray-700">
+                        <p className="mb-2"><strong>Replace</strong> your existing nameservers with these:</p>
+                        <div className="space-y-2">
+                          {(domainNameservers.length > 0
+                            ? domainNameservers
+                            : ['odin.ns.cloudflare.com', 'ryleigh.ns.cloudflare.com']
+                          ).map((ns) => (
+                            <div key={ns} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                              <span className="font-mono text-sm text-gray-800">{ns}</span>
+                              <button
+                                type="button"
+                                onClick={() => { navigator.clipboard.writeText(ns); toast.success('Copied'); }}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium ml-3 flex-shrink-0"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">4</span>
+                      <p className="text-sm text-gray-700">Delete any old nameservers and save your changes</p>
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-3 bg-amber-50 border-t border-amber-200">
+                    <p className="text-xs text-amber-700">Nameserver changes can take up to 24–48 hours to propagate. Once done, click Check Status below.</p>
+                  </div>
+                </div>
 
                 <button
                   type="button"

@@ -49,12 +49,8 @@ class TenantService {
     return response.data.data;
   }
 
-  async setCustomDomain(tenantId: string, domain: string): Promise<{
-    aRecords: Array<{ name: string; value: string; type: string }>;
-    cnameRecord: { name: string; value: string; type: string };
-    txtRecords: Array<{ name: string; value: string }>;
-  }> {
-    const response = await api.post<{ data: any }>(
+  async setCustomDomain(tenantId: string, domain: string): Promise<{ nameservers: string[] }> {
+    const response = await api.post<{ data: { nameservers: string[] } }>(
       `/tenant/${tenantId}/custom-domain`,
       { domain },
     );
