@@ -898,20 +898,25 @@ function GoogleReviewsSection({ content, primaryColor, googlePlaceId: placeIdPro
 
           if (!buttons.length) return null;
           return (
-            <div className="flex flex-wrap justify-center gap-3 mt-8">
-              {buttons.map((btn) => (
-                <a
-                  key={btn.label}
-                  href={btn.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold transition-all hover:opacity-90 hover:shadow-md"
-                  style={{ backgroundColor: btn.bg }}
-                >
-                  {btn.icon}
-                  Add Review on {btn.label}
-                </a>
-              ))}
+            <div>
+              <p className="text-center font-medium mb-4" style={{ color: bodyColor }}>
+                Review us on
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {buttons.map((btn) => (
+                  <a
+                    key={btn.label}
+                    href={btn.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold transition-all hover:opacity-90 hover:shadow-md"
+                    style={{ backgroundColor: btn.bg }}
+                  >
+                    {btn.icon}
+                    {btn.label}
+                  </a>
+                ))}
+              </div>
             </div>
           );
         })()}
