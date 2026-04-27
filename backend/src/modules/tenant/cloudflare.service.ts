@@ -86,15 +86,16 @@ export class CloudflareService {
 
   /**
    * Add all required DNS records to a customer zone:
-   * - CNAME www → origin.servisite.co.uk (proxied — SSL via Cloudflare Universal SSL)
+   * - CNAME www → Azure frontend (proxied through Cloudflare)
+   * - A placeholder for apex so redirect rule can apply
    * - Redirect rule: apex → www
    */
-  async setupZoneDnsRecords(zoneId: string, domain: string): Promise<void> {
+  async setupZoneDnsRecords(zoneId: string, domain: string, targetUrl: string): Promise<void> {
     await Promise.all([
       this.upsertDnsRecord(zoneId, {
         type: 'CNAME',
         name: 'www',
-        content: 'origin.servisite.co.uk',
+        content: targetUrl,
         proxied: true,
         comment: 'ServiSite — do not edit',
       }),

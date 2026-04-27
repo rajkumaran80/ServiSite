@@ -15,7 +15,7 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Tenant, TenantType, ServiceProfile } from '@prisma/client';
 import { TenantCacheService, TTL } from '../../common/cache/tenant-cache.service';
 import { NotifyNextjsService } from '../../common/notify/notify-nextjs.service';
-import { CloudflareService } from '../cloudflare/cloudflare.service';
+import { CloudflareService } from './cloudflare.service';
 import { AzureAppServiceService } from './azure-appservice.service';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
@@ -405,16 +405,16 @@ export class TenantService {
 
   /**
    * Step 1: Tenant submits their custom domain.
-   * New simplified approach: Create Cloudflare Zone with automatic DNS scanning
+   * Creates a Cloudflare zone and returns the nameservers the tenant must set at their registrar.
+   * No DNS records are added yet — that happens in verifyCustomDomain once the zone is active.
    */
   async setCustomDomain(
     tenantId: string,
     domain: string,
-  ): Promise<{ zone: any; nameservers: string[]; dnsRecords: any[] }> {
+  ): Promise<{ nameservers: string[] }> {
     const normalised = domain.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
     const apex = normalised.replace(/^www\./, '');
 
-    // Check: domain isn't already taken by another tenant
     const conflict = await this.prisma.tenant.findFirst({
       where: { customDomain: apex, NOT: { id: tenantId } },
     });
@@ -422,28 +422,14 @@ export class TenantService {
       throw new ConflictException(`Domain '${apex}' is already registered`);
     }
 
-    // Determine routing based on domain type
-    let targetUrl: string;
-    let routingType: string;
-    
-    if (apex === 'servisite.co.uk') {
-      // Main SaaS platform uses Azure Front Door for extra security
-      targetUrl = this.config.get<string>('AZURE_FRONT_DOOR_ENDPOINT', 'servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net');
-      routingType = 'frontdoor';
-    } else {
-      // Tenant domains (like la-cafe.co.uk) use direct App Service without Front Door
-      targetUrl = this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend') + '.azurewebsites.net';
-      routingType = 'direct';
-    }
-    
-    this.logger.log(`Using ${routingType} routing for domain ${apex}, targeting: ${targetUrl}`);
-    
-    let zoneResult;
+    let zoneId: string;
+    let nameservers: string[];
+
     try {
-      zoneResult = await this.cloudflare.setupTenantDomain(apex, targetUrl);
+      ({ zoneId, nameservers } = await this.cloudflare.createZone(apex));
     } catch (error) {
-      this.logger.error('Failed to setup Cloudflare zone:', error.message);
-      throw new BadRequestException(`Failed to setup Cloudflare zone: ${error.message}`);
+      this.logger.error('Failed to create Cloudflare zone:', error.message);
+      throw new BadRequestException(`Failed to create Cloudflare zone: ${error.message}`);
     }
 
     await this.prisma.tenant.update({
@@ -451,25 +437,29 @@ export class TenantService {
       data: {
         customDomain: apex,
         customDomainStatus: 'pending',
-        customDomainZoneId: zoneResult.zone.id,
-        customDomainNsRecords: zoneResult.nameservers,
+        customDomainZoneId: zoneId,
+        customDomainNsRecords: nameservers,
+        customDomainToken: null,
+        customDomainApexToken: null,
+        customDomainTxtName: null,
+        customDomainTxtValue: null,
         customDomainVerifiedAt: null,
       },
     });
 
-    return {
-      zone: zoneResult.zone,
-      nameservers: zoneResult.nameservers,
-      dnsRecords: zoneResult.dnsRecords,
-    };
+    return { nameservers };
   }
 
+  /**
+   * Step 2: Check Status — called after tenant updates nameservers at their registrar.
+   * If the Cloudflare zone is now active, sets up DNS records and marks the domain active.
+   */
   async verifyCustomDomain(tenantId: string): Promise<{ verified: boolean; message: string }> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
         customDomain: true,
-        customDomainToken: true,
+        customDomainZoneId: true,
         customDomainStatus: true,
         slug: true,
       },
@@ -481,20 +471,26 @@ export class TenantService {
     if (tenant.customDomainStatus === 'active') {
       return { verified: true, message: 'Domain already active' };
     }
-    if (!tenant.customDomainToken) {
-      throw new BadRequestException('Domain not registered with Cloudflare — please re-save the domain');
+    if (!tenant.customDomainZoneId) {
+      throw new BadRequestException('No Cloudflare zone found — please re-save the domain');
     }
 
-    const hostname = await this.cloudflare.getCustomHostname(tenant.customDomainToken);
-    const active = hostname?.status === 'active';
-    const sslStatus = hostname?.ssl?.status || 'pending';
-    const hostnameStatus = hostname?.status || 'pending';
+    const { active, status } = await this.cloudflare.checkZoneActive(tenant.customDomainZoneId);
 
     if (!active) {
       return {
         verified: false,
-        message: `Not yet active. Status: hostname=${hostnameStatus}, ssl=${sslStatus}. Make sure you have added the CNAME record and try again in a few minutes.`,
+        message: `Nameservers not updated yet (zone status: ${status}). Change your nameservers at your registrar and try again in a few minutes.`,
       };
+    }
+
+    // Zone is active — now set up DNS records (CNAME www + apex redirect)
+    const azureFrontendUrl = `${this.config.get<string>('AZURE_FRONTEND_APP_NAME', 'servisite-prod-frontend')}.azurewebsites.net`;
+    try {
+      await this.cloudflare.setupZoneDnsRecords(tenant.customDomainZoneId, tenant.customDomain, azureFrontendUrl);
+    } catch (error) {
+      this.logger.error('Failed to set up DNS records:', error.message);
+      // Don't block activation — records can be retried
     }
 
     await this.prisma.tenant.update({
@@ -508,20 +504,18 @@ export class TenantService {
   }
 
   /**
-   * Remove a custom domain from the tenant and delete it from Cloudflare.
+   * Remove a custom domain from the tenant and delete its Cloudflare zone.
    */
   async removeCustomDomain(tenantId: string): Promise<void> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { customDomain: true, customDomainToken: true, customDomainApexToken: true, customDomainZoneId: true },
+      select: { customDomain: true, customDomainZoneId: true },
     });
 
     if (tenant?.customDomain) {
-      const wwwHostname = `www.${tenant.customDomain}`;
       await Promise.all([
         this.tenantCache.deleteDomainSlug(tenant.customDomain),
-        this.tenantCache.deleteDomainSlug(wwwHostname),
-        // Delete the Cloudflare zone (new full-zone approach) — ignore if already gone
+        this.tenantCache.deleteDomainSlug(`www.${tenant.customDomain}`),
         tenant.customDomainZoneId
           ? this.cloudflare.deleteZone(tenant.customDomainZoneId).catch((err) => {
               this.logger.warn(`Could not delete Cloudflare zone ${tenant.customDomainZoneId}: ${err.message}`);
@@ -535,10 +529,12 @@ export class TenantService {
       data: {
         customDomain: null,
         customDomainStatus: null,
-        customDomainToken: null,
-        customDomainApexToken: null,
         customDomainZoneId: null,
         customDomainNsRecords: [],
+        customDomainToken: null,
+        customDomainApexToken: null,
+        customDomainTxtName: null,
+        customDomainTxtValue: null,
         customDomainVerifiedAt: null,
       },
     });
