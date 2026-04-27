@@ -99,26 +99,9 @@ export class InstagramService {
 
   /** Get Instagram media posts (with caching) */
   async getMedia(tenantId: string, limit: number = 6): Promise<any[]> {
-    // For now, return mock data
-    // In production, you'd fetch from Instagram API and cache results
-    return [
-      {
-        id: '1',
-        imageUrl: 'https://via.placeholder.com/300x300/000000/FFFFFF?text=Instagram+Post+1',
-        caption: 'Sample Instagram post 1',
-        timestamp: new Date().toISOString(),
-        isVideo: false,
-        postUrl: 'https://instagram.com/p/sample1',
-      },
-      {
-        id: '2',
-        imageUrl: 'https://via.placeholder.com/300x300/000000/FFFFFF?text=Instagram+Post+2',
-        caption: 'Sample Instagram post 2',
-        timestamp: new Date().toISOString(),
-        isVideo: false,
-        postUrl: 'https://instagram.com/p/sample2',
-      },
-    ].slice(0, limit);
+    // Return empty array for now - Instagram integration needs to be properly implemented
+    // The frontend will fall back to manually added posts
+    return [];
   }
 
   /** Get cached Instagram media posts (no API call) */

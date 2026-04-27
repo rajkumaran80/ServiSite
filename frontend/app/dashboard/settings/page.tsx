@@ -159,7 +159,6 @@ function SettingsPageInner() {
           tenantForm.reset({
             name: currentTenant.name,
             type: currentTenant.type,
-            whatsappNumber: currentTenant.whatsappNumber || '',
             currency: currentTenant.currency,
             timezone: currentTenant.timezone,
             locale: currentTenant.locale,
@@ -170,6 +169,7 @@ function SettingsPageInner() {
           setContact(contactData);
           contactForm.reset({
             phone: contactData.phone || '',
+            whatsapp: contactData.whatsapp || '',
             email: contactData.email || '',
             address: contactData.address || '',
             city: contactData.city || '',
@@ -291,7 +291,6 @@ function SettingsPageInner() {
         tenantService.update(tenant.id, {
           name: data.name,
           type: data.type,
-          whatsappNumber: data.whatsappNumber,
           currency: data.currency,
           timezone: data.timezone,
           locale: data.locale,
@@ -652,22 +651,37 @@ function SettingsPageInner() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone / WhatsApp</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Main Phone (For Calls)</label>
                 <input
                   {...contactForm.register('phone')}
                   placeholder="+447911123456"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {contactForm.formState.errors.phone && (
+                  <p className="text-red-500 text-xs mt-1">{contactForm.formState.errors.phone.message}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp (For Messages)</label>
                 <input
-                  type="email"
-                  {...contactForm.register('email')}
-                  placeholder="info@yourbusiness.com"
+                  {...contactForm.register('whatsapp')}
+                  placeholder="+447911123456"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {contactForm.formState.errors.whatsapp && (
+                  <p className="text-red-500 text-xs mt-1">{contactForm.formState.errors.whatsapp.message}</p>
+                )}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <input
+                type="email"
+                {...contactForm.register('email')}
+                placeholder="info@yourbusiness.com"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <div>

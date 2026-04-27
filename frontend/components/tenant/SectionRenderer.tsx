@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { InstagramImage } from './InstagramImage';
 import type {
   PageSection,
   HeroContent,
@@ -443,18 +444,25 @@ function SocialMediaSection({ content, primaryColor, sectionBg, tenantSlug }: { 
             <div key={post.id} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-gray-100 flex flex-col">
               {/* Post Header */}
               <div className="flex items-center gap-2.5 px-3 py-2.5">
-                {content.profileImageUrl && (
-                  <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-1 ring-gray-200">
-                    <img 
-                      alt={content.username} 
-                      loading="lazy" 
-                      width="32" 
-                      height="32" 
-                      className="w-full h-full object-cover" 
+                <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-1 ring-gray-200 bg-gradient-to-br from-purple-400 via-pink-500 to-orange-400 flex items-center justify-center">
+                  {content.profileImageUrl && !content.profileImageUrl.startsWith('/images/') ? (
+                    <img
+                      alt={content.username}
+                      loading="lazy"
+                      width="32"
+                      height="32"
+                      className="w-full h-full object-cover"
                       src={content.profileImageUrl}
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                  </div>
-                )}
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                      <rect x="3" y="3" width="18" height="18" rx="5" ry="5"></rect>
+                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                    </svg>
+                  )}
+                </div>
                 <a 
                   href={post.postUrl || (post.isVideo ? post.videoUrl : `${content.profileUrl}/p/${post.id}/`)}
                   target="_blank" 
@@ -488,7 +496,7 @@ function SocialMediaSection({ content, primaryColor, sectionBg, tenantSlug }: { 
               >
                 {post.isVideo ? (
                   <div className="relative">
-                    <img 
+                    <InstagramImage 
                       src={post.imageUrl} 
                       alt={post.caption}
                       className="w-full h-auto block"
@@ -500,7 +508,7 @@ function SocialMediaSection({ content, primaryColor, sectionBg, tenantSlug }: { 
                     </span>
                   </div>
                 ) : (
-                  <img 
+                  <InstagramImage 
                     src={post.imageUrl} 
                     alt={post.caption}
                     className="w-full h-auto block"

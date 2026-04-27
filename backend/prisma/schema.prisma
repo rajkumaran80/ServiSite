@@ -510,6 +510,7 @@ model ContactInfo {
   id           String   @id @default(cuid())
   tenantId     String   @unique
   phone        String?
+  whatsapp     String?
   email        String?
   address      String?
   city         String?
@@ -525,6 +526,17 @@ model ContactInfo {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("contact_info")
+}
+
+model CachedImage {
+  id         String   @id @default(cuid())
+  url        String   @unique
+  data       Bytes
+  contentType String   @default("image/jpeg")
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@map("cached_images")
 }
 
 model GalleryImage {
