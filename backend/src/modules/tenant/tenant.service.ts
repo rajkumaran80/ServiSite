@@ -441,11 +441,12 @@ export class TenantService {
       throw new BadRequestException(`Failed to create Cloudflare zone: ${error.message}`);
     }
 
-    // Step 2: Add CNAME @ and www → tenant subdomain in tenant zone
+    // Step 2: Clean up any auto-imported conflicting records, then add ours
     try {
+      await this.cloudflare.cleanupTenantZoneDnsRecords(zoneId);
       await this.cloudflare.addTenantZoneDnsRecords(zoneId, tenantSubdomain);
     } catch (error) {
-      this.logger.error('Failed to add DNS records to tenant zone:', error.message);
+      this.logger.error('Failed to set up DNS records in tenant zone:', error.message);
       // Non-fatal — continue
     }
 
