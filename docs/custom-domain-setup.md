@@ -1,97 +1,152 @@
-# Custom Domain Setup Guide
+# Custom Domain Setup
 
-This guide covers everything needed to connect a tenant's custom domain (e.g. `mycafe.com`) to ServiSite.
+## Architecture
 
----
+Tenant custom domains use **Full Zone Delegation + Cloudflare for SaaS**:
 
-## Overview
-
-When a tenant saves a custom domain via Settings → Custom Domain, the backend automatically:
-1. Registers `www.mycafe.com` and `mycafe.com` as Cloudflare Custom Hostnames (SSL provisioning)
-2. Adds Azure App Service hostname bindings for both
-
-The tenant then needs to add DNS records at their registrar and optionally add SSL validation records in Cloudflare.
+- Tenant changes nameservers at their registrar (IONOS, GoDaddy, etc.) to Cloudflare
+- Cloudflare manages the tenant's full DNS zone
+- Cloudflare for SaaS issues SSL certificates for the tenant domain
+- Traffic flows: `coffee.co.uk` → Cloudflare → `origin.servisite.co.uk` → Azure App Service
+- Main site (`servisite.co.uk`, `www`) continues to route through Azure Front Door
 
 ---
 
-## Step 1 — Registrar DNS Records
+## servisite.co.uk DNS Records (one-time platform setup)
 
-Add all 5 records at the tenant's domain registrar (e.g. IONOS, GoDaddy, Namecheap):
+These records must be set in the **servisite.co.uk Cloudflare zone**:
 
-| Type | Host | Value | Description |
-|------|------|-------|-------------|
-| `A` | `@` | `104.21.5.20` | Points root domain (`mycafe.com`) to Cloudflare |
-| `A` | `@` | `172.67.132.192` | Second Cloudflare IP for redundancy |
-| `CNAME` | `www` | `origin.servisite.co.uk` | Points `www.mycafe.com` to the Azure origin server |
-| `TXT` | `asuid` | `921c9222c9c2a858b880fae91c6c5debf8263248bc34267e426f99771a6eab89` | Azure domain ownership proof for root domain |
-| `TXT` | `asuid.www` | `921c9222c9c2a858b880fae91c6c5debf8263248bc34267e426f99771a6eab89` | Azure domain ownership proof for www |
+| Type | Name | Content | Proxy |
+|------|------|---------|-------|
+| CNAME | `servisite.co.uk` | `servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net` | Proxied |
+| CNAME | `www` | `servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net` | Proxied |
+| CNAME | `origin` | `servisite-prod-frontend.azurewebsites.net` | Proxied |
+| CNAME | `*` | `origin.servisite.co.uk` | Proxied |
+| CNAME | `media` | `servisiteprodmedia.blob.core.windows.net` | Proxied |
 
-> **Note on apex CNAME:** Standard DNS does not allow a CNAME on `@`. Use two A records instead (as above). The A record IPs are Cloudflare's shared IPs for the `servisite.co.uk` zone — traffic routes through Cloudflare to the Azure origin.
-
-> **IONOS specifically:** If IONOS shows a domain forwarding/redirect on `@`, delete it before adding the A records. The redirect causes SSL to break.
-
----
-
-## Step 2 — Cloudflare SSL Validation Records
-
-After the domain is registered as a Custom Hostname in Cloudflare, check its status in the Cloudflare dashboard:
-
-**Cloudflare Dashboard → servisite.co.uk zone → SSL/TLS → Custom Hostnames**
-
-If the domain shows **Pending Validation (TXT)**, add two more records at the registrar:
-
-| Type | Host | Value | Description |
-|------|------|-------|-------------|
-| `TXT` | `_acme-challenge` | *(copy from Cloudflare)* | Proves domain ownership to the SSL certificate authority (Google Trust Services) so HTTPS certificate gets issued |
-| `TXT` | `_cf-custom-hostname` | *(copy from Cloudflare)* | Proves the tenant authorises this domain to be used on ServiSite's Cloudflare zone |
-
-The values are unique per domain — copy them from the Cloudflare Custom Hostnames table for that specific domain.
-
-Once added, allow **5–10 minutes** for SSL to activate. The Cloudflare status will change from Pending to **Active**.
+- `origin` is Proxied so the real Azure IP is never exposed publicly
+- `*` wildcard routes all tenant subdomains (`lacafe.servisite.co.uk`) through Cloudflare → App Service
 
 ---
 
-## Step 3 — Verify in Admin
+## One-Time Cloudflare for SaaS Setup
 
-After DNS propagates (usually 10–30 minutes for Step 1, 5–10 minutes for Step 2):
+Run once after DNS records are in place:
 
-1. Go to Settings → Custom Domain in the tenant dashboard
-2. Click **Check Status**
-3. If active, the domain will show a green "Active" badge
-
----
-
-## Adding a Domain Manually (existing tenants / ops)
-
-If a domain was set up before the code supported apex registration, add it manually:
-
-### Cloudflare
-1. Cloudflare Dashboard → `servisite.co.uk` → SSL/TLS → Custom Hostnames
-2. Click **Add Custom Hostname**
-3. Add both `mycafe.com` and `www.mycafe.com` separately
-4. Use **Default origin server** (do not override)
-
-### Azure App Service
-```bash
-az webapp config hostname add \
-  --webapp-name servisite-prod-frontend \
-  --resource-group servisite-rg \
-  --hostname mycafe.com
-
-az webapp config hostname add \
-  --webapp-name servisite-prod-frontend \
-  --resource-group servisite-rg \
-  --hostname www.mycafe.com
+```
+POST /api/v1/superadmin/cloudflare/fallback-origin
 ```
 
+This sets `origin.servisite.co.uk` as the fallback origin for all Custom Hostnames. All tenant custom domain traffic routes to this origin automatically.
+
+Also ensure **Cloudflare for SaaS** is enabled on the servisite.co.uk zone:
+Cloudflare Dashboard → servisite.co.uk → SSL/TLS → Custom Hostnames → Enable
+
 ---
 
-## Architecture Notes
+## Automated Tenant Domain Onboarding (what the backend does)
 
-- **`origin.servisite.co.uk`** — a CNAME in Cloudflare's DNS for the `servisite.co.uk` zone pointing to `servisite-prod-frontend.azurewebsites.net`. This is the "real" server behind the proxy.
-- **Cloudflare Custom Hostnames** — allow tenant domains to route through ServiSite's Cloudflare zone for SSL termination and proxying, without the tenant needing to move their DNS to Cloudflare.
-- **Azure hostname bindings** — required for Azure App Service to accept incoming requests for the tenant domain; without them Azure returns a 404.
-- **`asuid` TXT records** — Azure's domain ownership verification. Both `asuid` (apex) and `asuid.www` use the same token for `servisite-prod-frontend`.
+When a tenant saves a custom domain in Settings, the backend runs these steps automatically:
+
+### Step 1 — Create Cloudflare Zone
+Creates a DNS zone for `coffee.co.uk` under the ServiSite Cloudflare account. Returns the two nameservers the tenant must set at their registrar.
+
+### Step 2 — Add DNS Records in Tenant Zone
+Adds to the `coffee.co.uk` zone:
+- `CNAME @ → coffee.servisite.co.uk` (Proxied)
+- `CNAME www → coffee.servisite.co.uk` (Proxied)
+
+Both point to the tenant's ServiSite subdomain, which resolves via the `*` wildcard to `origin.servisite.co.uk`.
+
+### Step 3 — Create Custom Hostnames in servisite.co.uk Zone
+Adds two Custom Hostnames in the **servisite.co.uk** zone:
+- `coffee.co.uk`
+- `www.coffee.co.uk`
+
+Each uses TXT-based DCV (Domain Control Validation) for SSL issuance. The response contains TXT record names and values needed for Step 4.
+
+### Step 4 — Add DCV TXT Records in Tenant Zone
+Adds SSL validation TXT records to the `coffee.co.uk` zone:
+- `_cf-custom-hostname.coffee.co.uk` TXT → `<token from step 3>`
+- `_cf-custom-hostname.www.coffee.co.uk` TXT → `<token from step 3>`
+
+Cloudflare uses these to issue SSL certificates for both hostnames.
+
+### Step 5 — Save to DB
+Saves to the tenant record:
+- `customDomain` = `coffee.co.uk`
+- `customDomainZoneId` = Cloudflare zone ID
+- `customDomainApexToken` = Custom Hostname ID for root
+- `customDomainToken` = Custom Hostname ID for www
+- `customDomainNsRecords` = nameservers shown to tenant
+- `customDomainStatus` = `pending`
+
+---
+
+## The One Manual Step (Tenant)
+
+After saving the domain, the tenant is shown nameservers and must update them at their registrar:
+
+**IONOS:** Domains & SSL → Nameservers → Change → Custom → Replace all with Cloudflare nameservers
+
+**GoDaddy:** My Products → domain → DNS → Nameservers → Change → Enter my own
+
+Example nameservers (assigned per zone — use the actual values shown in the dashboard):
+```
+odin.ns.cloudflare.com
+ryleigh.ns.cloudflare.com
+```
+
+Nameserver propagation: typically 1–2 hours, up to 24 hours.
+
+---
+
+## Activation (Automatic + Manual)
+
+### Background Polling (automatic)
+`DomainPollerService` runs every 60 seconds. For every tenant with `customDomainStatus = pending`, it checks both Custom Hostname statuses via Cloudflare API. When both `status = active` and `ssl.status = active`, the domain is automatically marked active in the DB.
+
+### Manual Check Status
+The tenant can also click **Check Status** in Settings → Domain at any time to force an immediate check. The result is shown inline in red if still pending (with root and www SSL status detail), or triggers activation if ready.
+
+---
+
+## DB Fields Reference
+
+| Field | Value |
+|-------|-------|
+| `customDomain` | `coffee.co.uk` |
+| `customDomainStatus` | `pending` → `active` |
+| `customDomainZoneId` | Cloudflare zone ID for `coffee.co.uk` |
+| `customDomainApexToken` | Cloudflare Custom Hostname ID for root |
+| `customDomainToken` | Cloudflare Custom Hostname ID for www |
+| `customDomainNsRecords` | Nameservers shown to tenant |
+| `customDomainVerifiedAt` | Timestamp when activated |
+
+---
+
+## Traffic Flow (when active)
+
+```
+Browser → coffee.co.uk
+  → Cloudflare (coffee.co.uk zone, Custom Hostname SSL cert)
+  → Fallback origin: origin.servisite.co.uk
+  → Azure App Service (servisite-prod-frontend)
+  → Next.js reads Host: coffee.co.uk → resolves tenant → serves site
+```
+
+Tenant subdomains (no custom domain):
+```
+Browser → lacafe.servisite.co.uk
+  → Cloudflare (* wildcard in servisite.co.uk zone)
+  → origin.servisite.co.uk → Azure App Service
+```
+
+Main SaaS site:
+```
+Browser → servisite.co.uk / www.servisite.co.uk
+  → Cloudflare → Azure Front Door → Azure App Service
+```
 
 ---
 
@@ -99,8 +154,8 @@ az webapp config hostname add \
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `ERR_SSL_VERSION_OR_CIPHER_MISMATCH` | SSL certificate not yet issued | Add `_acme-challenge` and `_cf-custom-hostname` TXT records |
-| `ERR_SSL_PROTOCOL_ERROR` | HTTP redirect on apex domain intercepting before SSL | Delete any registrar forwarding/redirect on `@` |
-| Cloudflare shows "does not CNAME to this zone" | Normal warning when using A records for apex | Ignore — SSL still works via TXT validation |
-| Check Status returns "not yet active" | DNS not propagated yet | Wait 10–30 min and try again |
-| Azure returns 404 | Hostname binding missing | Run `az webapp config hostname add` for both apex and www |
+| Check Status shows SSL pending | Nameservers not propagated yet | Wait 1–24h after nameserver change |
+| Check Status shows "hostname not found" | Custom Hostname creation failed | Remove domain and re-add it |
+| Domain goes active but returns wrong site | Tenant slug mismatch in CNAME | Verify `CNAME @ → {slug}.servisite.co.uk` in tenant zone |
+| SSL active but site unreachable | Fallback origin not set | Call `POST /superadmin/cloudflare/fallback-origin` |
+| Zone shows "pending" indefinitely | Nameservers not updated at registrar | Tenant must change nameservers |

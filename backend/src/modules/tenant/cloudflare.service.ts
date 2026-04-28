@@ -74,7 +74,43 @@ export class CloudflareService {
     return { zoneId: zone.id, nameservers: zone.name_servers ?? [] };
   }
 
-  // ── Step 2: Add CNAME records in tenant zone ─────────────────────────────
+  // ── Step 2: Clean up + add CNAME records in tenant zone ──────────────────
+
+  async cleanupTenantZoneDnsRecords(zoneId: string): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/zones/${zoneId}/dns_records?per_page=100`, {
+      headers: this.headers,
+    });
+    const data = await res.json() as any;
+    if (!data.success) return;
+
+    const toDelete: string[] = [];
+    for (const record of (data.result ?? [])) {
+      const name: string = record.name;
+      const type: string = record.type;
+      const zoneName: string = record.zone_name;
+      const isApex = name === zoneName;
+      const isWww = name === `www.${zoneName}`;
+
+      if ((type === 'CNAME' || type === 'A' || type === 'AAAA') && (isApex || isWww)) {
+        toDelete.push(record.id);
+      } else if (type === 'TXT' && name.includes('_cf-custom-hostname')) {
+        toDelete.push(record.id);
+      }
+    }
+
+    await Promise.all(
+      toDelete.map((id) =>
+        fetch(`${this.baseUrl}/zones/${zoneId}/dns_records/${id}`, {
+          method: 'DELETE',
+          headers: this.headers,
+        }),
+      ),
+    );
+
+    if (toDelete.length > 0) {
+      this.logger.log(`Cleaned ${toDelete.length} conflicting DNS record(s) from zone ${zoneId}`);
+    }
+  }
 
   async addTenantZoneDnsRecords(zoneId: string, tenantSubdomain: string): Promise<void> {
     await Promise.all([
