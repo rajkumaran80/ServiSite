@@ -165,4 +165,11 @@ export class SuperAdminController {
     const result = await this.service.impersonateTenant(id, { id: caller.sub, email: caller.email });
     return { data: result, success: true };
   }
+
+  @Post('tenants/:id/repair-domain')
+  @ApiOperation({ summary: 'Re-apply custom domain DNS TXT records and patch SNI hostname for Azure routing' })
+  async repairDomain(@Param('id') id: string) {
+    await this.service.repairTenantDomain(id);
+    return { success: true, message: 'Domain DNS repaired — TXT records written and SNI hostname patched' };
+  }
 }
