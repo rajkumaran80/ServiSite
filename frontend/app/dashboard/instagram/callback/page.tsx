@@ -132,7 +132,7 @@ function InstagramCallbackContent() {
               </div>
               <div className="min-w-0">
                 <p className="font-medium text-gray-900 truncate">@{account.username}</p>
-                <p className="text-xs text-gray-500">{account.account_type}</p>
+                <p className="text-xs text-gray-500">Instagram Business Account</p>
               </div>
               <svg className="w-5 h-5 text-gray-400 ml-auto flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
