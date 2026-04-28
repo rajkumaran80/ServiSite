@@ -40,6 +40,10 @@ export class SuperAdminService {
     return this.auth.impersonateTenant(tenantId, superAdmin);
   }
 
+  async repairTenantDomain(tenantId: string): Promise<void> {
+    return this.tenantService.repairCustomDomain(tenantId);
+  }
+
   async listTenants() {
     const tenants = await this.prisma.tenant.findMany({
       where: { slug: { not: 'platform' } },

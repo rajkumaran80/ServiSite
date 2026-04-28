@@ -133,40 +133,41 @@ export class CloudflareService {
 
   // ── Step 3: Add Custom Hostnames in servisite zone ───────────────────────
 
-  async createCustomHostnames(domain: string): Promise<{
+  async createCustomHostnames(domain: string, tenantSubdomain: string): Promise<{
     root: CustomHostnameResult;
     www: CustomHostnameResult;
   }> {
     const [root, www] = await Promise.all([
-      this.createOrFetchCustomHostname(domain),
-      this.createOrFetchCustomHostname(`www.${domain}`),
+      this.createOrFetchCustomHostname(domain, tenantSubdomain),
+      this.createOrFetchCustomHostname(`www.${domain}`, tenantSubdomain),
     ]);
     return { root, www };
   }
 
-  private async createOrFetchCustomHostname(hostname: string): Promise<CustomHostnameResult> {
+  private async createOrFetchCustomHostname(hostname: string, tenantSubdomain: string): Promise<CustomHostnameResult> {
     const res = await fetch(`${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({
         hostname,
-        ssl: {
-          method: 'txt',
-          type: 'dv',
-          settings: { min_tls_version: '1.2' },
-        },
+        ssl: { method: 'txt', type: 'dv', settings: { min_tls_version: '1.2' } },
+        custom_origin_sni_hostname: tenantSubdomain,
       }),
     });
     const data = await res.json() as any;
 
     if (!data.success) {
       if (data.errors?.[0]?.code === 1414) {
-        return this.fetchCustomHostname(hostname);
+        // Already exists — fetch it, patch SNI, return fresh data
+        const existing = await this.fetchCustomHostname(hostname);
+        await this.patchCustomHostname(existing.id, tenantSubdomain);
+        return this.fetchCustomHostnameById(existing.id);
       }
       throw new Error(`Cloudflare custom hostname error for ${hostname}: ${JSON.stringify(data.errors)}`);
     }
 
-    return this.extractCustomHostnameResult(data.result);
+    // Always GET after POST — the creation response doesn't include ownership_verification yet
+    return this.fetchCustomHostname(hostname);
   }
 
   private async fetchCustomHostname(hostname: string): Promise<CustomHostnameResult> {
@@ -179,6 +180,49 @@ export class CloudflareService {
       throw new Error(`Cloudflare custom hostname not found: ${hostname}`);
     }
     return this.extractCustomHostnameResult(data.result[0]);
+  }
+
+  private async fetchCustomHostnameById(id: string): Promise<CustomHostnameResult> {
+    const res = await fetch(
+      `${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames/${id}`,
+      { headers: this.headers },
+    );
+    const data = await res.json() as any;
+    if (!data.success) throw new Error(`Cloudflare custom hostname not found by ID: ${id}`);
+    return this.extractCustomHostnameResult(data.result);
+  }
+
+  async patchCustomHostname(id: string, tenantSubdomain: string): Promise<void> {
+    await fetch(`${this.baseUrl}/zones/${this.servisiteZoneId}/custom_hostnames/${id}`, {
+      method: 'PATCH',
+      headers: this.headers,
+      body: JSON.stringify({ custom_origin_sni_hostname: tenantSubdomain }),
+    });
+  }
+
+  async repairCustomHostnames(
+    zoneId: string,
+    apexHostnameId: string,
+    wwwHostnameId: string,
+    tenantSubdomain: string,
+  ): Promise<void> {
+    // Patch both custom hostnames with correct SNI hostname
+    await Promise.all([
+      this.patchCustomHostname(apexHostnameId, tenantSubdomain),
+      this.patchCustomHostname(wwwHostnameId, tenantSubdomain),
+    ]);
+
+    // Fetch fresh data after patch to get latest TXT values
+    const [root, www] = await Promise.all([
+      this.fetchCustomHostnameById(apexHostnameId),
+      this.fetchCustomHostnameById(wwwHostnameId),
+    ]);
+
+    this.logger.log(`Repair — root ownership: ${root.ownershipName ?? 'none'}, www ownership: ${www.ownershipName ?? 'none'}`);
+
+    // Upsert TXT records (addDcvTxtRecords uses upsert internally — safe to run repeatedly)
+    await this.addDcvTxtRecords(zoneId, root, www);
+    this.logger.log(`Repair complete — TXT records written to zone ${zoneId}`);
   }
 
   private extractCustomHostnameResult(result: any): CustomHostnameResult {

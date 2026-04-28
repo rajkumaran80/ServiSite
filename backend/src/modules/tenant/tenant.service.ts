@@ -454,7 +454,7 @@ export class TenantService {
     let rootHostname: CustomHostnameResult;
     let wwwHostname: CustomHostnameResult;
     try {
-      const { root, www } = await this.cloudflare.createCustomHostnames(apex);
+      const { root, www } = await this.cloudflare.createCustomHostnames(apex, tenantSubdomain);
       rootHostname = root;
       wwwHostname = www;
     } catch (error) {
@@ -463,11 +463,12 @@ export class TenantService {
     }
 
     // Step 4: Add DCV TXT records in tenant zone
+    this.logger.log(`Custom hostname tokens — root ownership: ${rootHostname.ownershipName ?? 'none'}, www ownership: ${wwwHostname.ownershipName ?? 'none'}`);
     try {
       await this.cloudflare.addDcvTxtRecords(zoneId, rootHostname, wwwHostname);
+      this.logger.log(`DCV TXT records written to zone ${zoneId}`);
     } catch (error) {
-      this.logger.error('Failed to add DCV TXT records:', error.message);
-      // Non-fatal — Cloudflare will retry SSL issuance
+      this.logger.error(`Failed to add DCV TXT records: ${error.message}`);
     }
 
     // Step 5: Save to DB
@@ -602,5 +603,40 @@ export class TenantService {
         customDomainVerifiedAt: null,
       },
     });
+  }
+
+  /**
+   * Repair an existing custom domain setup:
+   * - Patches both Custom Hostnames with custom_origin_sni_hostname (fixes Azure 404)
+   * - Re-writes all DCV + ownership TXT records to the tenant zone
+   */
+  async repairCustomDomain(tenantId: string): Promise<void> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        slug: true,
+        customDomain: true,
+        customDomainZoneId: true,
+        customDomainToken: true,
+        customDomainApexToken: true,
+      },
+    });
+
+    if (!tenant?.customDomain) throw new BadRequestException('No custom domain configured');
+    if (!tenant.customDomainZoneId || !tenant.customDomainToken || !tenant.customDomainApexToken) {
+      throw new BadRequestException('Domain setup incomplete — remove and re-add the domain');
+    }
+
+    const baseDomain = this.config.get<string>('SERVISITE_BASE_DOMAIN', 'servisite.co.uk');
+    const tenantSubdomain = `${tenant.slug}.${baseDomain}`;
+
+    await this.cloudflare.repairCustomHostnames(
+      tenant.customDomainZoneId,
+      tenant.customDomainApexToken,
+      tenant.customDomainToken,
+      tenantSubdomain,
+    );
+
+    this.logger.log(`Custom domain repaired for tenant ${tenantId}: ${tenant.customDomain} → ${tenantSubdomain}`);
   }
 }

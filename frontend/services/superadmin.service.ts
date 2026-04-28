@@ -12,6 +12,8 @@ export interface TenantSummary {
   gracePeriodEndsAt?: string | null;
   trialEndsAt?: string | null;
   serviceProfile?: 'FOOD_SERVICE' | 'GENERAL_SERVICE';
+  customDomain?: string | null;
+  customDomainStatus?: string | null;
   _count: { users: number; menuItems: number };
   users: Array<{ email: string; createdAt: string }>;
 }
@@ -105,6 +107,10 @@ class SuperAdminService {
   async extendGracePeriod(tenantId: string, days: number): Promise<{ gracePeriodEndsAt: string }> {
     const res = await api.post<{ data: { gracePeriodEndsAt: string } }>(`/superadmin/tenants/${tenantId}/extend-grace`, { days });
     return res.data.data;
+  }
+
+  async repairDomain(tenantId: string): Promise<void> {
+    await api.post(`/superadmin/tenants/${tenantId}/repair-domain`);
   }
 }
 

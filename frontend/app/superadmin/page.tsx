@@ -772,6 +772,7 @@ function TenantActionsMenu({
   onPricing,
   onSeedMenu,
   onExtendGrace,
+  onRepairDomain,
   onDelete,
   seedingId,
   resettingId,
@@ -787,6 +788,7 @@ function TenantActionsMenu({
   onPricing: () => void;
   onSeedMenu: () => void;
   onExtendGrace: () => void;
+  onRepairDomain: () => void;
   onDelete: () => void;
   seedingId: string | null;
   resettingId: string | null;
@@ -848,6 +850,7 @@ function TenantActionsMenu({
           )}
           <div className="border-t border-gray-100" />
           {item('Seed Menu', onSeedMenu, 'text-purple-700 hover:bg-purple-50')}
+          {tenant.customDomain && item('Fix Domain DNS', onRepairDomain, 'text-teal-700 hover:bg-teal-50')}
           <div className="border-t border-gray-100" />
           {item('Delete', onDelete, 'text-red-600 hover:bg-red-50')}
         </div>
@@ -1027,6 +1030,16 @@ export default function SuperAdminPage() {
     router.replace('/superadmin/login');
   };
 
+  const handleRepairDomain = async (t: TenantSummary) => {
+    if (!confirm(`Re-apply DNS records for "${t.customDomain}"?\n\nThis will patch the custom hostname SNI and re-write TXT records to the tenant zone.`)) return;
+    try {
+      await superAdminService.repairDomain(t.id);
+      toast.success(`Domain DNS repaired for ${t.customDomain}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to repair domain DNS');
+    }
+  };
+
   const handleExtendGrace = async (days: number) => {
     if (!extendGraceTarget) return;
     try {
@@ -1197,6 +1210,7 @@ export default function SuperAdminPage() {
                             onPricing={() => setTenantPricingTarget(t)}
                             onSeedMenu={() => handleApplyTemplate(t)}
                             onExtendGrace={() => setExtendGraceTarget(t)}
+                            onRepairDomain={() => handleRepairDomain(t)}
                             onDelete={() => setDeleteTarget(t)}
                             onChangeCategory={() => handleChangeCategory(t)}
                             seedingId={seedingId}
