@@ -83,9 +83,11 @@ export class CloudflareService {
       headers: this.headers,
     });
     const data = await res.json() as any;
-    if (!data.success) return;
+    if (!data.success) {
+      throw new Error(`CF DNS list failed during cleanup for zone ${zoneId}: ${JSON.stringify(data.errors)}`);
+    }
 
-    const toDelete: string[] = [];
+    const toDelete: Array<{ id: string; label: string }> = [];
     for (const record of (data.result ?? [])) {
       const name: string = record.name;
       const type: string = record.type;
@@ -94,24 +96,26 @@ export class CloudflareService {
       const isWww = name === `www.${zoneName}`;
 
       if ((type === 'CNAME' || type === 'A' || type === 'AAAA') && (isApex || isWww)) {
-        toDelete.push(record.id);
+        toDelete.push({ id: record.id, label: `${type} ${name} → ${record.content}` });
       } else if (type === 'TXT' && (name.includes('_cf-custom-hostname') || name.includes('_acme-challenge'))) {
-        toDelete.push(record.id);
+        toDelete.push({ id: record.id, label: `TXT ${name}` });
       }
     }
 
+    this.logger.log(`Cleanup zone ${zoneId}: found ${data.result?.length ?? 0} records, deleting ${toDelete.length}: ${toDelete.map(r => r.label).join(', ') || 'none'}`);
+
     await Promise.all(
-      toDelete.map((id) =>
-        fetch(`${this.baseUrl}/zones/${zoneId}/dns_records/${id}`, {
+      toDelete.map(async ({ id, label }) => {
+        const delRes = await fetch(`${this.baseUrl}/zones/${zoneId}/dns_records/${id}`, {
           method: 'DELETE',
           headers: this.headers,
-        }),
-      ),
+        });
+        const delData = await delRes.json() as any;
+        if (!delData.success) {
+          this.logger.warn(`Failed to delete DNS record ${label} in zone ${zoneId}: ${JSON.stringify(delData.errors)}`);
+        }
+      }),
     );
-
-    if (toDelete.length > 0) {
-      this.logger.log(`Cleaned ${toDelete.length} conflicting DNS record(s) from zone ${zoneId}`);
-    }
   }
 
   async addTenantZoneDnsRecords(zoneId: string, tenantSubdomain: string): Promise<void> {
@@ -206,23 +210,30 @@ export class CloudflareService {
     wwwHostnameId: string,
     tenantSubdomain: string,
   ): Promise<void> {
-    // Patch both custom hostnames with correct SNI hostname
+    // 1. Patch both custom hostnames with correct SNI hostname (fixes Azure 404)
     await Promise.all([
       this.patchCustomHostname(apexHostnameId, tenantSubdomain),
       this.patchCustomHostname(wwwHostnameId, tenantSubdomain),
     ]);
+    this.logger.log(`Repair: patched SNI to ${tenantSubdomain}`);
 
-    // Fetch fresh data after patch to get latest TXT values
+    // 2. Fetch fresh data after patch to get latest TXT values
     const [root, www] = await Promise.all([
       this.fetchCustomHostnameById(apexHostnameId),
       this.fetchCustomHostnameById(wwwHostnameId),
     ]);
-
     this.logger.log(`Repair — root ownership: ${root.ownershipName ?? 'none'}, www ownership: ${www.ownershipName ?? 'none'}`);
 
-    // Upsert TXT records (addDcvTxtRecords uses upsert internally — safe to run repeatedly)
+    // 3. Clean up wrong CNAME/A records and stale TXT records in tenant zone
+    await this.cleanupTenantZoneDnsRecords(zoneId);
+
+    // 4. Re-add correct CNAME records
+    await this.addTenantZoneDnsRecords(zoneId, tenantSubdomain);
+    this.logger.log(`Repair: CNAME records set to ${tenantSubdomain}`);
+
+    // 5. Write DCV + ownership TXT records
     await this.addDcvTxtRecords(zoneId, root, www);
-    this.logger.log(`Repair complete — TXT records written to zone ${zoneId}`);
+    this.logger.log(`Repair complete — all DNS records written to zone ${zoneId}`);
   }
 
   private extractCustomHostnameResult(result: any): CustomHostnameResult {
@@ -428,21 +439,30 @@ export class CloudflareService {
       { headers: this.headers },
     );
     const listData = await listRes.json() as any;
+    if (!listData.success) {
+      throw new Error(`CF DNS list failed for zone ${zoneId} [${record.type} ${record.name}]: ${JSON.stringify(listData.errors)}`);
+    }
     const existing = listData.result?.[0];
 
+    let writeRes: Response;
     if (existing) {
-      await fetch(`${this.baseUrl}/zones/${zoneId}/dns_records/${existing.id}`, {
+      writeRes = await fetch(`${this.baseUrl}/zones/${zoneId}/dns_records/${existing.id}`, {
         method: 'PUT',
         headers: this.headers,
         body: JSON.stringify(record),
       });
     } else {
-      await fetch(`${this.baseUrl}/zones/${zoneId}/dns_records`, {
+      writeRes = await fetch(`${this.baseUrl}/zones/${zoneId}/dns_records`, {
         method: 'POST',
         headers: this.headers,
         body: JSON.stringify(record),
       });
     }
+    const writeData = await writeRes.json() as any;
+    if (!writeData.success) {
+      throw new Error(`CF DNS write failed for zone ${zoneId} [${record.type} ${record.name}]: ${JSON.stringify(writeData.errors)}`);
+    }
+    this.logger.log(`DNS upserted: zone=${zoneId} ${record.type} ${record.name} → ${record.content}`);
   }
 }
 
