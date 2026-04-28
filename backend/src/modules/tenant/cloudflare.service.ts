@@ -166,7 +166,8 @@ export class CloudflareService {
       throw new Error(`Cloudflare custom hostname error for ${hostname}: ${JSON.stringify(data.errors)}`);
     }
 
-    return this.extractCustomHostnameResult(data.result);
+    // Always GET after POST — the creation response doesn't include ownership_verification yet
+    return this.fetchCustomHostname(hostname);
   }
 
   private async fetchCustomHostname(hostname: string): Promise<CustomHostnameResult> {

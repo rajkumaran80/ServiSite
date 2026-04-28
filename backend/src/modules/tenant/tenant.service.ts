@@ -463,11 +463,12 @@ export class TenantService {
     }
 
     // Step 4: Add DCV TXT records in tenant zone
+    this.logger.log(`Custom hostname tokens — root ownership: ${rootHostname.ownershipName ?? 'none'}, www ownership: ${wwwHostname.ownershipName ?? 'none'}`);
     try {
       await this.cloudflare.addDcvTxtRecords(zoneId, rootHostname, wwwHostname);
+      this.logger.log(`DCV TXT records written to zone ${zoneId}`);
     } catch (error) {
-      this.logger.error('Failed to add DCV TXT records:', error.message);
-      // Non-fatal — Cloudflare will retry SSL issuance
+      this.logger.error(`Failed to add DCV TXT records: ${error.message}`);
     }
 
     // Step 5: Save to DB
