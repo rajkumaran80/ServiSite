@@ -460,17 +460,21 @@ export class CloudflareService {
     }
     const writeData = await writeRes.json() as any;
     if (!writeData.success) {
-      // CF error 81053: a conflicting record exists under a different name format (e.g. full domain vs @).
-      // Query without type filter to find and update the conflicting record.
+      // CF error 81053: a conflicting record exists, possibly stored under the full domain name
+      // rather than '@'. List all records and find the conflicting A/AAAA/CNAME by position.
       if (!existing && writeData.errors?.[0]?.code === 81053) {
         const allRes = await fetch(
-          `${this.baseUrl}/zones/${zoneId}/dns_records?name=${encodeURIComponent(record.name)}`,
+          `${this.baseUrl}/zones/${zoneId}/dns_records?per_page=100`,
           { headers: this.headers },
         );
         const allData = await allRes.json() as any;
-        const conflict = allData.result?.find((r: any) =>
-          r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME',
-        );
+        const isApex = record.name === '@';
+        const conflict = allData.result?.find((r: any) => {
+          if (r.type !== 'A' && r.type !== 'AAAA' && r.type !== 'CNAME') return false;
+          if (isApex) return r.name === r.zone_name || r.name === '@';
+          if (record.name === 'www') return r.name === `www.${r.zone_name}` || r.name === 'www';
+          return r.name === record.name;
+        });
         if (conflict) {
           const fixRes = await fetch(`${this.baseUrl}/zones/${zoneId}/dns_records/${conflict.id}`, {
             method: 'PUT',
