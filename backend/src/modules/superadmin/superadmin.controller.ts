@@ -124,6 +124,13 @@ export class SuperAdminController {
     return { success: true, message: `Tenant status updated to ${status}` };
   }
 
+  @Post('tenants/:id/extend-grace')
+  @ApiOperation({ summary: 'Extend grace period by N days (reactivates SUSPENDED tenants to GRACE)' })
+  async extendGracePeriod(@Param('id') id: string, @Body('days') days: number) {
+    const result = await this.service.extendGracePeriod(id, days ?? 7);
+    return { success: true, data: result, message: `Grace period extended by ${days ?? 7} days` };
+  }
+
   @Post('tenants/:id/change-email')
   @ApiOperation({ summary: 'Change the admin email for a tenant' })
   async changeAdminEmail(@Param('id') id: string, @Body('newEmail') newEmail: string) {

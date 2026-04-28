@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/auth.store';
@@ -693,6 +693,169 @@ function TenantPricingModal({
   );
 }
 
+// ─── Extend Grace Period Modal ────────────────────────────────────────────────
+
+function ExtendGraceModal({
+  tenant,
+  onConfirm,
+  onCancel,
+}: {
+  tenant: TenantSummary;
+  onConfirm: (days: number) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [days, setDays] = useState('7');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = parseInt(days, 10);
+    if (!n || n < 1 || n > 365) { toast.error('Enter between 1 and 365 days'); return; }
+    setSaving(true);
+    try { await onConfirm(n); } finally { setSaving(false); }
+  };
+
+  const currentEnd = tenant.gracePeriodEndsAt
+    ? new Date(tenant.gracePeriodEndsAt).toLocaleDateString()
+    : 'not set';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+        <div className="px-6 py-5 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">Extend Grace Period</h2>
+          <p className="text-sm text-gray-500 mt-1">{tenant.name}</p>
+          <p className="text-xs text-gray-400 mt-1">Current grace end: {currentEnd}</p>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Extend by (days)</label>
+            <input
+              autoFocus
+              type="number"
+              min="1"
+              max="365"
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
+              className={inputClass}
+              placeholder="7"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Added from today or current grace end (whichever is later).
+              {tenant.status === 'SUSPENDED' && ' Tenant will be moved back to GRACE status.'}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={onCancel} disabled={saving}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50">
+              {saving ? 'Saving...' : 'Extend Grace'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tenant actions dropdown ──────────────────────────────────────────────────
+
+function TenantActionsMenu({
+  tenant,
+  onResetPassword,
+  onChangeEmail,
+  onChangePlan,
+  onToggleStatus,
+  onPricing,
+  onSeedMenu,
+  onExtendGrace,
+  onDelete,
+  seedingId,
+  resettingId,
+  togglingId,
+  changingCategoryId,
+  onChangeCategory,
+}: {
+  tenant: TenantSummary;
+  onResetPassword: () => void;
+  onChangeEmail: () => void;
+  onChangePlan: () => void;
+  onToggleStatus: () => void;
+  onPricing: () => void;
+  onSeedMenu: () => void;
+  onExtendGrace: () => void;
+  onDelete: () => void;
+  seedingId: string | null;
+  resettingId: string | null;
+  togglingId: string | null;
+  changingCategoryId: string | null;
+  onChangeCategory: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const item = (label: string, onClick: () => void, className = 'text-gray-700 hover:bg-gray-50') => (
+    <button
+      type="button"
+      onClick={() => { setOpen(false); onClick(); }}
+      className={`w-full text-left px-4 py-2 text-sm transition-colors ${className}`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+        title="More actions"
+      >
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-8 z-30 w-48 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+          {item('Reset Password', onResetPassword)}
+          {item('Change Email', onChangeEmail)}
+          {item('Change Plan', onChangePlan)}
+          {item(
+            tenant.serviceProfile === 'FOOD_SERVICE' ? 'Switch to General' : 'Switch to Food',
+            onChangeCategory,
+          )}
+          <div className="border-t border-gray-100" />
+          {item('Pricing Override', onPricing)}
+          {item('Extend Grace Period', onExtendGrace, 'text-amber-700 hover:bg-amber-50')}
+          {item(
+            tenant.status === 'SUSPENDED' ? 'Re-enable' : 'Disable',
+            onToggleStatus,
+            tenant.status === 'SUSPENDED' ? 'text-green-700 hover:bg-green-50' : 'text-amber-700 hover:bg-amber-50',
+          )}
+          <div className="border-t border-gray-100" />
+          {item('Seed Menu', onSeedMenu, 'text-purple-700 hover:bg-purple-50')}
+          <div className="border-t border-gray-100" />
+          {item('Delete', onDelete, 'text-red-600 hover:bg-red-50')}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function SuperAdminPage() {
@@ -714,6 +877,7 @@ export default function SuperAdminPage() {
   const [seedingId, setSeedingId] = useState<string | null>(null);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [changingCategoryId, setChangingCategoryId] = useState<string | null>(null);
+  const [extendGraceTarget, setExtendGraceTarget] = useState<TenantSummary | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -861,6 +1025,21 @@ export default function SuperAdminPage() {
     router.replace('/superadmin/login');
   };
 
+  const handleExtendGrace = async (days: number) => {
+    if (!extendGraceTarget) return;
+    try {
+      const result = await superAdminService.extendGracePeriod(extendGraceTarget.id, days);
+      setTenants((prev) => prev.map((t) => t.id === extendGraceTarget.id
+        ? { ...t, gracePeriodEndsAt: result.gracePeriodEndsAt, status: t.status === 'SUSPENDED' ? 'GRACE' : t.status }
+        : t
+      ));
+      toast.success(`Grace period extended by ${days} days`);
+      setExtendGraceTarget(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to extend grace period');
+    }
+  };
+
   const handleChangeCategory = async (t: TenantSummary) => {
     const isFood = t.serviceProfile === 'FOOD_SERVICE';
     const newProfile = isFood ? 'GENERAL_SERVICE' : 'FOOD_SERVICE';
@@ -996,64 +1175,30 @@ export default function SuperAdminPage() {
                       <td className="px-4 py-3 text-gray-600">{t._count.menuItems}</td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{new Date(t.createdAt).toLocaleDateString()}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleImpersonate(t)}
                             disabled={impersonatingId === t.id}
-                            className="text-xs px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50"
+                            className="text-xs px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
                           >
                             {impersonatingId === t.id ? '...' : 'Open Dashboard'}
                           </button>
-                          <button
-                            onClick={() => handleResetPassword(t.id)}
-                            disabled={resettingId === t.id}
-                            className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            {resettingId === t.id ? '...' : 'Reset PW'}
-                          </button>
-                          <button
-                            onClick={() => setChangeEmailTarget(t)}
-                            className="text-xs px-2.5 py-1 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 rounded-lg transition-colors"
-                          >
-                            Change Email
-                          </button>
-                          <button
-                            onClick={() => setChangePlanTarget(t)}
-                            className="text-xs px-2.5 py-1 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg transition-colors"
-                          >
-                            Change Plan
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(t)}
-                            disabled={togglingId === t.id}
-                            className={`text-xs px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 ${
-                              t.status === 'SUSPENDED'
-                                ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                            }`}
-                          >
-                            {togglingId === t.id ? '...' : t.status === 'SUSPENDED' ? 'Enable' : 'Disable'}
-                          </button>
-                          <button
-                            onClick={() => setTenantPricingTarget(t)}
-                            className="text-xs px-2.5 py-1 bg-orange-50 text-orange-700 hover:bg-orange-100 rounded-lg transition-colors"
-                          >
-                            Pricing
-                          </button>
-                          <button
-                            onClick={() => handleApplyTemplate(t)}
-                            disabled={seedingId === t.id}
-                            className="text-xs px-2.5 py-1 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            {seedingId === t.id ? '...' : 'Seed Menu'}
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(t)}
-                            disabled={deletingId === t.id}
-                            className="text-xs px-2.5 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
+                          <TenantActionsMenu
+                            tenant={t}
+                            onResetPassword={() => handleResetPassword(t.id)}
+                            onChangeEmail={() => setChangeEmailTarget(t)}
+                            onChangePlan={() => setChangePlanTarget(t)}
+                            onToggleStatus={() => handleToggleStatus(t)}
+                            onPricing={() => setTenantPricingTarget(t)}
+                            onSeedMenu={() => handleApplyTemplate(t)}
+                            onExtendGrace={() => setExtendGraceTarget(t)}
+                            onDelete={() => setDeleteTarget(t)}
+                            onChangeCategory={() => handleChangeCategory(t)}
+                            seedingId={seedingId}
+                            resettingId={resettingId}
+                            togglingId={togglingId}
+                            changingCategoryId={changingCategoryId}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -1121,6 +1266,15 @@ export default function SuperAdminPage() {
         <TenantPricingModal
           tenant={tenantPricingTarget}
           onClose={() => setTenantPricingTarget(null)}
+        />
+      )}
+
+      {/* Extend grace period modal */}
+      {extendGraceTarget && (
+        <ExtendGraceModal
+          tenant={extendGraceTarget}
+          onConfirm={handleExtendGrace}
+          onCancel={() => setExtendGraceTarget(null)}
         />
       )}
     </div>

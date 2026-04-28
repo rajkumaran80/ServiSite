@@ -270,6 +270,26 @@ export class SuperAdminService {
     await this.prisma.tenant.update({ where: { id: tenantId }, data: { status } });
   }
 
+  async extendGracePeriod(tenantId: string, days: number) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (tenant.slug === 'platform') throw new ConflictException('Cannot modify platform tenant');
+
+    const base = tenant.gracePeriodEndsAt && tenant.gracePeriodEndsAt > new Date()
+      ? tenant.gracePeriodEndsAt
+      : new Date();
+    const newEnd = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        gracePeriodEndsAt: newEnd,
+        status: tenant.status === 'SUSPENDED' ? 'GRACE' : tenant.status,
+      },
+    });
+    return { gracePeriodEndsAt: newEnd };
+  }
+
   async getPricing() {
     const platform = await this.prisma.tenant.findUnique({ where: { slug: 'platform' } });
     const settings = (platform?.themeSettings as any) || {};

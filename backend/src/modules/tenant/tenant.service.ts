@@ -15,7 +15,7 @@ import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Tenant, TenantType, ServiceProfile } from '@prisma/client';
 import { TenantCacheService, TTL } from '../../common/cache/tenant-cache.service';
 import { NotifyNextjsService } from '../../common/notify/notify-nextjs.service';
-import { CloudflareService } from './cloudflare.service';
+import { CloudflareService, CustomHostnameResult } from './cloudflare.service';
 import { AzureAppServiceService } from './azure-appservice.service';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
@@ -451,8 +451,8 @@ export class TenantService {
     }
 
     // Step 3: Add Custom Hostnames in servisite zone → get DCV tokens
-    let rootHostname: { id: string; txtName: string; txtValue: string };
-    let wwwHostname: { id: string; txtName: string; txtValue: string };
+    let rootHostname: CustomHostnameResult;
+    let wwwHostname: CustomHostnameResult;
     try {
       const { root, www } = await this.cloudflare.createCustomHostnames(apex);
       rootHostname = root;

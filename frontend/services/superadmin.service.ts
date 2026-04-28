@@ -9,6 +9,8 @@ export interface TenantSummary {
   status: string;
   plan: string;
   createdAt: string;
+  gracePeriodEndsAt?: string | null;
+  trialEndsAt?: string | null;
   serviceProfile?: 'FOOD_SERVICE' | 'GENERAL_SERVICE';
   _count: { users: number; menuItems: number };
   users: Array<{ email: string; createdAt: string }>;
@@ -98,6 +100,11 @@ class SuperAdminService {
 
   async changeCategory(tenantId: string, serviceProfile: 'FOOD_SERVICE' | 'GENERAL_SERVICE'): Promise<void> {
     await api.post(`/superadmin/tenants/${tenantId}/change-category`, { serviceProfile });
+  }
+
+  async extendGracePeriod(tenantId: string, days: number): Promise<{ gracePeriodEndsAt: string }> {
+    const res = await api.post<{ data: { gracePeriodEndsAt: string } }>(`/superadmin/tenants/${tenantId}/extend-grace`, { days });
+    return res.data.data;
   }
 }
 
