@@ -1,0 +1,10 @@
+name = "servisite-router"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Routes: catch all traffic in the servisite.co.uk zone.
+# The Worker skips *.servisite.co.uk internally — only rewrites custom domains.
+[[routes]]
+pattern = "*/*"
+zone_name = "servisite.co.uk"

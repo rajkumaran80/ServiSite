@@ -460,6 +460,31 @@ export class CloudflareService {
     }
     const writeData = await writeRes.json() as any;
     if (!writeData.success) {
+      // CF error 81053: a conflicting record exists under a different name format (e.g. full domain vs @).
+      // Query without type filter to find and update the conflicting record.
+      if (!existing && writeData.errors?.[0]?.code === 81053) {
+        const allRes = await fetch(
+          `${this.baseUrl}/zones/${zoneId}/dns_records?name=${encodeURIComponent(record.name)}`,
+          { headers: this.headers },
+        );
+        const allData = await allRes.json() as any;
+        const conflict = allData.result?.find((r: any) =>
+          r.type === 'A' || r.type === 'AAAA' || r.type === 'CNAME',
+        );
+        if (conflict) {
+          const fixRes = await fetch(`${this.baseUrl}/zones/${zoneId}/dns_records/${conflict.id}`, {
+            method: 'PUT',
+            headers: this.headers,
+            body: JSON.stringify(record),
+          });
+          const fixData = await fixRes.json() as any;
+          if (!fixData.success) {
+            throw new Error(`CF DNS write failed for zone ${zoneId} [${record.type} ${record.name}]: ${JSON.stringify(fixData.errors)}`);
+          }
+          this.logger.log(`DNS upserted (conflict resolved): zone=${zoneId} ${record.type} ${record.name} → ${record.content}`);
+          return;
+        }
+      }
       throw new Error(`CF DNS write failed for zone ${zoneId} [${record.type} ${record.name}]: ${JSON.stringify(writeData.errors)}`);
     }
     this.logger.log(`DNS upserted: zone=${zoneId} ${record.type} ${record.name} → ${record.content}`);
