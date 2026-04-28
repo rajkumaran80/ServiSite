@@ -1,116 +1,139 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 
-const GRAPH_API = 'https://graph.instagram.com';
+const GRAPH = 'https://graph.facebook.com/v20.0';
 const MEDIA_FIELDS = 'id,caption,media_url,thumbnail_url,media_type,permalink,timestamp';
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const TOKEN_REFRESH_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // refresh when < 7 days remain
 
 @Injectable()
 export class InstagramService {
   private readonly logger = new Logger(InstagramService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  private get appId() { return this.config.get<string>('FACEBOOK_APP_ID', ''); }
+  private get appSecret() { return this.config.get<string>('FACEBOOK_APP_SECRET', ''); }
+  private get redirectUri() {
+    const base = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    return `${base}/dashboard/instagram/callback`;
+  }
 
   async getTenantSlug(tenantId: string): Promise<string> {
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } });
     return tenant?.slug ?? '';
   }
 
+  /** OAuth URL — uses Facebook Login with Instagram scopes */
   getAuthUrl(tenantSlug: string): string {
-    const clientId = process.env.INSTAGRAM_CLIENT_ID;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const redirectUri = `${frontendUrl}/dashboard/instagram/callback`;
-    const scopes = 'user_profile,user_media';
+    const scope = [
+      'pages_show_list',
+      'pages_read_engagement',
+      'instagram_basic',
+      'instagram_content_publish',
+      'instagram_manage_comments',
+      'instagram_manage_insights',
+    ].join(',');
+
     const params = new URLSearchParams({
-      client_id: clientId || '',
-      redirect_uri: redirectUri,
-      scope: scopes,
+      client_id: this.appId,
+      redirect_uri: this.redirectUri,
+      scope,
       response_type: 'code',
+      auth_type: 'rerequest',
       state: tenantSlug,
     });
-    return `https://api.instagram.com/oauth/authorize?${params.toString()}`;
+
+    return `https://www.facebook.com/v20.0/dialog/oauth?${params.toString()}`;
   }
 
+  /**
+   * Exchange code → long-lived user token → pages → Instagram business accounts.
+   * Returns one entry per page that has a linked Instagram Business Account.
+   */
   async exchangeCodeForAccounts(code: string): Promise<any[]> {
-    const clientId = process.env.INSTAGRAM_CLIENT_ID;
-    const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const redirectUri = `${frontendUrl}/dashboard/instagram/callback`;
-
-    const formData = new URLSearchParams();
-    formData.append('client_id', clientId || '');
-    formData.append('client_secret', clientSecret || '');
-    formData.append('grant_type', 'authorization_code');
-    formData.append('redirect_uri', redirectUri);
-    formData.append('code', code);
-
-    const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData,
+    // Step 1: short-lived user token
+    const tokenUrl = `${GRAPH}/oauth/access_token?` + new URLSearchParams({
+      client_id: this.appId,
+      client_secret: this.appSecret,
+      redirect_uri: this.redirectUri,
+      code,
     });
+    const tokenRes = await fetch(tokenUrl);
+    const tokenData = await tokenRes.json() as any;
+    if (tokenData.error) throw new BadRequestException(`Token exchange failed: ${tokenData.error.message}`);
+    const shortToken: string = tokenData.access_token;
 
-    if (!tokenResponse.ok) {
-      throw new Error('Failed to exchange Instagram authorization code');
+    // Step 2: long-lived user token
+    const longTokenUrl = `${GRAPH}/oauth/access_token?` + new URLSearchParams({
+      grant_type: 'fb_exchange_token',
+      client_id: this.appId,
+      client_secret: this.appSecret,
+      fb_exchange_token: shortToken,
+    });
+    const longTokenRes = await fetch(longTokenUrl);
+    const longTokenData = await longTokenRes.json() as any;
+    if (longTokenData.error) throw new BadRequestException(`Long-lived token failed: ${longTokenData.error.message}`);
+    const userToken: string = longTokenData.access_token;
+
+    // Step 3: pages the user manages (each has its own never-expiring page token)
+    const pagesRes = await fetch(`${GRAPH}/me/accounts?fields=id,name,access_token&access_token=${userToken}`);
+    const pagesData = await pagesRes.json() as any;
+    if (pagesData.error) throw new BadRequestException(`Failed to fetch pages: ${pagesData.error.message}`);
+    const pages: any[] = pagesData.data ?? [];
+
+    // Step 4: for each page, get the linked Instagram Business Account
+    const accounts: any[] = [];
+    for (const page of pages) {
+      try {
+        const igRes = await fetch(
+          `${GRAPH}/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`,
+        );
+        const igData = await igRes.json() as any;
+        const igAccount = igData.instagram_business_account;
+        if (!igAccount?.id) continue;
+
+        // Get Instagram username
+        const profileRes = await fetch(
+          `${GRAPH}/${igAccount.id}?fields=id,username&access_token=${page.access_token}`,
+        );
+        const profile = await profileRes.json() as any;
+
+        accounts.push({
+          id: igAccount.id,               // Instagram Business Account ID
+          username: profile.username ?? page.name,
+          pageId: page.id,
+          pageToken: page.access_token,   // page token is used for all IG Graph API calls
+        });
+      } catch (err) {
+        this.logger.warn(`No Instagram account on page ${page.id}: ${err.message}`);
+      }
     }
 
-    const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
-
-    const userResponse = await fetch(
-      `${GRAPH_API}/me?fields=id,username,account_type&access_token=${accessToken}`
-    );
-
-    if (!userResponse.ok) {
-      throw new Error('Failed to get Instagram user info');
-    }
-
-    const userData = await userResponse.json();
-
-    return [{
-      id: userData.id,
-      username: userData.username,
-      account_type: userData.account_type,
-      access_token: accessToken,
-    }];
+    return accounts;
   }
 
+  /** Store the selected Instagram account (linked via Facebook page token) */
   async connectAccount(
     tenantId: string,
     accountId: string,
     username: string,
-    accessToken: string,
+    accessToken: string, // this is the Facebook page access token
   ): Promise<void> {
-    // Exchange short-lived token (1 hour) for long-lived token (60 days)
-    const clientSecret = process.env.INSTAGRAM_CLIENT_SECRET;
-    let longLivedToken = accessToken;
-    let tokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // fallback: 1 hour
-
-    try {
-      const res = await fetch(
-        `${GRAPH_API}/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${accessToken}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        longLivedToken = data.access_token;
-        // expires_in is in seconds
-        tokenExpiry = new Date(Date.now() + data.expires_in * 1000);
-      }
-    } catch (err) {
-      this.logger.warn(`Failed to exchange for long-lived token: ${err.message}`);
-    }
+    // Page tokens don't expire — set expiry far in the future
+    const tokenExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
     await this.prisma.instagramConnection.upsert({
       where: { tenantId },
-      create: { tenantId, accountId, username, accessToken: longLivedToken, tokenExpiry },
-      update: { accountId, username, accessToken: longLivedToken, tokenExpiry },
+      create: { tenantId, accountId, username, accessToken, tokenExpiry },
+      update: { accountId, username, accessToken, tokenExpiry },
     });
 
-    // Clear any stale media cache so next fetch gets fresh data
     await this.prisma.instagramMediaCache.deleteMany({ where: { tenantId } });
-
-    this.logger.log(`Instagram connected for tenant ${tenantId}: @${username}`);
+    this.logger.log(`Instagram connected for tenant ${tenantId}: @${username} (ig_id: ${accountId})`);
   }
 
   async disconnect(tenantId: string): Promise<void> {
@@ -125,33 +148,30 @@ export class InstagramService {
     return { accountId: conn.accountId, username: conn.username, tokenExpiry: conn.tokenExpiry };
   }
 
+  /** Fetch posts — uses cache, refreshes from Instagram Graph API via page token */
   async getMedia(tenantId: string, limit = 6): Promise<any[]> {
     const conn = await this.prisma.instagramConnection.findUnique({ where: { tenantId } });
     if (!conn) return [];
 
-    // Refresh token if expiring within 7 days
-    const token = await this.maybeRefreshToken(conn);
-
-    // Check cache
+    // Return from cache if still fresh
     const cache = await this.prisma.instagramMediaCache.findUnique({ where: { tenantId } });
     if (cache && cache.expiresAt > new Date()) {
-      const posts = cache.posts as any[];
-      return posts.slice(0, limit);
+      return (cache.posts as any[]).slice(0, limit);
     }
 
-    // Fetch fresh from Instagram Graph API
+    // Fetch fresh from Instagram Graph API using page access token
     try {
       const res = await fetch(
-        `${GRAPH_API}/me/media?fields=${MEDIA_FIELDS}&limit=20&access_token=${token}`
+        `${GRAPH}/${conn.accountId}/media?fields=${MEDIA_FIELDS}&limit=20&access_token=${conn.accessToken}`,
       );
 
       if (!res.ok) {
-        const err = await res.json();
-        this.logger.error(`Instagram API error: ${JSON.stringify(err)}`);
+        const err = await res.json() as any;
+        this.logger.error(`Instagram Graph API error: ${JSON.stringify(err)}`);
         return cache ? (cache.posts as any[]).slice(0, limit) : [];
       }
 
-      const data = await res.json();
+      const data = await res.json() as any;
       const posts = (data.data || []).map((item: any) => ({
         id: item.id,
         caption: item.caption || '',
@@ -162,18 +182,10 @@ export class InstagramService {
         timestamp: item.timestamp,
       }));
 
-      // Write to cache
       await this.prisma.instagramMediaCache.upsert({
         where: { tenantId },
-        create: {
-          tenantId,
-          posts,
-          expiresAt: new Date(Date.now() + CACHE_TTL_MS),
-        },
-        update: {
-          posts,
-          expiresAt: new Date(Date.now() + CACHE_TTL_MS),
-        },
+        create: { tenantId, posts, expiresAt: new Date(Date.now() + CACHE_TTL_MS) },
+        update: { posts, expiresAt: new Date(Date.now() + CACHE_TTL_MS) },
       });
 
       return posts.slice(0, limit);
@@ -193,31 +205,42 @@ export class InstagramService {
     return this.getMedia(tenant.id, limit);
   }
 
-  private async maybeRefreshToken(conn: { tenantId: string; accessToken: string; tokenExpiry: Date }): Promise<string> {
-    const timeRemaining = conn.tokenExpiry.getTime() - Date.now();
+  /** Post a photo or video to Instagram (two-step: create container → publish) */
+  async postToInstagram(
+    tenantId: string,
+    imageUrl: string,
+    caption: string,
+  ): Promise<{ postId: string; postUrl: string }> {
+    const conn = await this.prisma.instagramConnection.findUnique({ where: { tenantId } });
+    if (!conn) throw new BadRequestException('Instagram not connected');
 
-    if (timeRemaining > TOKEN_REFRESH_THRESHOLD_MS) {
-      return conn.accessToken;
-    }
+    const igId = conn.accountId;
+    const token = conn.accessToken;
 
-    try {
-      const res = await fetch(
-        `${GRAPH_API}/refresh_access_token?grant_type=ig_refresh_token&access_token=${conn.accessToken}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const newExpiry = new Date(Date.now() + data.expires_in * 1000);
-        await this.prisma.instagramConnection.update({
-          where: { tenantId: conn.tenantId },
-          data: { accessToken: data.access_token, tokenExpiry: newExpiry },
-        });
-        this.logger.log(`Refreshed Instagram token for tenant ${conn.tenantId}`);
-        return data.access_token;
-      }
-    } catch (err) {
-      this.logger.warn(`Failed to refresh Instagram token: ${err.message}`);
-    }
+    // Step 1: create media container
+    const containerRes = await fetch(`${GRAPH}/${igId}/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_url: imageUrl, caption, access_token: token }),
+    });
+    const container = await containerRes.json() as any;
+    if (container.error) throw new BadRequestException(`Instagram container failed: ${container.error.message}`);
 
-    return conn.accessToken;
+    // Step 2: publish
+    const publishRes = await fetch(`${GRAPH}/${igId}/media_publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ creation_id: container.id, access_token: token }),
+    });
+    const published = await publishRes.json() as any;
+    if (published.error) throw new BadRequestException(`Instagram publish failed: ${published.error.message}`);
+
+    // Clear cache so next fetch shows the new post
+    await this.prisma.instagramMediaCache.deleteMany({ where: { tenantId } });
+
+    return {
+      postId: published.id,
+      postUrl: `https://www.instagram.com/p/${published.id}/`,
+    };
   }
 }

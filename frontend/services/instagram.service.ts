@@ -1,10 +1,10 @@
 import { api } from './api';
 
 export interface InstagramAccount {
-  id: string;
+  id: string;        // Instagram Business Account ID
   username: string;
-  account_type: string;
-  access_token: string;
+  pageId: string;    // Facebook Page ID
+  pageToken: string; // Facebook Page access token (used for all Graph API calls)
 }
 
 export interface InstagramConnection {
@@ -26,12 +26,11 @@ const instagramService = {
     return res.data.data;
   },
 
-  /** Save the selected account */
   async connectAccount(account: InstagramAccount): Promise<void> {
     await api.post('/instagram/connect', {
       accountId: account.id,
       username: account.username,
-      accessToken: account.access_token,
+      accessToken: account.pageToken,
     });
   },
 
