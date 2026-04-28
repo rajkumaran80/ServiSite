@@ -5,6 +5,8 @@ export interface CustomHostnameResult {
   id: string;
   txtName: string;
   txtValue: string;
+  ownershipName?: string;
+  ownershipValue?: string;
 }
 
 export interface CustomHostnameStatus {
@@ -93,7 +95,7 @@ export class CloudflareService {
 
       if ((type === 'CNAME' || type === 'A' || type === 'AAAA') && (isApex || isWww)) {
         toDelete.push(record.id);
-      } else if (type === 'TXT' && name.includes('_cf-custom-hostname')) {
+      } else if (type === 'TXT' && (name.includes('_cf-custom-hostname') || name.includes('_acme-challenge'))) {
         toDelete.push(record.id);
       }
     }
@@ -182,32 +184,36 @@ export class CloudflareService {
   private extractCustomHostnameResult(result: any): CustomHostnameResult {
     return {
       id: result.id,
-      txtName: result.ssl?.txt_name ?? result.ownership_verification?.name ?? `_cf-custom-hostname.${result.hostname}`,
-      txtValue: result.ssl?.txt_value ?? result.ownership_verification?.value ?? '',
+      txtName: result.ssl?.txt_name ?? '',
+      txtValue: result.ssl?.txt_value ?? '',
+      ownershipName: result.ownership_verification?.name,
+      ownershipValue: result.ownership_verification?.value,
     };
   }
 
-  // ── Step 4: Add DCV TXT records in tenant zone ───────────────────────────
+  // ── Step 4: Add DCV + ownership TXT records in tenant zone ─────────────
 
   async addDcvTxtRecords(
     zoneId: string,
-    root: { txtName: string; txtValue: string },
-    www: { txtName: string; txtValue: string },
+    root: CustomHostnameResult,
+    www: CustomHostnameResult,
   ): Promise<void> {
-    await Promise.all([
-      this.upsertDnsRecord(zoneId, {
-        type: 'TXT',
-        name: root.txtName,
-        content: root.txtValue,
-        proxied: false,
-      }),
-      this.upsertDnsRecord(zoneId, {
-        type: 'TXT',
-        name: www.txtName,
-        content: www.txtValue,
-        proxied: false,
-      }),
-    ]);
+    const records: Array<{ type: string; name: string; content: string; proxied: boolean }> = [];
+
+    if (root.txtName && root.txtValue) {
+      records.push({ type: 'TXT', name: root.txtName, content: root.txtValue, proxied: false });
+    }
+    if (root.ownershipName && root.ownershipValue) {
+      records.push({ type: 'TXT', name: root.ownershipName, content: root.ownershipValue, proxied: false });
+    }
+    if (www.txtName && www.txtValue) {
+      records.push({ type: 'TXT', name: www.txtName, content: www.txtValue, proxied: false });
+    }
+    if (www.ownershipName && www.ownershipValue) {
+      records.push({ type: 'TXT', name: www.ownershipName, content: www.ownershipValue, proxied: false });
+    }
+
+    await Promise.all(records.map((r) => this.upsertDnsRecord(zoneId, r)));
   }
 
   // ── Step 7: Poll custom hostname status ──────────────────────────────────
