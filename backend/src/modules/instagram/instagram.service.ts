@@ -200,9 +200,24 @@ export class InstagramService {
   }
 
   async getMediaBySlug(slug: string, limit = 6): Promise<any[]> {
-    const tenant = await this.prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
-    if (!tenant) return [];
-    return this.getMedia(tenant.id, limit);
+    this.logger.log(`Looking up tenant by slug: ${slug}`);
+    
+    try {
+      const tenant = await this.prisma.tenant.findUnique({ 
+        where: { slug }, 
+        select: { id: true } 
+      });
+      
+      if (!tenant) {
+        this.logger.warn(`Tenant not found for slug: ${slug}`);
+        return [];
+      }
+      
+      return this.getMedia(tenant.id, limit);
+    } catch (error) {
+      this.logger.error(`Error in getMediaBySlug for slug ${slug}:`, error);
+      return [];
+    }
   }
 
   /** Post a photo or video to Instagram (two-step: create container → publish) */

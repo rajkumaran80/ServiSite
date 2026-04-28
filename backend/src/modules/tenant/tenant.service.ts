@@ -637,6 +637,16 @@ export class TenantService {
       tenantSubdomain,
     );
 
-    this.logger.log(`Custom domain repaired for tenant ${tenantId}: ${tenant.customDomain} → ${tenantSubdomain}`);
+    // If both CF custom hostnames are already active, mark domain active in DB now
+    const bothActive = await this.cloudflare.areBothCustomHostnamesActive(
+      tenant.customDomainApexToken,
+      tenant.customDomainToken,
+    ).catch(() => false);
+
+    if (bothActive) {
+      await this.activateCustomDomain(tenantId, tenant.customDomain, tenant.slug);
+    }
+
+    this.logger.log(`Custom domain repaired for tenant ${tenantId}: ${tenant.customDomain} → ${tenantSubdomain} (activated=${bothActive})`);
   }
 }
