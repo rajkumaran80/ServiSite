@@ -878,6 +878,8 @@ export default function SuperAdminPage() {
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [changingCategoryId, setChangingCategoryId] = useState<string | null>(null);
   const [extendGraceTarget, setExtendGraceTarget] = useState<TenantSummary | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     setIsClient(true);
@@ -1089,7 +1091,7 @@ export default function SuperAdminPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -1112,39 +1114,42 @@ export default function SuperAdminPage() {
         <PricingCard />
 
         {/* Tenants Table */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900">Tenants</h2>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Tenants</h2>
+              <p className="text-sm text-gray-400 mt-0.5">{tenants.length} total</p>
+            </div>
             <button
               onClick={() => setStep('pick')}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors"
             >
               + Add Tenant
             </button>
           </div>
 
           {tenants.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">No tenants yet</div>
+            <div className="text-center py-20 text-gray-500">No tenants yet</div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     {['Business', 'Slug', 'Category', 'Status', 'Plan', 'Admin Email', 'Items', 'Created', 'Actions'].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                      <th key={h} className="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {tenants.map((t) => (
+                <tbody className="divide-y divide-gray-100">
+                  {tenants.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((t) => (
                     <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
-                      <td className="px-4 py-3 text-gray-500 font-mono text-xs">{t.slug}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4 font-semibold text-gray-900">{t.name}</td>
+                      <td className="px-6 py-4 text-gray-500 font-mono text-xs">{t.slug}</td>
+                      <td className="px-6 py-4">
                         <button
                           onClick={() => handleChangeCategory(t)}
                           disabled={changingCategoryId === t.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors hover:opacity-80 disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors hover:opacity-80 disabled:opacity-50"
                           style={t.serviceProfile === 'FOOD_SERVICE'
                             ? { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }
                             : { backgroundColor: '#ede9fe', color: '#4c1d95', borderColor: '#ddd6fe' }
@@ -1157,8 +1162,8 @@ export default function SuperAdminPage() {
                           </svg>
                         </button>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                           t.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
                           t.status === 'TRIAL' ? 'bg-blue-100 text-blue-700' :
                           t.status === 'SUSPENDED' ? 'bg-red-100 text-red-700' :
@@ -1166,20 +1171,20 @@ export default function SuperAdminPage() {
                           'bg-gray-100 text-gray-600'
                         }`}>{t.status || '—'}</span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
                           t.plan === 'ORDERING' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
                         }`}>{t.plan || 'BASIC'}</span>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{t.users[0]?.email || '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">{t._count.menuItems}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{new Date(t.createdAt).toLocaleDateString()}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4 text-gray-600">{t.users[0]?.email || '—'}</td>
+                      <td className="px-6 py-4 text-gray-600">{t._count.menuItems}</td>
+                      <td className="px-6 py-4 text-gray-500 text-sm">{new Date(t.createdAt).toLocaleDateString()}</td>
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleImpersonate(t)}
                             disabled={impersonatingId === t.id}
-                            className="text-xs px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                            className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap font-medium"
                           >
                             {impersonatingId === t.id ? '...' : 'Open Dashboard'}
                           </button>
@@ -1205,7 +1210,43 @@ export default function SuperAdminPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+
+              {/* Pagination */}
+              {tenants.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+                  <p className="text-sm text-gray-500">
+                    Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, tenants.length)} of {tenants.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      ← Previous
+                    </button>
+                    {Array.from({ length: Math.ceil(tenants.length / PAGE_SIZE) }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        className={`w-9 h-9 text-sm rounded-lg font-medium transition-colors ${
+                          p === page ? 'bg-purple-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setPage((p) => Math.min(Math.ceil(tenants.length / PAGE_SIZE), p + 1))}
+                      disabled={page === Math.ceil(tenants.length / PAGE_SIZE)}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
