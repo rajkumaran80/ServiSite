@@ -112,6 +112,10 @@ class SuperAdminService {
   async repairDomain(tenantId: string): Promise<void> {
     await api.post(`/superadmin/tenants/${tenantId}/repair-domain`);
   }
+
+  async purgeDomainCache(tenantId: string): Promise<void> {
+    await api.post(`/superadmin/tenants/${tenantId}/purge-domain-cache`);
+  }
 }
 
 export const superAdminService = new SuperAdminService();

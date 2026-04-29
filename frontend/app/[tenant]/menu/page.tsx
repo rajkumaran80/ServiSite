@@ -732,7 +732,7 @@ function ItemRow({
     >
       <button type="button" onClick={onClick} className="flex-1 text-left min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-900 text-sm truncate">{item.name}</span>
+          <span className="font-semibold text-gray-900 text-sm truncate">{item.name}</span>
           {item.isPopular && (
             <span className="flex-shrink-0 bg-amber-100 text-amber-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">Popular</span>
           )}

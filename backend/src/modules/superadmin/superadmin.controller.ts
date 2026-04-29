@@ -172,4 +172,11 @@ export class SuperAdminController {
     await this.service.repairTenantDomain(id);
     return { success: true, message: 'Domain DNS repaired — TXT records written and SNI hostname patched' };
   }
+
+  @Post('tenants/:id/purge-domain-cache')
+  @ApiOperation({ summary: 'Purge Cloudflare Worker KV cache for tenant custom domain' })
+  async purgeDomainCache(@Param('id') id: string) {
+    await this.service.purgeDomainCache(id);
+    return { success: true, message: 'Domain cache purged — next request will re-resolve from DB' };
+  }
 }
