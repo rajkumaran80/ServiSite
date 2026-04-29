@@ -163,7 +163,7 @@ Same flow for `frontend/` changes, targeting `servisite-prod-frontend`.
 ```
 1. User visits costa.servisite.co.uk
 
-2. DNS (IONOS) resolves to Azure Front Door
+2. DNS (Cloudflare) resolves to Azure Front Door
 
 3. Front Door
    - WAF inspects the request (blocks if malicious)
@@ -207,24 +207,29 @@ Same flow for `frontend/` changes, targeting `servisite-prod-frontend`.
 
 ---
 
-## DNS Setup (IONOS)
+## DNS Setup (Cloudflare — servisite.co.uk zone)
 
-Once Front Door is deployed, add these records in IONOS for `servisite.co.uk`:
+DNS is managed in **Cloudflare**, not IONOS. The servisite.co.uk zone is fully hosted on Cloudflare.
 
-| Type | Name | Value |
-|------|------|-------|
-| ALIAS | `@` | `<front-door-hostname>.azurefd.net` |
-| CNAME | `www` | `<front-door-hostname>.azurefd.net` |
-| CNAME | `*` | `<front-door-hostname>.azurefd.net` |
+| Type | Name | Content | Proxy |
+|------|------|---------|-------|
+| CNAME | `servisite.co.uk` (apex) | `servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net` | Proxied |
+| CNAME | `www` | `servisite.co.uk` | Proxied |
+| CNAME | `*` | `servisite.co.uk` | Proxied — routes all tenant subdomains to Azure FD |
+| CNAME | `media` | `servisiteprodmedia.blob.core.windows.net` | Proxied |
+| CNAME | `origin` | `servisite-prod-frontend.azurewebsites.net` | Proxied — CF for SaaS fallback origin only |
 
-Get the Front Door hostname after Bicep deploy:
+Get the Front Door hostname:
 ```bash
 az afd endpoint show \
   --resource-group servisite-rg \
   --profile-name servisite-prod-fd \
-  --endpoint-name servisite \
+  --endpoint-name servisite-prod-endpoint \
   --query hostName -o tsv
+# → servisite-prod-endpoint-afdnhugfdxaqfpec.z03.azurefd.net
 ```
+
+For custom domain (tenant-owned) DNS setup, see [custom-domain-setup.md](custom-domain-setup.md).
 
 ---
 

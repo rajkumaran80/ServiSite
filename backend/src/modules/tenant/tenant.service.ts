@@ -610,6 +610,10 @@ export class TenantService {
    * - Patches both Custom Hostnames with custom_origin_sni_hostname (fixes Azure 404)
    * - Re-writes all DCV + ownership TXT records to the tenant zone
    */
+  async purgeWorkerDomainCache(domain: string): Promise<void> {
+    await this.cloudflare.purgeWorkerDomainCache(domain);
+  }
+
   async repairCustomDomain(tenantId: string): Promise<void> {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },

@@ -44,6 +44,15 @@ export class SuperAdminService {
     return this.tenantService.repairCustomDomain(tenantId);
   }
 
+  async purgeDomainCache(tenantId: string): Promise<void> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { customDomain: true },
+    });
+    if (!tenant?.customDomain) throw new NotFoundException('No custom domain configured for this tenant');
+    await this.tenantService.purgeWorkerDomainCache(tenant.customDomain);
+  }
+
   async listTenants() {
     const tenants = await this.prisma.tenant.findMany({
       where: { slug: { not: 'platform' } },

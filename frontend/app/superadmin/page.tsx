@@ -773,6 +773,7 @@ function TenantActionsMenu({
   onSeedMenu,
   onExtendGrace,
   onRepairDomain,
+  onPurgeDomainCache,
   onDelete,
   seedingId,
   resettingId,
@@ -789,6 +790,7 @@ function TenantActionsMenu({
   onSeedMenu: () => void;
   onExtendGrace: () => void;
   onRepairDomain: () => void;
+  onPurgeDomainCache: () => void;
   onDelete: () => void;
   seedingId: string | null;
   resettingId: string | null;
@@ -851,6 +853,7 @@ function TenantActionsMenu({
           <div className="border-t border-gray-100" />
           {item('Seed Menu', onSeedMenu, 'text-purple-700 hover:bg-purple-50')}
           {tenant.customDomain && item('Fix Domain DNS', onRepairDomain, 'text-teal-700 hover:bg-teal-50')}
+          {tenant.customDomain && item('Purge Domain Cache', onPurgeDomainCache, 'text-teal-700 hover:bg-teal-50')}
           <div className="border-t border-gray-100" />
           {item('Delete', onDelete, 'text-red-600 hover:bg-red-50')}
         </div>
@@ -1040,6 +1043,15 @@ export default function SuperAdminPage() {
     }
   };
 
+  const handlePurgeDomainCache = async (t: TenantSummary) => {
+    try {
+      await superAdminService.purgeDomainCache(t.id);
+      toast.success(`Domain cache purged for ${t.customDomain}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to purge domain cache');
+    }
+  };
+
   const handleExtendGrace = async (days: number) => {
     if (!extendGraceTarget) return;
     try {
@@ -1211,6 +1223,7 @@ export default function SuperAdminPage() {
                             onSeedMenu={() => handleApplyTemplate(t)}
                             onExtendGrace={() => setExtendGraceTarget(t)}
                             onRepairDomain={() => handleRepairDomain(t)}
+                            onPurgeDomainCache={() => handlePurgeDomainCache(t)}
                             onDelete={() => setDeleteTarget(t)}
                             onChangeCategory={() => handleChangeCategory(t)}
                             seedingId={seedingId}

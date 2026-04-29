@@ -419,6 +419,31 @@ export class CloudflareService {
     return { rulesApplied: rules.length };
   }
 
+  async purgeWorkerDomainCache(domain: string): Promise<void> {
+    const kvNamespaceId = this.config.get<string>('CLOUDFLARE_KV_DOMAIN_CACHE_ID');
+    if (!kvNamespaceId) {
+      this.logger.warn('CLOUDFLARE_KV_DOMAIN_CACHE_ID not set — skipping KV cache purge');
+      return;
+    }
+
+    const keys = [domain, `www.${domain}`, domain.replace(/^www\./, '')].filter(
+      (v, i, a) => a.indexOf(v) === i,
+    );
+
+    await Promise.all(
+      keys.map(async (key) => {
+        const res = await fetch(
+          `${this.baseUrl}/accounts/${this.accountId}/storage/kv/namespaces/${kvNamespaceId}/values/${encodeURIComponent(key)}`,
+          { method: 'DELETE', headers: this.headers },
+        );
+        const data = await res.json() as any;
+        if (data.success) {
+          this.logger.log(`KV cache purged: ${key}`);
+        }
+      }),
+    );
+  }
+
   async getRateLimitingRules(): Promise<any[]> {
     const res = await fetch(
       `${this.baseUrl}/zones/${this.servisiteZoneId}/rulesets/phases/http_ratelimit/entrypoint`,

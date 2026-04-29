@@ -1,8 +1,9 @@
 const BASE_DOMAIN = 'servisite.co.uk';
 const RESOLVE_API = 'https://api.servisite.co.uk/api/v1/tenant/by-domain';
+const CACHE_TTL_SECONDS = 2592000; // 30 days
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
     const host = url.hostname;
 
@@ -11,18 +12,24 @@ export default {
       return fetch(request);
     }
 
-    // Resolve custom domain → tenant slug
-    let slug;
-    try {
-      const res = await fetch(`${RESOLVE_API}?domain=${encodeURIComponent(host)}`);
-      if (!res.ok) return notFound(host);
-      const body = await res.json();
-      slug = body?.data?.slug;
-    } catch {
-      return new Response('Gateway error', { status: 502 });
-    }
+    // Check KV cache first — avoids backend call on every request
+    let slug = await env.DOMAIN_CACHE.get(host);
 
-    if (!slug) return notFound(host);
+    if (!slug) {
+      // Cache miss — resolve from backend and store in KV
+      try {
+        const res = await fetch(`${RESOLVE_API}?domain=${encodeURIComponent(host)}`);
+        if (!res.ok) return notFound(host);
+        const body = await res.json();
+        slug = body?.data?.slug;
+      } catch {
+        return new Response('Gateway error', { status: 502 });
+      }
+
+      if (!slug) return notFound(host);
+
+      await env.DOMAIN_CACHE.put(host, slug, { expirationTtl: CACHE_TTL_SECONDS });
+    }
 
     // Rewrite to tenant subdomain — Azure FD receives Host: {slug}.servisite.co.uk
     const newUrl = new URL(request.url);
@@ -37,7 +44,7 @@ export default {
 
     const response = await fetch(newRequest);
 
-    // Preserve redirect Location header but rewrite internal subdomain URLs back to custom domain
+    // Rewrite redirect Location headers back to the custom domain
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
       if (location) {
